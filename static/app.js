@@ -141,15 +141,23 @@ function loadNext() {
 // ----- WORD MECHANIC (shared by both modes) -----
 // display: what the kid sees (may carry capitals/punctuation, e.g. "bed.");
 // the target he must type is always the cleaned, typeable form ("bed").
+// Long words shrink so they never clip at the screen edges; short
+// (landscape) viewports get a lower cap so the play column still fits.
+function sizePrompt() {
+  const pw = $("prompt-word");
+  const len = Math.max((pw.textContent || "").length, 1);
+  const room = Math.min(window.innerWidth, 640) - 110; // 110 ≈ speaker + padding
+  const maxFs = window.innerHeight < 540 ? 40 : 60;
+  pw.style.fontSize =
+    Math.max(28, Math.min(maxFs, Math.floor(room / (0.62 * len)))) + "px";
+}
+
 function beginWord(display, hint) {
   state.target = toTarget(display);
   $("prompt-hint").textContent = hint || "";
   const pw = $("prompt-word");
   pw.textContent = display;
-  // long words shrink so they never clip at the screen edges
-  const room = Math.min(window.innerWidth, 640) - 110; // 110 ≈ speaker + padding
-  pw.style.fontSize = Math.max(30, Math.min(60,
-    Math.floor(room / (0.62 * Math.max(display.length, 1))))) + "px";
+  sizePrompt();
   pw.classList.remove("gone");
   renderBoxes(state.target.length, "");
   const inp = $("typed");
@@ -170,7 +178,8 @@ function renderBoxes(n, value) {
   let gap = 10;
   let size = Math.floor((avail - gap * (n - 1)) / n);
   if (size < 40) { gap = 6; size = Math.floor((avail - gap * (n - 1)) / n); }
-  size = Math.max(22, Math.min(52, size));
+  const maxBox = window.innerHeight < 540 ? 42 : 52; // shorter in landscape
+  size = Math.max(22, Math.min(maxBox, size));
   wrap.style.setProperty("--bs", size + "px");
   wrap.style.setProperty("--bg-gap", gap + "px");
   for (let i = 0; i < n; i++) {
@@ -401,6 +410,17 @@ function speakCurrent() {
 }
 
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+// Rotating the device mid-word: re-fit the boxes and prompt to the new size.
+// Skip while showing a result (correct/wrong/reveal) — renderBoxes would
+// wipe those state colors; the next word re-fits anyway.
+window.addEventListener("resize", () => {
+  if (!$("play").classList.contains("active") || !state.target) return;
+  sizePrompt();
+  const wrap = $("boxes");
+  if (/correct|wrong|reveal/.test(wrap.className)) return;
+  renderBoxes(state.target.length, $("typed").value);
+});
 
 // ---------- DONE ----------
 function wireDone() {

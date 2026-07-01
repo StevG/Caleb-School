@@ -32,7 +32,8 @@ body{
 
 /* ---------- HOME ---------- */
 .gear{
-  position:absolute;top:calc(env(safe-area-inset-top) + 14px);right:18px;
+  position:absolute;top:calc(env(safe-area-inset-top) + 14px);
+  right:calc(env(safe-area-inset-right) + 18px); /* clear the notch in landscape */
   background:none;border:none;font-size:26px;opacity:.5;cursor:pointer;padding:6px;
 }
 .home-inner{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -135,7 +136,8 @@ body{
 /* ---------- PARENT GATE ---------- */
 .gate-inner{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
   padding:24px;gap:12px;position:relative}
-.back{position:absolute;top:16px;left:16px}
+.back{position:absolute;top:calc(env(safe-area-inset-top) + 16px);
+  left:calc(env(safe-area-inset-left) + 16px)}
 .gate-title{font-size:26px;font-weight:800}
 .gate-sub{color:var(--muted);font-size:17px}
 .pin-dots{display:flex;gap:18px;margin:14px 0}
@@ -152,11 +154,13 @@ body{
 .parent{background:#f4efe6}
 .parent-top{display:flex;align-items:center;justify-content:space-between;
   padding:calc(env(safe-area-inset-top) + 14px) 18px 12px;
-  position:sticky;top:0;background:rgba(244,239,230,.9);backdrop-filter:blur(8px)}
+  position:sticky;top:0;background:rgba(244,239,230,.9);backdrop-filter:blur(8px);
+  width:100%;max-width:672px;margin:0 auto}
 .parent-title{font-size:20px;font-weight:800}
 .parent-top .ghost-btn{width:auto;border-radius:16px;padding:0 16px;font-weight:700;color:var(--blue-d)}
+/* capped width so cards don't stretch across an iPad */
 .parent-body{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:6px 16px 40px;
-  display:flex;flex-direction:column;gap:16px}
+  display:flex;flex-direction:column;gap:16px;width:100%;max-width:672px;margin:0 auto}
 
 .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .stat{background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:16px;text-align:center}
@@ -196,6 +200,44 @@ body{
 .setting span{font-size:15px}
 .setting.toggle input{width:24px;height:24px}
 .saved-note{color:var(--green-d);font-weight:700;min-height:20px;margin-top:8px;font-size:14px}
+
+/* ---------- SHORT VIEWPORTS (phone landscape) ---------- */
+/* Everything compacts so no screen needs scrolling at ~390px height. */
+@media (max-height:540px){
+  .hello{font-size:26px}
+  .points-big{font-size:38px;margin-top:0}
+  .points-big .star{font-size:30px}
+  .tagline{font-size:16px;margin:2px 0 12px}
+  .home-inner{gap:4px;padding:16px}
+  .mode-cards{flex-direction:row;gap:12px;max-width:620px}
+  .mode-card{flex:1;padding:16px;font-size:20px;gap:12px}
+  .mc-emoji{font-size:28px}
+  .goal-row{margin-top:12px;max-width:620px}
+  .goal-label{margin:0 0 6px;font-size:15px}
+  .chip{padding:10px 0;font-size:20px}
+  .play-top{padding:10px 18px 4px}
+  .play-body{gap:6px;padding:4px 22px}
+  .prompt-wrap{min-height:48px}
+  .speaker{width:44px;height:44px;font-size:20px}
+  .prompt-hint{font-size:14px;min-height:18px}
+  .feedback{min-height:20px;font-size:17px}
+  .sentence-line{font-size:17px;margin-bottom:0;line-height:1.5}
+  .big-btn{padding:12px;font-size:20px}
+  .play-actions{padding:6px 22px calc(env(safe-area-inset-bottom) + 8px)}
+  .done-emoji{font-size:44px}
+  .done-title{font-size:26px}
+  .done-points{font-size:19px;margin-top:0}
+  .done-total{font-size:15px}
+  .done-actions{flex-direction:row;margin-top:12px;max-width:520px}
+  .gate-inner{gap:4px}
+  .gate-title{font-size:19px}
+  .gate-sub{font-size:14px}
+  .pin-dots{margin:6px 0;gap:12px}
+  .pin-dots i{width:12px;height:12px}
+  .pin-err{min-height:16px;font-size:14px}
+  .pinpad{grid-template-columns:repeat(3,54px);gap:8px;margin-top:2px}
+  .pin-key{width:54px;height:54px;font-size:20px}
+}
 
 .shake{animation:shake .4s}
 @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}
