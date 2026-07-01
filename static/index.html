@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Spelling">
+<meta name="theme-color" content="#4f9dde">
+<title>Spelling Practice</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="icon" href="/icon-192.png">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<!-- HOME -->
+<section id="home" class="screen active">
+  <button id="gear" class="gear" aria-label="Grown-ups">⚙️</button>
+  <div class="home-inner">
+    <div class="hello">Hi <span id="kid-name">Caleb</span>! 👋</div>
+    <div class="points-big"><span id="home-points">0</span> <span class="star">⭐</span></div>
+    <p class="tagline">Let's practice spelling!</p>
+
+    <div class="mode-cards">
+      <button class="mode-card words" data-mode="words">
+        <span class="mc-emoji">🔤</span>
+        <span class="mc-title">Spell Words</span>
+      </button>
+      <button class="mode-card sentences" data-mode="sentences">
+        <span class="mc-emoji">📝</span>
+        <span class="mc-title">Spell Sentences</span>
+      </button>
+      <button class="mode-card memory" data-mode="memory">
+        <span class="mc-emoji">🧠</span>
+        <span class="mc-title">Memory Sentences</span>
+      </button>
+    </div>
+
+    <div id="goal-row" class="goal-row hidden">
+      <p class="goal-label">How many words?</p>
+      <div class="goal-chips">
+        <button class="chip" data-goal="10">10</button>
+        <button class="chip" data-goal="15">15</button>
+        <button class="chip" data-goal="20">20</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PLAY -->
+<section id="play" class="screen">
+  <header class="play-top">
+    <button id="quit" class="ghost-btn" aria-label="Home">✕</button>
+    <div class="progress"><div id="progress-fill" class="progress-fill"></div></div>
+    <div class="score-pill"><span id="play-points">0</span> ⭐</div>
+  </header>
+
+  <div class="play-body">
+    <div id="sentence-line" class="sentence-line hidden"></div>
+
+    <div class="prompt-wrap">
+      <div id="prompt-word" class="prompt-word">word</div>
+      <button id="speaker" class="speaker hidden" aria-label="Hear the word">🔊</button>
+    </div>
+    <div id="prompt-hint" class="prompt-hint">Look at the word, then type it!</div>
+
+    <div id="boxes" class="boxes"></div>
+    <input id="typed" class="typed-input" type="text" inputmode="text"
+           autocomplete="off" autocorrect="off" autocapitalize="none"
+           spellcheck="false" aria-label="Type the word">
+
+    <div id="feedback" class="feedback"></div>
+  </div>
+
+  <div class="play-actions">
+    <button id="check" class="big-btn primary" disabled>Check</button>
+    <button id="next" class="big-btn go hidden">Next →</button>
+  </div>
+</section>
+
+<!-- DONE -->
+<section id="done" class="screen">
+  <div class="done-inner">
+    <div class="done-emoji">🎉</div>
+    <div class="done-title">Great job!</div>
+    <div class="done-points">You earned <span id="earned">0</span> ⭐</div>
+    <div class="done-total">Total: <span id="done-total">0</span> ⭐</div>
+    <div class="done-actions">
+      <button id="again" class="big-btn primary">Play again</button>
+      <button id="home-btn" class="big-btn go">Home</button>
+    </div>
+  </div>
+</section>
+
+<!-- PARENT GATE -->
+<section id="gate" class="screen">
+  <div class="gate-inner">
+    <button class="ghost-btn back" data-home aria-label="Back">✕</button>
+    <div class="gate-title">Grown-ups only</div>
+    <div class="gate-sub">Enter the PIN</div>
+    <div id="gate-hint" class="gate-hint hidden">First time? The PIN starts as 1234 — change it in Settings.</div>
+    <div id="pin-dots" class="pin-dots"><i></i><i></i><i></i><i></i></div>
+    <div id="pin-err" class="pin-err"></div>
+    <div class="pinpad">
+      <button class="pin-key">1</button><button class="pin-key">2</button><button class="pin-key">3</button>
+      <button class="pin-key">4</button><button class="pin-key">5</button><button class="pin-key">6</button>
+      <button class="pin-key">7</button><button class="pin-key">8</button><button class="pin-key">9</button>
+      <span></span><button class="pin-key">0</button><button class="pin-key del">⌫</button>
+    </div>
+  </div>
+</section>
+
+<!-- PARENT DASHBOARD -->
+<section id="parent" class="screen parent">
+  <header class="parent-top">
+    <div class="parent-title">Parent dashboard</div>
+    <button class="ghost-btn" data-home aria-label="Close">Done</button>
+  </header>
+  <div class="parent-body">
+    <div class="stat-grid">
+      <div class="stat"><div class="stat-num" id="s-points">0</div><div class="stat-lbl">Points</div></div>
+      <div class="stat"><div class="stat-num" id="s-accuracy">0%</div><div class="stat-lbl">Accuracy</div></div>
+      <div class="stat"><div class="stat-num" id="s-words">0</div><div class="stat-lbl">Words practiced</div></div>
+      <div class="stat"><div class="stat-num" id="s-sessions">0</div><div class="stat-lbl">Sessions</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">Most-missed words</div>
+      <ul id="missed-list" class="missed-list"><li class="muted">No misses yet.</li></ul>
+    </div>
+
+    <div class="card">
+      <div class="card-head">His spelling words</div>
+      <p class="card-note">Add the words from his weekly school list. They'll show up more often until he's got them.</p>
+      <div class="add-row">
+        <input id="custom-input" type="text" placeholder="e.g. because friend enough"
+               autocomplete="off" autocapitalize="none" spellcheck="false">
+        <button id="custom-add" class="mini-btn">Add</button>
+      </div>
+      <div id="custom-list" class="chips-wrap"></div>
+      <div id="custom-status" class="saved-note"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">Recent sessions</div>
+      <ul id="sessions-list" class="sessions-list"><li class="muted">Nothing yet.</li></ul>
+    </div>
+
+    <div class="card">
+      <div class="card-head">Settings</div>
+      <label class="setting"><span>Child's name</span>
+        <input id="set-name" type="text" autocomplete="off"></label>
+      <label class="setting"><span>Level</span>
+        <select id="set-level">
+          <option value="2">2nd grade (easier)</option>
+          <option value="3">2nd–3rd grade</option>
+        </select></label>
+      <label class="setting toggle"><span>Show speaker button (tap to hear a word)</span>
+        <input id="set-speaker" type="checkbox"></label>
+      <label class="setting"><span>Change PIN (4–8 digits)</span>
+        <input id="set-pin" type="text" inputmode="numeric" placeholder="leave blank to keep"></label>
+      <button id="save-settings" class="mini-btn wide">Save settings</button>
+      <div id="settings-saved" class="saved-note"></div>
+    </div>
+  </div>
+</section>
+
+<script src="/app.js"></script>
+</body>
+</html>

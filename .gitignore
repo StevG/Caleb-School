@@ -1,0 +1,9 @@
+# Runtime data — the child's progress lives here. Gitignored so HomeHub's
+# every-30s `git merge --ff-only` never touches it and it survives deploys.
+/data/progress.json
+/data/*.tmp
+
+# Python
+__pycache__/
+*.pyc
+.DS_Store
