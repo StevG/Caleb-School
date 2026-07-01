@@ -51,11 +51,19 @@ redistributed), CMU Pronouncing Dictionary (BSD-ish; has syllable/phoneme data).
 
 ## Word bank shape (as built)
 
-~640 unique words, 40 groups, levels 2 (easier, served first at level cap 2)
-and 3. 32 sentences at levels 1–3. `wordbank.build_pool()` flattens with
-de-dup; `server.build_word_session()` mixes ~40% review (missed/unmastered,
+~710 unique words, 49 groups (phonics patterns + theme units: compound words,
+number words, days of the week, colors, family words, contractions), levels 2
+(easier, served first at level cap 2) and 3. 103 sentences at levels 1–3
+(~35 per level, original compositions following the dictation-construction
+rules below). `wordbank.build_pool()` flattens with de-dup;
+`server.build_word_session()` mixes ~40% review (missed/unmastered,
 custom-first) with fresh words, filling with least-recently-seen mastered
 words. Parent-added custom words always join the pool regardless of level cap.
+
+**Session sizes** (All About Learning Press dictation guidance: 2–5 sentences
+per day for typical learners, 1–2 for working-memory struggles): 10/15/20
+words (kid picks), 6 fill-in sentences (memory load is one word at a time),
+3 memory sentences (whole-sentence recall is the heavy lift).
 
 ## Open questions for future iterations
 

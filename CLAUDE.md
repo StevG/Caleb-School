@@ -14,9 +14,13 @@ Read these before changing anything significant:
 
 A PWA served by a stdlib-Python server, deployed on **HomeHub**
 (`StevG/HomeHub`) as the `spelling` app. Kid practices spelling
-(look–cover–write–check: the word hides at the first keystroke); parents get a
-PIN-gated dashboard (most-missed words, accuracy, custom school word lists).
-Points (⭐) are the reward currency — the parents trade them for iPad time.
+(look–cover–write–check: the word hides at the first keystroke) in three
+modes — words, sentence fill-in (whole sentence visible, only the current
+word hides), and memory sentences (read/hear it, then type the whole thing
+from memory). Parents get a PIN-gated dashboard (most-missed words, accuracy,
+custom school word lists). Points (⭐) are the reward currency — the parents
+trade them for iPad time. The exact mode behaviors are specified in
+`docs/DESIGN.md` — don't change them casually.
 
 ## Hard rules
 
@@ -60,7 +64,7 @@ stay on ONE line (box size is computed per word).
 
 ## API sketch
 
-`GET /api/state` · `GET /api/session?mode=words|sentences&count=N` ·
+`GET /api/state` · `GET /api/session?mode=words|sentences|memory&count=N` ·
 `POST /api/answer {word, correct, aided}` · `POST /api/session_end` ·
 `POST /api/parent/login|settings|custom_words` (PIN in body) ·
 `GET /api/parent/report` (PIN in `X-Parent-Pin` header) · `GET /.hub/status`.

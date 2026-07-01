@@ -29,8 +29,20 @@ first letter** → he types from memory into letter boxes → Check. Wrong →
 gentle shake, then the correct spelling is **revealed to study** (amber boxes)
 → "Try again" → he retypes it (counts as *aided* — a point, but no mastery
 credit). Missed words come back later in the session and in later sessions
-until mastered. Sentence mode is the same mechanic walked word-by-word with a
-progress line of blanks filling in green.
+until mastered.
+
+Three modes share that mechanic (owner-specified behavior — keep it exact):
+- **Spell Words** — one word at a time, goal of 10/15/20.
+- **Spell Sentences (fill-in)** — the WHOLE sentence stays visible the whole
+  time. The word he's on is highlighted and stays readable until his first
+  keystroke; then only that word hides and he fills it in. Sequential, word
+  by word — he never memorizes more than the word he just looked at.
+  Completed words turn green in place. 6 sentences per session.
+- **Memory Sentences** — he reads the whole sentence big (and can tap 🔊 to
+  hear it — the speaker always shows in this mode, it's dictation), taps
+  "I'm ready!", the entire sentence becomes blanks, and he types every word
+  from memory. The speaker re-reads the full sentence any time. 3 sentences
+  per session (dictation guidance: fewer, harder items).
 
 ## UI rules (learned + confirmed)
 - Letter boxes stay on **one line** — the word's shape is a memory cue; box
@@ -69,3 +81,9 @@ progress line of blanks filling in green.
 - 2026-07-01 — Light theme, no timers/pressure, misses phrased gently.
 - 2026-07-01 — Icon changed from ABC tiles to dino-in-rocket (owner asked for
   playful over literal).
+- 2026-07-01 — Sentence fill-in respec'd by owner: whole sentence visible,
+  only the current word hides (on first keystroke), strictly sequential.
+  Added Memory Sentences (whole-sentence dictation with read-aloud) as a
+  third mode. Play-screen pill now counts session points ("go earn 10").
+- 2026-07-01 — Bank expanded to ~710 words (+compounds, numbers, days,
+  colors, family, contractions) and 103 sentences (levels 1-3).

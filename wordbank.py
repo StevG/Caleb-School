@@ -115,7 +115,8 @@ PATTERN_GROUPS = {
                      "think", "thank", "thick", "three", "bath", "math",
                      "path", "with", "cloth", "teeth", "tooth"]),
     "wh words": (2, ["what", "when", "where", "which", "while", "white", "why",
-                     "who", "whip", "wheat", "wheel", "whale", "whistle"]),
+                     "who", "how", "whip", "wheat", "wheel", "whale",
+                     "whistle"]),
     # Diphthongs
     "oi / oy": (3, ["oil", "boil", "coin", "join", "soil", "point", "spoil",
                     "moist", "noise", "boy", "toy", "joy", "enjoy", "royal",
@@ -176,6 +177,35 @@ PATTERN_GROUPS = {
                        "return", "rewrite", "rebuild", "reuse", "reheat"]),
 }
 
+# --- Theme groups (standard 2nd/3rd-grade units the pattern list misses) ----
+
+THEME_GROUPS = {
+    "Compound words": (2, ["into", "upon", "inside", "outside", "without",
+                           "maybe", "cannot", "someone", "something",
+                           "sometimes", "everyone", "anything", "birthday",
+                           "baseball", "bedroom", "snowman"]),
+    "Compound words (harder)": (3, ["playground", "homework", "backpack",
+                                    "butterfly", "sidewalk", "afternoon",
+                                    "everything", "grandmother"]),
+    "Number words": (2, ["one", "two", "three", "four", "five", "six",
+                         "seven", "eight", "nine", "ten"]),
+    "Number words (harder)": (3, ["eleven", "twelve", "thirteen", "fourteen",
+                                  "fifteen", "sixteen", "seventeen",
+                                  "eighteen", "nineteen", "twenty", "thirty",
+                                  "forty", "fifty", "hundred"]),
+    "Days of the week": (2, ["sunday", "monday", "tuesday", "wednesday",
+                             "thursday", "friday", "saturday"]),
+    "Color words": (2, ["red", "blue", "green", "orange", "yellow", "purple",
+                        "brown", "white", "pink", "gray", "black"]),
+    "Family words": (2, ["mother", "father", "sister", "brother", "grandma",
+                         "grandpa", "aunt", "uncle", "cousin", "family"]),
+    "Contractions": (2, ["don't", "can't", "it's", "i'm", "isn't", "didn't",
+                         "won't", "let's", "i'll", "that's", "wasn't",
+                         "doesn't"]),
+    "Contractions (harder)": (3, ["we're", "they're", "you're", "couldn't",
+                                  "wouldn't", "aren't"]),
+}
+
 # --- Tricky high-frequency words (kids misspell these a lot) ----------------
 
 TRICKY = [
@@ -189,19 +219,49 @@ TRICKY = [
 ]
 
 # --- Sentences for dictation practice --------------------------------------
-# Level 1 = short CVC / early; Level 2 = a step up; Level 3 = everyday sentences.
+# Level 1 = short CVC / early; Level 2 = a step up; Level 3 = everyday
+# sentences with varied punctuation. Construction rules in docs/RESEARCH.md:
+# 4-10 words, natural kid topics, capital first letter, end punctuation,
+# only letters + apostrophes inside words.
 
 SENTENCES = [
+    # --- Level 1: 4-6 words, short vowels + basic sight words ---
     (1, "The cat sat on the mat."),
+    (1, "The cat naps on the bed."),
     (1, "A bug is on the rug."),
+    (1, "A big dog ran up."),
     (1, "Dad and I ran to the van."),
+    (1, "Dad had a red cup."),
+    (1, "Mom can hop and run."),
     (1, "The pig can dig."),
+    (1, "The pig sat in mud."),
     (1, "The sun is up."),
+    (1, "The sun is hot."),
     (1, "Sam sat on his lap."),
+    (1, "Sam got a big box."),
     (1, "Ned went to bed."),
     (1, "The fish is in a dish."),
     (1, "Can the big dog run?"),
     (1, "The frog sat on a log."),
+    (1, "I can see the sun."),
+    (1, "He has a tan hat."),
+    (1, "We sat on the rug."),
+    (1, "The hen is in a pen."),
+    (1, "My pet can sit up."),
+    (1, "It is fun to run."),
+    (1, "The bug is on top."),
+    (1, "Ben hid the map."),
+    (1, "She can pat the cat."),
+    (1, "A fox sat in the den."),
+    (1, "Tim has ten pens."),
+    (1, "The kid can hop up."),
+    (1, "Mud got on my leg."),
+    (1, "His cap is red."),
+    (1, "We dig a big pit."),
+    (1, "Pam fed the dog."),
+    (1, "The bus is not big."),
+    (1, "Ken can get the net."),
+    # --- Level 2: 5-8 words, digraphs/blends/long vowels ---
     (2, "I can see the red bird."),
     (2, "We had lunch with Mom."),
     (2, "The kids play in the sand."),
@@ -212,6 +272,30 @@ SENTENCES = [
     (2, "The green frog can hop."),
     (2, "My best friend is here."),
     (2, "Please can I have a drink?"),
+    (2, "Beth made a wish on a star."),
+    (2, "The black cat sleeps in the shade."),
+    (2, "Can you check the clock for me?"),
+    (2, "We rode the bus to the lake."),
+    (2, "My best friend likes to paint."),
+    (2, "The white duck swam in the pond."),
+    (2, "When will the rain stop?"),
+    (2, "I like to read funny books."),
+    (2, "The train went fast down the track."),
+    (2, "Mom baked a sweet peach pie."),
+    (2, "That snake has black and brown spots."),
+    (2, "We planted seeds in the spring."),
+    (2, "His teeth are so white and clean."),
+    (2, "Jane will bring her lunch to school."),
+    (2, "The moon shines bright at night."),
+    (2, "Which shell do you like best?"),
+    (2, "Grandpa told us a long story."),
+    (2, "The sheep sleep in the barn."),
+    (2, "I need a drink of cold milk."),
+    (2, "Chip the dog can catch the ball."),
+    (2, "Three ships sailed on the sea."),
+    (2, "We made a snowman with a black hat."),
+    (2, "Keep your feet off the seat!"),
+    # --- Level 3: 6-10 words, everyday 3rd grade, varied punctuation ---
     (3, "We will go to the park today."),
     (3, "The train is very fast."),
     (3, "Can I please have some water?"),
@@ -224,6 +308,29 @@ SENTENCES = [
     (3, "I like to read before I sleep."),
     (3, "Do you want to play a game?"),
     (3, "The happy dog ran around the yard."),
+    (3, "My little brother won't eat his green beans."),
+    (3, "Did you finish your homework before dinner?"),
+    (3, "The dinosaur bones were bigger than our car!"),
+    (3, "We're going to the beach on Saturday."),
+    (3, "What should we name our new puppy?"),
+    (3, "It's too cold to play outside today."),
+    (3, "Our teacher read us a story about space."),
+    (3, "I can't wait for my birthday party!"),
+    (3, "The astronaut flew all the way to the moon."),
+    (3, "Please don't forget to feed the goldfish."),
+    (3, "May I have another slice of pizza?"),
+    (3, "Everyone cheered when our team won the game!"),
+    (3, "Grandma is coming to visit us next week."),
+    (3, "Do you think dinosaurs could really roar?"),
+    (3, "We built a huge fort out of blankets."),
+    (3, "The library is my favorite place at school."),
+    (3, "After lunch we played soccer with our friends."),
+    (3, "Watch out for that giant mud puddle!"),
+    (3, "Why does the moon change shape every night?"),
+    (3, "I'm learning to ride my bike without help."),
+    (3, "Let's make pancakes for breakfast this morning!"),
+    (3, "That thunder was so loud it shook the house!"),
+    (3, "Sometimes my sister lets me borrow her markers."),
 ]
 
 
@@ -245,6 +352,9 @@ def build_pool():
 
     # Pattern groups first so a word keeps its most descriptive tag.
     for group, (level, words) in PATTERN_GROUPS.items():
+        for w in words:
+            add(w, group, level)
+    for group, (level, words) in THEME_GROUPS.items():
         for w in words:
             add(w, group, level)
     for w in DOLCH_2:

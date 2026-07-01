@@ -38,7 +38,9 @@ const state = {
   missedThisItem: false,
   requeued: false,
   answered: false,
-  sentence: null, // {tokens, wordIdx} when in sentence mode
+  sentence: null,    // {s, tokens, wordIdx} in sentence/memory modes
+  curHidden: false,  // sentence line: is the current word masked yet?
+  memorizing: false, // memory mode: still in the read-the-sentence phase
 };
 
 // ---------- boot ----------
@@ -57,6 +59,8 @@ function boot() {
     state.showSpeaker = s.show_speaker !== false;
     $("kid-name").textContent = s.name || "Caleb";
     $("home-points").textContent = state.points;
+    // help the second parent get in the first time (hidden once changed)
+    $("gate-hint").classList.toggle("hidden", !s.pin_is_default);
   }).catch(() => {});
 }
 
@@ -82,8 +86,13 @@ function wireHome() {
 }
 
 // ---------- SESSION ----------
+const isSentenceMode = () => state.mode === "sentences" || state.mode === "memory";
+
 async function startSession() {
-  const count = state.mode === "sentences" ? 6 : state.goal;
+  // memory sentences are the hardest work, so fewer per session
+  // (dictation guidance: 2-5 sentences/day; fewer for a struggling speller)
+  const count = state.mode === "memory" ? 3
+    : state.mode === "sentences" ? 6 : state.goal;
   let items = [];
   try {
     const data = await api(`/api/session?mode=${state.mode}&count=${count}`);
@@ -97,8 +106,11 @@ async function startSession() {
   state.correctCount = 0;
   state.earned = 0;
   state.finished = false;
-  $("play-points").textContent = state.points;
-  $("speaker").classList.toggle("hidden", !state.showSpeaker);
+  $("play-points").textContent = "+0";
+  // memory mode is dictation — hearing the sentence is part of the design,
+  // so the speaker always shows there regardless of the parent setting
+  $("speaker").classList.toggle("hidden",
+    !state.showSpeaker && state.mode !== "memory");
   show("play");
   loadNext();
 }
@@ -127,10 +139,11 @@ function loadNext() {
   $("progress-fill").style.width =
     Math.round((doneCount / Math.max(state.total, 1)) * 100) + "%";
 
-  if (state.mode === "sentences") {
+  if (isSentenceMode()) {
     state.sentence = item;             // {s, tokens:[{display,answer}], wordIdx}
     if (item.wordIdx == null) item.wordIdx = 0;
-    setupSentence(item);
+    if (state.mode === "memory") setupMemory(item);
+    else setupSentence(item);
   } else {
     state.sentence = null;
     $("sentence-line").classList.add("hidden");
@@ -195,8 +208,14 @@ function onType() {
   const inp = $("typed");
   const val = toTarget(inp.value);
   inp.value = val;
-  // hide the prompt word the moment they start
-  if (val.length >= 1) $("prompt-word").classList.add("gone");
+  // hide the word the moment they start typing it (look–cover–write)
+  if (val.length >= 1) {
+    $("prompt-word").classList.add("gone");
+    if (state.mode === "sentences" && state.sentence && !state.curHidden) {
+      state.curHidden = true;      // ...and hide it in the sentence line too
+      renderCurrentSentence();
+    }
+  }
   renderBoxes(state.target.length, val);
   $("check").disabled = val.length !== state.target.length;
 }
@@ -224,7 +243,10 @@ function doCheck() {
     state.earned++;
     updatePointsUI();
     $("check").classList.add("hidden");
-    if (state.mode === "sentences") {
+    if (state.sentence) {
+      // show the completed word in the line right away
+      state.curHidden = false;
+      renderCurrentSentence();
       setTimeout(advanceSentenceWord, 700);
     } else {
       $("next").classList.remove("hidden");
@@ -263,13 +285,17 @@ function doCheck() {
 }
 
 function advance() {
+  // memory mode: "I'm ready!" flips from reading to typing from memory
+  if (state.memorizing) { startMemoryTyping(); return; }
   // if this was a "try again" retry, re-present the same word
   if (state.missedThisItem && !state.answered) {
     resetItemUI();
-    if (state.mode === "sentences") {
+    if (state.sentence) {
       const tok = state.sentence.tokens[state.sentence.wordIdx];
-      beginWord(tok.display, "Try again — you can do it!");
+      // after a reveal the word is no secret — show it for the retype
+      state.curHidden = false;
       renderCurrentSentence();
+      beginWord(tok.display, "Try again — you can do it!");
     } else {
       beginWord(state.target, "Try again — you can do it!");
     }
@@ -278,13 +304,69 @@ function advance() {
   loadNext();
 }
 
-// ----- SENTENCE MODE -----
+// ----- SENTENCE MODES -----
+// Fill-in ("sentences"): the WHOLE sentence stays visible. The word he's on
+// is highlighted and stays readable until his first keystroke, then just
+// that word hides and he fills it in. Sequential, word by word — he never
+// has to remember more than the word he just looked at.
+// Memory ("memory"): he reads (and can hear) the whole sentence, taps
+// "I'm ready!", the whole sentence hides, and he types every word from
+// memory. The speaker re-reads the sentence any time, like real dictation.
+
 function setupSentence(item) {
   $("sentence-line").classList.remove("hidden");
+  $("sentence-line").classList.remove("reading");
   advanceToTypableWord(item);
+  state.curHidden = false; // current word stays visible until he types
   renderCurrentSentence();
   const tok = item.tokens[item.wordIdx];
-  beginWord(tok.display, "Spell this word to fill the sentence.");
+  beginWord(tok.display, "Type the yellow word — it hides when you start!");
+}
+
+function setupMemory(item) {
+  state.memorizing = true;
+  const line = $("sentence-line");
+  line.classList.remove("hidden");
+  line.classList.add("reading");
+  renderCurrentSentence(); // memorizing: every word shown
+  const pw = $("prompt-word");
+  pw.textContent = "";
+  pw.classList.remove("gone");
+  renderBoxes(0, "");
+  $("typed").disabled = true;
+  $("prompt-hint").textContent = "Read the sentence. Tap 🔊 to hear it!";
+  $("check").classList.add("hidden");
+  $("next").classList.remove("hidden");
+  $("next").textContent = "I'm ready!";
+}
+
+function startMemoryTyping() {
+  state.memorizing = false;
+  const item = state.sentence;
+  $("sentence-line").classList.remove("reading");
+  advanceToTypableWord(item);
+  state.curHidden = true; // memory: the current word is never shown
+  renderCurrentSentence();
+  resetItemUI();
+  beginMemoryWord();
+}
+
+// Present the current memory-mode word: boxes only, no visible word.
+function beginMemoryWord() {
+  const item = state.sentence;
+  const tok = item.tokens[item.wordIdx];
+  state.target = toTarget(tok.display);
+  const pw = $("prompt-word");
+  pw.textContent = "";
+  pw.classList.remove("gone");
+  $("prompt-hint").textContent =
+    `Word ${item.wordIdx + 1} of ${item.tokens.length} — you remember it!`;
+  renderBoxes(state.target.length, "");
+  const inp = $("typed");
+  inp.value = "";
+  inp.maxLength = state.target.length;
+  inp.disabled = false;
+  setTimeout(() => inp.focus(), 30);
 }
 
 function advanceToTypableWord(item) {
@@ -299,18 +381,26 @@ function renderCurrentSentence() {
   const item = state.sentence;
   const line = $("sentence-line");
   line.innerHTML = "";
+  const blanks = (tok) => "_".repeat(Math.max(tok.answer.length, 1)) + " ";
   item.tokens.forEach((tok, i) => {
     const span = document.createElement("span");
-    if (i < item.wordIdx) {
+    if (state.memorizing) {
+      // memorize phase: the whole sentence, plainly readable
+      span.className = "";
+      span.textContent = tok.display + " ";
+    } else if (i < item.wordIdx) {
       span.className = "done-word";
       span.textContent = tok.display + " ";
     } else if (i === item.wordIdx) {
       span.className = "cur-word";
-      span.textContent = "_".repeat(Math.max(tok.answer.length, 1));
-      span.textContent += " ";
+      // visible until his first keystroke (fill-in), always hidden (memory)
+      span.textContent = state.curHidden ? blanks(tok) : tok.display + " ";
+    } else if (state.mode === "memory") {
+      span.className = "blank-word";
+      span.textContent = blanks(tok);
     } else {
-      span.className = "todo-word";
-      span.textContent = "_".repeat(Math.max(tok.answer.length, 1)) + " ";
+      span.className = "todo-word"; // fill-in: coming words stay readable
+      span.textContent = tok.display + " ";
     }
     line.appendChild(span);
   });
@@ -327,16 +417,25 @@ function advanceSentenceWord() {
     setTimeout(loadNext, 700);
     return;
   }
-  renderCurrentSentence();
-  const tok = item.tokens[item.wordIdx];
   state.missedThisItem = false;
   resetItemUI();
-  beginWord(tok.display, "Next word!");
+  if (state.mode === "memory") {
+    state.curHidden = true;
+    renderCurrentSentence();
+    beginMemoryWord();
+  } else {
+    state.curHidden = false;
+    renderCurrentSentence();
+    const tok = item.tokens[item.wordIdx];
+    beginWord(tok.display, "Next word!");
+  }
 }
 
 // ----- results / finish -----
 function updatePointsUI() {
-  $("play-points").textContent = state.points;
+  // during play the pill counts THIS session ("go earn 10 points" is the
+  // family workflow) — the running total lives on the home screen
+  $("play-points").textContent = "+" + state.earned;
   $("home-points").textContent = state.points;
   const pill = document.querySelector(".score-pill");
   if (pill) {
@@ -352,7 +451,6 @@ function postAnswer(word, correct, aided) {
       // the server's count is the truth — adopt it so devices never drift
       if (typeof r.points === "number") {
         state.points = r.points;
-        $("play-points").textContent = state.points;
         $("home-points").textContent = state.points;
       }
     })
@@ -397,7 +495,9 @@ function wirePlay() {
 function speakCurrent() {
   if (!("speechSynthesis" in window)) return;
   let text = state.target;
-  if (state.mode === "sentences" && state.sentence) {
+  if (state.mode === "memory" && state.sentence) {
+    text = state.sentence.s; // dictation: always the whole sentence
+  } else if (state.mode === "sentences" && state.sentence) {
     const tok = state.sentence.tokens[state.sentence.wordIdx];
     if (!tok) return; // between the last word and the next sentence
     text = tok.answer;
@@ -434,6 +534,8 @@ function wireDone() {
 function goHome() {
   $("home-points").textContent = state.points;
   $("goal-row").classList.add("hidden");
+  state.sentence = null;
+  state.memorizing = false;
   window.speechSynthesis && window.speechSynthesis.cancel();
   show("home");
 }

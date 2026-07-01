@@ -29,6 +29,9 @@ The pieces already generalize; don't fork the app, extend it:
 - **Celebration upgrade** — a tiny CSS confetti burst on the done screen.
 - **Sentence bank growth** — more level-3 sentences as he improves
   (follow the construction rules in docs/RESEARCH.md).
+- **Months of the year** — a standard 3rd-grade unit, deliberately left out
+  of the bank for now (long words, capital-letter convention); add as a
+  theme group when he's ready.
 - **Word-reveal grace** — a "show me again" button that counts as aided,
   for when he genuinely forgot mid-word.
 

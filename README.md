@@ -11,17 +11,22 @@ words he misses most from their own phones.
 ## What it does
 
 **For the kid**
-- Two big buttons: **Spell Words** and **Spell Sentences**.
+- Three big buttons: **Spell Words**, **Spell Sentences**, **Memory Sentences**.
 - The word appears; **as soon as he types the first letter it disappears**, and
   he fills in the rest from memory into big letter boxes (look–cover–write–check,
   the evidence-backed method).
 - Tap **Check** → happy feedback + a ⭐, or a gentle "try again" that reveals the
   correct spelling to study, then lets him retype it.
-- **Sentence mode** does the same word-by-word through a sentence (e.g.
-  *"Please can I have a drink?"*), building the sentence as he goes.
+- **Spell Sentences (fill-in):** the whole sentence stays visible; the word
+  he's on is highlighted and hides only when he starts typing it — sequential,
+  word by word, no memorizing the sentence.
+- **Memory Sentences:** he reads the sentence (or taps 🔊 to hear it), taps
+  "I'm ready!", the whole sentence hides, and he types every word from memory —
+  real dictation practice.
 - Missed words are automatically repeated later in the session and in future
   sessions (spaced repetition) until he's got them.
-- He picks a goal (10 / 15 / 20 words) or just keeps going, and earns points.
+- He picks a goal (10 / 15 / 20 words) and the play screen counts the stars
+  earned this session — perfect for "go earn 10 points".
 
 **For parents** (tap ⚙️ → PIN, default `1234`)
 - Most-missed words, accuracy, words practiced, sessions, total points.
@@ -49,7 +54,7 @@ PORT=9999 python3 server.py
 
 ## Content & method
 
-The built-in bank (~640 words, 32 sentences) is drawn from public-domain /
+The built-in bank (~710 words, 103 sentences) is drawn from public-domain /
 freely-reproducible elementary sources: **Dolch** 2nd & 3rd grade sight words +
 nouns, **Fry** instant words for this grade band, **phonics-pattern** groups
 (silent-e, vowel teams, r-controlled, digraphs, blends, double consonants,

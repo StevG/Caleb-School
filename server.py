@@ -318,6 +318,8 @@ class Handler(BaseHTTPRequestHandler):
             "name": p.get("name", "Caleb"),
             "points": p.get("points", 0),
             "show_speaker": p.get("show_speaker", True),
+            # lets the gate show a first-run hint until the PIN is changed
+            "pin_is_default": p.get("pin", DEFAULT_PIN) == DEFAULT_PIN,
         })
 
     def _api_session(self, query):
@@ -328,7 +330,7 @@ class Handler(BaseHTTPRequestHandler):
             count = 10
         count = max(1, min(count, 30))
         state = load_state()
-        if mode == "sentences":
+        if mode in ("sentences", "memory"):
             items = build_sentence_session(state, max(1, min(count, 12)))
         else:
             items = build_word_session(state, count)

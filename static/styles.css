@@ -53,6 +53,7 @@ body{
 .mode-card:active{transform:scale(.97)}
 .mode-card.words{background:linear-gradient(135deg,#eaf4fd,#d7ebfb)}
 .mode-card.sentences{background:linear-gradient(135deg,#e9f8ec,#d6f0da)}
+.mode-card.memory{background:linear-gradient(135deg,#f7effb,#ecdff5)}
 .mc-emoji{font-size:40px}
 
 .goal-row{margin-top:26px;width:100%;max-width:420px}
@@ -79,7 +80,9 @@ body{
   max-width:640px;margin-bottom:6px}
 .sentence-line .done-word{color:var(--green-d)}
 .sentence-line .cur-word{background:#fff4cf;border-radius:8px;padding:2px 8px}
-.sentence-line .todo-word{color:#cfc6b4;letter-spacing:2px}
+.sentence-line .todo-word{color:var(--muted)}          /* upcoming words stay readable */
+.sentence-line .blank-word{color:#cfc6b4;letter-spacing:2px} /* hidden (memory) words */
+.sentence-line.reading{font-size:30px;line-height:1.8}  /* memorize phase */
 
 .prompt-wrap{display:flex;align-items:center;gap:14px;min-height:70px}
 .prompt-word{font-size:60px;font-weight:900;letter-spacing:2px;transition:opacity .15s}
@@ -140,6 +143,7 @@ body{
   left:calc(env(safe-area-inset-left) + 16px)}
 .gate-title{font-size:26px;font-weight:800}
 .gate-sub{color:var(--muted);font-size:17px}
+.gate-hint{color:var(--muted);font-size:13px;max-width:260px;text-align:center}
 .pin-dots{display:flex;gap:18px;margin:14px 0}
 .pin-dots i{width:18px;height:18px;border-radius:50%;background:#e3d9c6;display:block}
 .pin-dots i.on{background:var(--blue)}
@@ -232,6 +236,7 @@ body{
   .gate-inner{gap:4px}
   .gate-title{font-size:19px}
   .gate-sub{font-size:14px}
+  .gate-hint{display:none} /* keeps the pinpad above the fold */
   .pin-dots{margin:6px 0;gap:12px}
   .pin-dots i{width:12px;height:12px}
   .pin-err{min-height:16px;font-size:14px}
