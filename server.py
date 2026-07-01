@@ -98,21 +98,28 @@ def clean_token(raw):
     return raw.strip().strip(".,!?;:\"'").lower()
 
 
+def typeable(raw):
+    """Reduce a word to the characters the practice input accepts."""
+    return "".join(c for c in clean_token(raw) if c.isalpha() or c in "'-")
+
+
+def words_practiced(stats):
+    return sum(1 for s in stats.values() if s["seen"] > 0)
+
+
 def eligible_words(state):
-    """Pool words at or below the profile's max level, plus custom words."""
+    """Pool words at or below the profile's max level, plus custom words.
+
+    Custom (school-list) words are always included, even when the same word
+    exists in the built-in bank above the level cap — the parent asked for it.
+    """
     max_level = int(state["profile"].get("max_level", 3))
     pool = [item["w"] for item in WORDS if item["level"] <= max_level]
     for w in state.get("custom_words", []):
         cw = clean_token(w)
-        if cw and cw not in WORD_GROUP:
+        if cw:
             pool.append(cw)
-    # de-dup, keep order
-    seen, out = set(), []
-    for w in pool:
-        if w not in seen:
-            seen.add(w)
-            out.append(w)
-    return out
+    return list(dict.fromkeys(pool))
 
 
 def build_word_session(state, count):
@@ -170,9 +177,19 @@ def build_sentence_session(state, count):
     return items
 
 
-def record_answer(state, word, correct):
+def record_answer(state, word, correct, aided=False):
+    """Record one attempt.
+
+    An *aided* correct is a retype right after the spelling was revealed —
+    it still earns a point (the kid fixed it), but it must not count toward
+    accuracy or the mastery streak, or two copy-types would mark a missed
+    word "learned".
+    """
     w = clean_token(word)
     if not w:
+        return
+    if correct and aided:
+        state["profile"]["points"] = state["profile"].get("points", 0) + 1
         return
     s = state["words"].setdefault(
         w, {"seen": 0, "correct": 0, "missed": 0, "streak": 0, "last_ts": 0})
@@ -191,7 +208,7 @@ def record_answer(state, word, correct):
 
 def parent_report(state):
     stats = state["words"]
-    practiced = sum(1 for s in stats.values() if s["seen"] > 0)
+    practiced = words_practiced(stats)
     total_seen = sum(s["seen"] for s in stats.values())
     total_correct = sum(s["correct"] for s in stats.values())
     accuracy = round(100 * total_correct / total_seen) if total_seen else 0
@@ -248,13 +265,17 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _read_body(self):
-        length = int(self.headers.get("Content-Length", 0) or 0)
-        if not length:
+        try:
+            length = int(self.headers.get("Content-Length", 0) or 0)
+        except (ValueError, TypeError):
+            return {}
+        if length <= 0 or length > 65536:  # cap request bodies at 64 KB
             return {}
         try:
-            return json.loads(self.rfile.read(length).decode("utf-8"))
-        except ValueError:
+            body = json.loads(self.rfile.read(length).decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
             return {}
+        return body if isinstance(body, dict) else {}
 
     def _pin_ok(self, state, body):
         supplied = str(body.get("pin", "") or self.headers.get("X-Parent-Pin", ""))
@@ -316,20 +337,27 @@ class Handler(BaseHTTPRequestHandler):
     def _api_answer(self, body):
         with _lock:
             state = load_state()
-            record_answer(state, body.get("word", ""), bool(body.get("correct")))
+            record_answer(state, body.get("word", ""),
+                          bool(body.get("correct")), bool(body.get("aided")))
             save_state(state)
             points = state["profile"].get("points", 0)
         self._send_json({"points": points})
 
     def _api_session_end(self, body):
+        def as_int(v):
+            try:
+                return max(0, int(v))
+            except (ValueError, TypeError):
+                return 0
+
         with _lock:
             state = load_state()
             state.setdefault("sessions", []).append({
                 "ts": int(time.time()),
                 "mode": str(body.get("mode", "words"))[:20],
-                "count": int(body.get("count", 0) or 0),
-                "correct": int(body.get("correct", 0) or 0),
-                "points": int(body.get("points", 0) or 0),
+                "count": as_int(body.get("count", 0)),
+                "correct": as_int(body.get("correct", 0)),
+                "points": as_int(body.get("points", 0)),
             })
             state["sessions"] = state["sessions"][-200:]
             save_state(state)
@@ -338,7 +366,14 @@ class Handler(BaseHTTPRequestHandler):
 
     def _api_parent_login(self, body):
         state = load_state()
-        self._send_json({"ok": self._pin_ok(state, body)})
+        supplied = str(body.get("pin", ""))
+        actual = str(state["profile"].get("pin", DEFAULT_PIN))
+        # "final" tells the gate this entry can't become right by typing more
+        # digits, so it knows when to show "wrong" vs. wait (PINs are 4-8).
+        self._send_json({
+            "ok": supplied == actual,
+            "final": len(supplied) >= len(actual),
+        })
 
     def _api_parent_report(self):
         # Report endpoint is GET; PIN passed via header so it can be linked.
@@ -363,10 +398,16 @@ class Handler(BaseHTTPRequestHandler):
                 except (ValueError, TypeError):
                     pass
             new_pin = str(body.get("new_pin", "")).strip()
-            if new_pin.isdigit() and 4 <= len(new_pin) <= 8:
-                p["pin"] = new_pin
+            pin_changed = False
+            if new_pin:
+                if new_pin.isdigit() and 4 <= len(new_pin) <= 8:
+                    p["pin"] = new_pin
+                    pin_changed = True
+                else:
+                    return self._send_json(
+                        {"ok": False, "error": "PIN must be 4-8 digits"}, 400)
             save_state(state)
-        self._send_json({"ok": True})
+        self._send_json({"ok": True, "pin_changed": pin_changed})
 
     def _api_custom_words(self, body):
         with _lock:
@@ -379,9 +420,12 @@ class Handler(BaseHTTPRequestHandler):
                 incoming = body.get("words", [])
                 if isinstance(incoming, str):
                     incoming = incoming.replace(",", " ").split()
+                existing = set(words)
                 for raw in incoming:
-                    cw = clean_token(str(raw))
-                    if cw and cw not in [clean_token(w) for w in words]:
+                    # keep only characters the practice input can type
+                    cw = typeable(str(raw))
+                    if cw and cw not in existing:
+                        existing.add(cw)
                         words.append(cw)
             elif action == "remove":
                 target = clean_token(str(body.get("word", "")))
@@ -393,8 +437,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def _hub_status(self):
         state = load_state()
-        stats = state["words"]
-        practiced = sum(1 for s in stats.values() if s["seen"] > 0)
+        practiced = words_practiced(state["words"])
         points = state["profile"].get("points", 0)
         name = state["profile"].get("name", "Caleb")
         sessions = state.get("sessions", [])
@@ -423,7 +466,9 @@ class Handler(BaseHTTPRequestHandler):
             path = "/index.html"
         rel = path.lstrip("/")
         full = os.path.normpath(os.path.join(STATIC_DIR, rel))
-        if not full.startswith(STATIC_DIR) or not os.path.isfile(full):
+        # trailing separator so a sibling like static-backup/ can't match
+        if (not full.startswith(STATIC_DIR + os.sep)
+                or not os.path.isfile(full)):
             self.send_error(404)
             return
         ext = os.path.splitext(full)[1].lower()

@@ -43,8 +43,9 @@ PORT=9999 python3 server.py
 | `server.py` | Stdlib HTTP server: serves the app + a small JSON API, stores progress. |
 | `wordbank.py` | The graded word/sentence bank (Dolch, Fry, phonics patterns, tricky words, sentences). Edit the lists here to change content. |
 | `static/` | The front-end (`index.html`, `styles.css`, `app.js`), PWA `manifest.json`, `sw.js`, icons. |
-| `generate_icons.py` | Regenerates the app icons (stdlib only): `python3 generate_icons.py`. |
+| `generate_icons.py` | Regenerates the app icons (pixel-art dino-in-rocket, stdlib only): `python3 generate_icons.py`. |
 | `data/progress.json` | The child's progress. **Gitignored** so it survives HomeHub's auto-pulls. Created on first use. |
+| `CLAUDE.md` + `docs/` | Orientation for future work: design identity (`docs/DESIGN.md`), curriculum research + sources (`docs/RESEARCH.md`), roadmap incl. Math mode (`docs/ROADMAP.md`). |
 
 ## Content & method
 

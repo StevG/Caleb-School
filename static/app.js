@@ -6,6 +6,14 @@ const api = async (url, opts) => {
   const r = await fetch(url, opts);
   return r.ok ? r.json() : Promise.reject(await r.json().catch(() => ({})));
 };
+const postJSON = (url, body) => api(url, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(body),
+});
+// One rule for what counts as a typeable spelling character; the server's
+// word bank and custom-word cleaning follow the same rule.
+const toTarget = (s) => s.replace(/[^a-zA-Z'-]/g, "").toLowerCase();
 function show(screenId) {
   document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
   $(screenId).classList.add("active");
@@ -20,10 +28,11 @@ const state = {
   parentPin: "",
   // session
   queue: [],      // items still to do (words mode: {w,group}; sentences: token views)
-  index: 0,
-  total: 0,
-  correctCount: 0,
-  earned: 0,
+  total: 0,       // queue items (words, or whole sentences)
+  wordsDone: 0,   // individual words completed (both modes)
+  correctCount: 0, // words right on the first try (unaided)
+  earned: 0,      // points this session (includes aided retries)
+  finished: false,
   // current item
   target: "",     // the string being spelled right now
   missedThisItem: false,
@@ -33,14 +42,8 @@ const state = {
 };
 
 // ---------- boot ----------
-async function boot() {
-  try {
-    const s = await api("/api/state");
-    state.points = s.points || 0;
-    state.showSpeaker = s.show_speaker !== false;
-    $("kid-name").textContent = s.name || "Caleb";
-    $("home-points").textContent = state.points;
-  } catch (_) {}
+function boot() {
+  // Wire everything first — buttons must work even if the network is slow.
   wireHome();
   wirePlay();
   wireDone();
@@ -49,6 +52,12 @@ async function boot() {
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("/sw.js").catch(() => {});
   }
+  api("/api/state").then((s) => {
+    state.points = s.points || 0;
+    state.showSpeaker = s.show_speaker !== false;
+    $("kid-name").textContent = s.name || "Caleb";
+    $("home-points").textContent = state.points;
+  }).catch(() => {});
 }
 
 // ---------- HOME ----------
@@ -83,27 +92,36 @@ async function startSession() {
   if (!items.length) { alert("Could not load words. Try again."); return; }
 
   state.queue = items.slice();
-  state.index = 0;
   state.total = items.length;
+  state.wordsDone = 0;
   state.correctCount = 0;
   state.earned = 0;
+  state.finished = false;
   $("play-points").textContent = state.points;
   $("speaker").classList.toggle("hidden", !state.showSpeaker);
   show("play");
   loadNext();
 }
 
-function loadNext() {
-  if (!state.queue.length) { finishSession(); return; }
-  const item = state.queue.shift();
+// Reset per-word UI: Check visible but disabled, Next hidden, feedback clear.
+// Every path that presents a word to spell (new item, next sentence word,
+// retry after a miss) MUST go through this so no path forgets a piece.
+function resetItemUI() {
   state.answered = false;
-  state.missedThisItem = false;
-  state.requeued = false;
   $("feedback").textContent = "";
   $("feedback").className = "feedback";
   $("check").classList.remove("hidden");
   $("check").disabled = true;
   $("next").classList.add("hidden");
+  $("next").textContent = "Next →";
+}
+
+function loadNext() {
+  if (!state.queue.length) { finishSession(); return; }
+  const item = state.queue.shift();
+  state.missedThisItem = false;
+  state.requeued = false;
+  resetItemUI();
 
   const doneCount = state.total - state.queue.length - 1;
   $("progress-fill").style.width =
@@ -121,11 +139,17 @@ function loadNext() {
 }
 
 // ----- WORD MECHANIC (shared by both modes) -----
-function beginWord(targetWord, hint) {
-  state.target = targetWord.toLowerCase();
+// display: what the kid sees (may carry capitals/punctuation, e.g. "bed.");
+// the target he must type is always the cleaned, typeable form ("bed").
+function beginWord(display, hint) {
+  state.target = toTarget(display);
   $("prompt-hint").textContent = hint || "";
   const pw = $("prompt-word");
-  pw.textContent = targetWord;
+  pw.textContent = display;
+  // long words shrink so they never clip at the screen edges
+  const room = Math.min(window.innerWidth, 640) - 110; // 110 ≈ speaker + padding
+  pw.style.fontSize = Math.max(30, Math.min(60,
+    Math.floor(room / (0.62 * Math.max(display.length, 1))))) + "px";
   pw.classList.remove("gone");
   renderBoxes(state.target.length, "");
   const inp = $("typed");
@@ -140,6 +164,15 @@ function renderBoxes(n, value) {
   const wrap = $("boxes");
   wrap.className = "boxes";
   wrap.innerHTML = "";
+  // The whole word must fit on ONE line — its shape is a memory cue.
+  // Shrink boxes (and gaps) for long words instead of wrapping.
+  const avail = wrap.clientWidth || wrap.parentElement.clientWidth || 340;
+  let gap = 10;
+  let size = Math.floor((avail - gap * (n - 1)) / n);
+  if (size < 40) { gap = 6; size = Math.floor((avail - gap * (n - 1)) / n); }
+  size = Math.max(22, Math.min(52, size));
+  wrap.style.setProperty("--bs", size + "px");
+  wrap.style.setProperty("--bg-gap", gap + "px");
   for (let i = 0; i < n; i++) {
     const b = document.createElement("div");
     b.className = "box" + (i < value.length ? " filled" : "");
@@ -151,7 +184,7 @@ function renderBoxes(n, value) {
 function onType() {
   if (state.answered) return;
   const inp = $("typed");
-  const val = inp.value.replace(/[^a-zA-Z']/g, "").toLowerCase();
+  const val = toTarget(inp.value);
   inp.value = val;
   // hide the prompt word the moment they start
   if (val.length >= 1) $("prompt-word").classList.add("gone");
@@ -172,12 +205,15 @@ function doCheck() {
     $("prompt-word").classList.remove("gone");
     $("feedback").textContent = pick(["Yes! 🌟", "Perfect! 🎉", "You got it! ✅", "Nice! 👏"]);
     $("feedback").className = "feedback good";
-    postAnswer(state.target, true);
-    state.correctCount++;
+    // A retype right after the reveal is "aided": it earns the star but
+    // shouldn't count toward accuracy or mastery.
+    const aided = state.missedThisItem;
+    postAnswer(state.target, true, aided);
+    if (!aided) state.correctCount++;
+    state.wordsDone++;
     state.points++;
     state.earned++;
-    $("play-points").textContent = state.points;
-    $("home-points").textContent = state.points;
+    updatePointsUI();
     $("check").classList.add("hidden");
     if (state.mode === "sentences") {
       setTimeout(advanceSentenceWord, 700);
@@ -189,6 +225,7 @@ function doCheck() {
     // wrong: reveal the word, let them study and try again
     if (!state.missedThisItem) postAnswer(state.target, false);
     state.missedThisItem = true;
+    $("check").disabled = true; // no double-checking while the reveal loads
     boxes.classList.add("wrong");
     boxes.classList.add("shake");
     $("feedback").textContent = "Almost! Look again 👀";
@@ -207,6 +244,8 @@ function doCheck() {
       $("prompt-word").textContent = state.target;
       $("prompt-word").classList.remove("gone");
       $("prompt-hint").textContent = "This is how you spell it. Try again!";
+      $("feedback").textContent = ""; // don't leave "Almost!" under the answer
+      $("feedback").className = "feedback";
       $("check").classList.add("hidden");
       $("next").classList.remove("hidden");
       $("next").textContent = "Try again";
@@ -215,9 +254,9 @@ function doCheck() {
 }
 
 function advance() {
-  $("next").textContent = "Next →";
   // if this was a "try again" retry, re-present the same word
   if (state.missedThisItem && !state.answered) {
+    resetItemUI();
     if (state.mode === "sentences") {
       const tok = state.sentence.tokens[state.sentence.wordIdx];
       beginWord(tok.display, "Try again — you can do it!");
@@ -281,34 +320,46 @@ function advanceSentenceWord() {
   }
   renderCurrentSentence();
   const tok = item.tokens[item.wordIdx];
-  state.answered = false;
   state.missedThisItem = false;
-  $("check").classList.remove("hidden");
-  $("next").classList.add("hidden");
-  $("feedback").textContent = "";
-  $("feedback").className = "feedback";
+  resetItemUI();
   beginWord(tok.display, "Next word!");
 }
 
 // ----- results / finish -----
-function postAnswer(word, correct) {
-  fetch("/api/answer", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ word, correct }),
-  }).catch(() => {});
+function updatePointsUI() {
+  $("play-points").textContent = state.points;
+  $("home-points").textContent = state.points;
+  const pill = document.querySelector(".score-pill");
+  if (pill) {
+    pill.classList.remove("pop");
+    void pill.offsetWidth; // restart the animation
+    pill.classList.add("pop");
+  }
+}
+
+function postAnswer(word, correct, aided) {
+  postJSON("/api/answer", { word, correct, aided: !!aided })
+    .then((r) => {
+      // the server's count is the truth — adopt it so devices never drift
+      if (typeof r.points === "number") {
+        state.points = r.points;
+        $("play-points").textContent = state.points;
+        $("home-points").textContent = state.points;
+      }
+    })
+    .catch(() => {});
 }
 
 function finishSession() {
-  fetch("/api/session_end", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      mode: state.mode,
-      count: state.total,
-      correct: state.correctCount,
-      points: state.earned,
-    }),
+  if (state.finished) return; // Next-tap and auto-advance can race here
+  state.finished = true;
+  $("check").classList.add("hidden");
+  $("next").classList.add("hidden");
+  postJSON("/api/session_end", {
+    mode: state.mode,
+    count: state.wordsDone,
+    correct: state.correctCount,
+    points: state.earned,
   }).catch(() => {});
   $("earned").textContent = state.earned;
   $("done-total").textContent = state.points;
@@ -319,9 +370,12 @@ function finishSession() {
 function wirePlay() {
   $("typed").addEventListener("input", onType);
   $("typed").addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !$("check").disabled && !$("check").classList.contains("hidden")) {
-      e.preventDefault();
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    if (!$("check").disabled && !$("check").classList.contains("hidden")) {
       doCheck();
+    } else if (!$("next").classList.contains("hidden")) {
+      advance(); // Enter also works for "Next →" / "Try again"
     }
   });
   $("boxes").addEventListener("click", () => $("typed").focus());
@@ -333,9 +387,13 @@ function wirePlay() {
 
 function speakCurrent() {
   if (!("speechSynthesis" in window)) return;
-  const text = state.mode === "sentences" && state.sentence
-    ? state.sentence.tokens[state.sentence.wordIdx].answer
-    : state.target;
+  let text = state.target;
+  if (state.mode === "sentences" && state.sentence) {
+    const tok = state.sentence.tokens[state.sentence.wordIdx];
+    if (!tok) return; // between the last word and the next sentence
+    text = tok.answer;
+  }
+  if (!text) return;
   const u = new SpeechSynthesisUtterance(text);
   u.rate = 0.8; u.lang = "en-US";
   window.speechSynthesis.cancel();
@@ -368,10 +426,13 @@ function openGate() {
   $("pin-err").textContent = "";
   show("gate");
 }
+// PINs are 4-8 digits, so the dots grow with the entry (min 4 shown).
 function renderPinDots() {
-  document.querySelectorAll("#pin-dots i").forEach((d, i) => {
-    d.classList.toggle("on", i < pinEntry.length);
-  });
+  const wrap = $("pin-dots");
+  const slots = Math.max(4, Math.min(8, pinEntry.length + (pinEntry.length >= 4 ? 1 : 0)));
+  while (wrap.children.length < slots) wrap.appendChild(document.createElement("i"));
+  while (wrap.children.length > slots) wrap.removeChild(wrap.lastChild);
+  [...wrap.children].forEach((d, i) => d.classList.toggle("on", i < pinEntry.length));
 }
 function wireGate() {
   document.querySelectorAll(".pin-key").forEach((k) => {
@@ -380,18 +441,24 @@ function wireGate() {
         pinEntry = pinEntry.slice(0, -1);
       } else if (pinEntry.length < 8) {
         pinEntry += k.textContent;
+        $("pin-err").textContent = "";
       }
       renderPinDots();
-      if (pinEntry.length >= 4) {
-        try {
-          const r = await api("/api/parent/login", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ pin: pinEntry }),
-          });
-          if (r.ok) { state.parentPin = pinEntry; openParent(); }
-          else if (pinEntry.length >= 4) { flashPinError(); }
-        } catch (_) { flashPinError(); }
+      if (pinEntry.length < 4) return;
+      const attempt = pinEntry;
+      try {
+        const r = await postJSON("/api/parent/login", { pin: attempt });
+        if (pinEntry !== attempt) return; // entry changed while we waited
+        if (r.ok) {
+          state.parentPin = attempt;
+          openParent();
+        } else if (r.final || attempt.length >= 8) {
+          // typing more digits can't make this entry right — it's wrong
+          flashPinError();
+        }
+        // otherwise: the real PIN is longer; keep letting them type
+      } catch (_) {
+        if (pinEntry === attempt && attempt.length >= 8) flashPinError();
       }
     });
   });
@@ -399,12 +466,9 @@ function wireGate() {
     b.addEventListener("click", goHome));
 }
 function flashPinError() {
-  // only complain once the entry is plausibly complete (4 digits) and wrong
-  if (pinEntry.length >= 4) {
-    $("pin-err").textContent = "Wrong PIN — try again.";
-    pinEntry = "";
-    renderPinDots();
-  }
+  $("pin-err").textContent = "Wrong PIN — try again.";
+  pinEntry = "";
+  renderPinDots();
 }
 
 // ---------- PARENT DASHBOARD ----------
@@ -481,12 +545,14 @@ function renderCustom(words) {
     chip.className = "word-chip";
     chip.innerHTML = `${esc(w)} <button aria-label="remove">✕</button>`;
     chip.querySelector("button").addEventListener("click", async () => {
-      const r = await api("/api/parent/custom_words", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pin: state.parentPin, action: "remove", word: w }),
-      });
-      renderCustom(r.custom_words);
+      try {
+        const r = await postJSON("/api/parent/custom_words",
+          { pin: state.parentPin, action: "remove", word: w });
+        renderCustom(r.custom_words);
+        $("custom-status").textContent = "";
+      } catch (_) {
+        $("custom-status").textContent = "Could not remove — check your connection.";
+      }
     });
     wrap.appendChild(chip);
   });
@@ -496,13 +562,15 @@ function wireParent() {
   $("custom-add").addEventListener("click", async () => {
     const val = $("custom-input").value.trim();
     if (!val) return;
-    const r = await api("/api/parent/custom_words", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pin: state.parentPin, action: "add", words: val }),
-    });
-    $("custom-input").value = "";
-    renderCustom(r.custom_words);
+    try {
+      const r = await postJSON("/api/parent/custom_words",
+        { pin: state.parentPin, action: "add", words: val });
+      $("custom-input").value = "";
+      renderCustom(r.custom_words);
+      $("custom-status").textContent = "";
+    } catch (_) {
+      $("custom-status").textContent = "Could not add — check your connection.";
+    }
   });
 
   $("save-settings").addEventListener("click", async () => {
@@ -513,14 +581,20 @@ function wireParent() {
       show_speaker: $("set-speaker").checked,
     };
     const newPin = $("set-pin").value.trim();
-    if (newPin) body.new_pin = newPin;
+    if (newPin) {
+      if (!/^\d{4,8}$/.test(newPin)) {
+        $("settings-saved").textContent = "PIN must be 4-8 digits.";
+        return;
+      }
+      body.new_pin = newPin;
+    }
     try {
-      await api("/api/parent/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (newPin) state.parentPin = newPin;
+      const r = await postJSON("/api/parent/settings", body);
+      // only adopt the new PIN once the server confirms it took
+      if (r.pin_changed) {
+        state.parentPin = newPin;
+        $("set-pin").value = "";
+      }
       state.showSpeaker = body.show_speaker;
       $("kid-name").textContent = body.name || "Caleb";
       $("settings-saved").textContent = "Saved ✓";

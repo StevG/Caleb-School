@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Generate the app icons with the Python standard library only (no PIL).
 
-Draws a friendly rounded tile in the app's blue with three big letter tiles
-("A B C") — reads instantly as a kids' spelling app on the home screen.
+Draws a playful pixel-art scene: a little green dinosaur riding a rocket
+through a starry night sky. Pixel art scales cleanly to every icon size and
+reads instantly as "a fun kids app" on the home screen.
 
     python3 generate_icons.py
 
 Outputs static/icon-192.png, static/icon-512.png and static/apple-touch-icon.png
-(180x180). Re-run after changing the design.
+(180x180). Re-run after changing the design (edit the SPRITE rows below —
+each character is one pixel, see PALETTE).
 """
 
 import os
@@ -17,82 +19,57 @@ import zlib
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "static")
 
-BLUE = (79, 157, 222)      # #4f9dde background
-BLUE_D = (59, 134, 196)
-CREAM = (253, 246, 236)    # letter tiles
-INK = (45, 42, 38)         # letters
-GREEN = (91, 191, 106)
-AMBER = (244, 185, 66)
+CREAM = (253, 246, 236)    # app page background (--bg) — shows at the corners
+NIGHT = (43, 56, 100)      # starry-sky tile
+NIGHT_D = (34, 45, 82)     # sky shading (bottom of tile)
 
-# 5x7 pixel-font glyphs for the three letters we draw.
-GLYPHS = {
-    "A": ["01110", "10001", "10001", "11111", "10001", "10001", "10001"],
-    "B": ["11110", "10001", "10001", "11110", "10001", "10001", "11110"],
-    "C": ["01111", "10000", "10000", "10000", "10000", "10001", "01110"],
+PALETTE = {
+    "W": (250, 250, 245),  # rocket body
+    "S": (214, 220, 228),  # rocket body shading
+    "R": (232, 112, 90),   # nose cone + fins (--red, friendly coral)
+    "r": (198, 84, 64),    # fin shading
+    "B": (79, 157, 222),   # window ring (--blue)
+    "b": (176, 214, 245),  # window glass behind the dino
+    "G": (98, 200, 112),   # dino
+    "g": (74, 165, 90),    # dino shading
+    "K": (45, 42, 38),     # eye (--ink)
+    "w": (255, 255, 255),  # eye shine / highlights
+    "O": (244, 185, 66),   # flame outer (--amber)
+    "Y": (255, 224, 130),  # flame core
 }
-TILE_COLORS = [GREEN, CREAM, AMBER]
 
+# 16 x 22 sprite. '.' = sky. The dino peeks out of the round window,
+# facing right (eye on the right side of the green head).
+SPRITE = [
+    ".......RR.......",
+    "......RRRR......",
+    ".....RRRRRR.....",
+    "...WWWWWWWWWS...",
+    "...WWWWWWWWWS...",
+    "...WBBBBBBBBS...",
+    "...WBbbGGbbBS...",
+    "...WBbGGGGbBS...",
+    "...WBGGGKGbBS...",
+    "...WBGGGGgbBS...",
+    "...WBgGGGGbBS...",
+    "...WBBBBBBBBS...",
+    "..RWWWWWWWWWSr..",
+    ".RRWWWWWWWWWSrr.",
+    "RRRWWWWWWWWWSrrr",
+    "RRR..WWWWWS..rrr",
+    "RR............rr",
+    "......OYYO......",
+    ".....OYYYYO.....",
+    ".....OYYYYO.....",
+    "......OYYO......",
+    ".......OO.......",
+]
+SPR_W, SPR_H = 16, len(SPRITE)
 
-def rounded(x, y, n, margin, radius):
-    """True if pixel (x,y) is inside an n-wide rounded square with `margin`."""
-    lo, hi = margin, n - margin
-    if x < lo or x >= hi or y < lo or y >= hi:
-        return False
-    # rounded corners
-    for cx, cy in ((lo + radius, lo + radius), (hi - radius, lo + radius),
-                   (lo + radius, hi - radius), (hi - radius, hi - radius)):
-        inx = (x < lo + radius) if cx < n / 2 else (x >= hi - radius)
-        iny = (y < lo + radius) if cy < n / 2 else (y >= hi - radius)
-        if inx and iny:
-            dx, dy = x + 0.5 - cx, y + 0.5 - cy
-            if dx * dx + dy * dy > radius * radius:
-                return False
-    return True
-
-
-def render(n):
-    px = [BLUE] * (n * n)
-    margin = int(n * 0.06)
-    radius = int(n * 0.22)
-    # background rounded tile
-    for y in range(n):
-        for x in range(n):
-            if not rounded(x, y, n, margin, radius):
-                px[y * n + x] = (0, 0, 0)  # transparent-ish edge -> use bg cream
-                px[y * n + x] = CREAM if False else px[y * n + x]
-
-    # Three letter tiles across the middle.
-    tiles = 3
-    gap = n * 0.05
-    area = n * 0.74
-    left = (n - area) / 2
-    tile = (area - gap * (tiles - 1)) / tiles
-    trad = int(tile * 0.18)
-    letters = "ABC"
-    cy0 = (n - tile) / 2
-    for t in range(tiles):
-        tx0 = left + t * (tile + gap)
-        # draw tile
-        for y in range(int(cy0), int(cy0 + tile)):
-            for x in range(int(tx0), int(tx0 + tile)):
-                lx, ly = x - tx0, y - cy0
-                if _in_round_rect(lx, ly, tile, tile, trad):
-                    px[y * n + x] = TILE_COLORS[t]
-        # draw letter glyph centred on the tile
-        glyph = GLYPHS[letters[t]]
-        gw, gh = 5, 7
-        scale = tile * 0.58 / gh
-        gx0 = tx0 + (tile - gw * scale) / 2
-        gy0 = cy0 + (tile - gh * scale) / 2
-        color = INK if TILE_COLORS[t] != INK else CREAM
-        for ry in range(gh):
-            for rx in range(gw):
-                if glyph[ry][rx] == "1":
-                    for yy in range(int(gy0 + ry * scale), int(gy0 + (ry + 1) * scale) + 1):
-                        for xx in range(int(gx0 + rx * scale), int(gx0 + (rx + 1) * scale) + 1):
-                            if 0 <= xx < n and 0 <= yy < n:
-                                px[yy * n + xx] = color
-    return px
+# Little 1px stars scattered around the rocket (sprite-grid coordinates,
+# may be negative / beyond the sprite — they're clamped to the tile).
+STARS = [(-5, 1), (-6, 8), (-4, 15), (-5, 20), (18, 2), (20, 9),
+         (19, 16), (17, 21), (-2, -3), (10, -4), (3, 24), (13, 25)]
 
 
 def _in_round_rect(x, y, w, h, r):
@@ -106,6 +83,45 @@ def _in_round_rect(x, y, w, h, r):
             if dx * dx + dy * dy > r * r:
                 return False
     return True
+
+
+def rounded(x, y, n, margin, radius):
+    """True if pixel (x,y) is inside an n-wide rounded square with `margin`."""
+    m = n - 2 * margin
+    return _in_round_rect(x - margin, y - margin, m, m, radius)
+
+
+def render(n):
+    margin = int(n * 0.06)
+    radius = int(n * 0.22)
+
+    # Sky tile with a subtle vertical shade; cream page color at the corners
+    # (this PNG has no alpha channel, so the corners need a real color).
+    px = []
+    for y in range(n):
+        t = y / n
+        sky = tuple(int(NIGHT[i] + (NIGHT_D[i] - NIGHT[i]) * t) for i in range(3))
+        for x in range(n):
+            px.append(sky if rounded(x, y, n, margin, radius) else CREAM)
+
+    # Scale the sprite to ~62% of the tile height, centered.
+    scale = max(1, int(n * 0.62 / SPR_H))
+    ox = (n - SPR_W * scale) // 2
+    oy = (n - SPR_H * scale) // 2
+
+    def blit(gx, gy, color):
+        for yy in range(oy + gy * scale, oy + (gy + 1) * scale):
+            for xx in range(ox + gx * scale, ox + (gx + 1) * scale):
+                if 0 <= xx < n and 0 <= yy < n and rounded(xx, yy, n, margin, radius):
+                    px[yy * n + xx] = color
+
+    for sx, sy in STARS:
+        blit(sx, sy, PALETTE["w"])
+    for gy, row in enumerate(SPRITE):
+        for gx, ch in enumerate(row):
+            if ch != ".":
+                blit(gx, gy, PALETTE[ch])
+    return px
 
 
 def write_png(path, n, px):
