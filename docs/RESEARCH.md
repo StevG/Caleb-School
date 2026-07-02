@@ -65,6 +65,20 @@ per day for typical learners, 1–2 for working-memory struggles): 10/15/20
 words (kid picks), 6 fill-in sentences (memory load is one word at a time),
 3 memory sentences (whole-sentence recall is the heavy lift).
 
+## Grade ladder (added 2026-07-02)
+
+`wordbank.GRADE_LISTS` adds ~840 words at half-grade levels 1.0-9.0
+(35-50 per level, no duplicates with the pattern/theme groups). Anchoring:
+Fry frequency bands + Dolch (grades 1-3), K12Reader / Super Teacher /
+spelling-words-well grade lists (1-6), vocabulary.com "150 words every Nth
+grader should know how to spell" + middle-school master lists (6-8), and
+9th-grade/high-school freshman lists including the commonly-misspelled canon
+(accommodate, occurrence, conscience, bureaucracy...). The X.0/X.5
+first-half/second-half split is editorial judgment guided by 36-week
+curriculum sequences — no published source splits by semester; thinnest at
+6.5/7.5/8.5. Classic hard-spellers are placed at the grade where they're
+conventionally taught.
+
 ## Open questions for future iterations
 
 - Should mastery decay (a word mastered in July re-checked in September)?

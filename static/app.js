@@ -12,8 +12,10 @@ const postJSON = (url, body) => api(url, {
   body: JSON.stringify(body),
 });
 // One rule for what counts as a typeable spelling character; the server's
-// word bank and custom-word cleaning follow the same rule.
-const toTarget = (s) => s.replace(/[^a-zA-Z'-]/g, "").toLowerCase();
+// word bank and custom-word cleaning follow the same rule. Sentence modes
+// keep the capitals (he must type them); word modes compare lowercase.
+const cleanChars = (s) => s.replace(/[^a-zA-Z'-]/g, "");
+const toTarget = (s) => cleanChars(s).toLowerCase();
 function show(screenId) {
   document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
   $(screenId).classList.add("active");
@@ -41,6 +43,7 @@ const state = {
   sentence: null,    // {s, tokens, wordIdx} in sentence/memory modes
   curHidden: false,  // sentence line: is the current word masked yet?
   memorizing: false, // memory mode: still in the read-the-sentence phase
+  caseSensitive: false, // sentence modes require the capitals too
   // ignore typing while a result is showing. We use this flag instead of
   // disabling the input: disabling blurs it, which closes the iOS keyboard
   // between every word and forces an extra tap to bring it back.
@@ -73,10 +76,10 @@ function wireHome() {
   document.querySelectorAll(".mode-card").forEach((btn) => {
     btn.addEventListener("click", () => {
       state.mode = btn.dataset.mode;
-      if (state.mode === "words") {
-        $("goal-row").classList.remove("hidden");
+      if (state.mode === "words" || state.mode === "listen") {
+        $("goal-row").classList.remove("hidden"); // pick how many words
       } else {
-        startSession(); // sentences: jump straight in
+        startSession(); // sentence modes jump straight in
       }
     });
   });
@@ -111,10 +114,10 @@ async function startSession() {
   state.earned = 0;
   state.finished = false;
   $("play-points").textContent = "+0";
-  // memory mode is dictation — hearing the sentence is part of the design,
-  // so the speaker always shows there regardless of the parent setting
+  // memory (dictation) and listen (audio-only) NEED the speaker, so it
+  // always shows in those modes regardless of the parent setting
   $("speaker").classList.toggle("hidden",
-    !state.showSpeaker && state.mode !== "memory");
+    !state.showSpeaker && state.mode !== "memory" && state.mode !== "listen");
   show("play");
   loadNext();
 }
@@ -149,6 +152,10 @@ function loadNext() {
     if (item.wordIdx == null) item.wordIdx = 0;
     if (state.mode === "memory") setupMemory(item);
     else setupSentence(item);
+  } else if (state.mode === "listen") {
+    state.sentence = null;
+    $("sentence-line").classList.add("hidden");
+    beginListenWord(item.w);
   } else {
     state.sentence = null;
     $("sentence-line").classList.add("hidden");
@@ -170,8 +177,10 @@ function sizePrompt() {
     Math.max(28, Math.min(maxFs, Math.floor(room / (0.62 * len)))) + "px";
 }
 
-function beginWord(display, hint) {
-  state.target = toTarget(display);
+function beginWord(display, hint, cased) {
+  // cased (sentence modes): capitals count — "The" must be typed as "The"
+  state.caseSensitive = !!cased;
+  state.target = cased ? cleanChars(display) : toTarget(display);
   $("prompt-hint").textContent = hint || "";
   const pw = $("prompt-word");
   pw.textContent = display;
@@ -183,6 +192,22 @@ function beginWord(display, hint) {
   inp.maxLength = state.target.length;
   // focus to raise the keyboard (works inside the tap gesture chain)
   setTimeout(() => inp.focus(), 30);
+}
+
+// Listen & Spell: the word is NEVER shown — he hears it and types it.
+function beginListenWord(w) {
+  state.caseSensitive = false;
+  state.target = toTarget(w);
+  const pw = $("prompt-word");
+  pw.textContent = "";
+  pw.classList.remove("gone");
+  $("prompt-hint").textContent = "Listen 🔊 then type the word!";
+  renderBoxes(state.target.length, "");
+  const inp = $("typed");
+  inp.value = "";
+  inp.maxLength = state.target.length;
+  setTimeout(() => inp.focus(), 30);
+  speakCurrent(); // say it right away; the 🔊 button repeats it
 }
 
 function renderBoxes(n, value) {
@@ -202,6 +227,8 @@ function renderBoxes(n, value) {
   for (let i = 0; i < n; i++) {
     const b = document.createElement("div");
     b.className = "box" + (i < value.length ? " filled" : "");
+    // the next empty box pulses so he can see where the letter will land
+    if (i === value.length) b.className += " active";
     b.textContent = value[i] || "";
     wrap.appendChild(b);
   }
@@ -210,7 +237,8 @@ function renderBoxes(n, value) {
 function onType() {
   if (state.answered || state.locked) return;
   const inp = $("typed");
-  const val = toTarget(inp.value);
+  let val = cleanChars(inp.value);
+  if (!state.caseSensitive) val = val.toLowerCase();
   inp.value = val;
   // hide the word the moment they start typing it (look–cover–write)
   if (val.length >= 1) {
@@ -226,7 +254,7 @@ function onType() {
 
 function doCheck() {
   if (state.answered || state.locked) return;
-  const val = $("typed").value.toLowerCase();
+  const val = $("typed").value; // case matters in sentence modes
   const correct = val === state.target;
   const boxes = $("boxes");
   state.locked = true; // freeze typing while the result shows
@@ -266,10 +294,15 @@ function doCheck() {
     $("check").disabled = true; // no double-checking while the reveal loads
     boxes.classList.add("wrong");
     boxes.classList.add("shake");
-    $("feedback").textContent = "Almost! Look again 👀";
+    // right letters, wrong capitals → say so instead of a generic miss
+    const caseOnly = state.caseSensitive &&
+      val.toLowerCase() === state.target.toLowerCase();
+    $("feedback").textContent = caseOnly
+      ? "So close! Check the capital letter 🔠"
+      : "Almost! Look again 👀";
     $("feedback").className = "feedback bad";
     // re-queue this word once, later in the session, for extra practice
-    if (!state.requeued && state.mode === "words") {
+    if (!state.requeued && (state.mode === "words" || state.mode === "listen")) {
       state.requeued = true;
       const back = { w: state.target, group: "" };
       const pos = Math.min(state.queue.length, 2 + Math.floor(Math.random() * 3));
@@ -302,7 +335,7 @@ function advance() {
       // after a reveal the word is no secret — show it for the retype
       state.curHidden = false;
       renderCurrentSentence();
-      beginWord(tok.display, "Try again — you can do it!");
+      beginWord(tok.display, "Try again — you can do it!", true);
     } else {
       beginWord(state.target, "Try again — you can do it!");
     }
@@ -327,7 +360,7 @@ function setupSentence(item) {
   state.curHidden = false; // current word stays visible until he types
   renderCurrentSentence();
   const tok = item.tokens[item.wordIdx];
-  beginWord(tok.display, "Type the yellow word — it hides when you start!");
+  beginWord(tok.display, "Type the yellow word — it hides when you start!", true);
 }
 
 function setupMemory(item) {
@@ -363,7 +396,8 @@ function startMemoryTyping() {
 function beginMemoryWord() {
   const item = state.sentence;
   const tok = item.tokens[item.wordIdx];
-  state.target = toTarget(tok.display);
+  state.caseSensitive = true; // capitals count in sentences
+  state.target = cleanChars(tok.display);
   const pw = $("prompt-word");
   pw.textContent = "";
   pw.classList.remove("gone");
@@ -434,7 +468,7 @@ function advanceSentenceWord() {
     state.curHidden = false;
     renderCurrentSentence();
     const tok = item.tokens[item.wordIdx];
-    beginWord(tok.display, "Next word!");
+    beginWord(tok.display, "Next word!", true);
   }
 }
 
@@ -453,7 +487,8 @@ function updatePointsUI() {
 }
 
 function postAnswer(word, correct, aided) {
-  postJSON("/api/answer", { word, correct, aided: !!aided })
+  postJSON("/api/answer",
+    { word, correct, aided: !!aided, mode: state.mode })
     .then((r) => {
       // the server's count is the truth — adopt it so devices never drift
       if (typeof r.points === "number") {
@@ -661,6 +696,58 @@ function renderReport(rep) {
     });
   }
 
+  // last practiced — friendly relative time
+  const lp = rep.last_practice_ts || 0;
+  let lpText = "never";
+  if (lp) {
+    const ago = Math.floor(Date.now() / 1000) - lp;
+    if (ago < 90) lpText = "just now";
+    else if (ago < 3600) lpText = Math.round(ago / 60) + " minutes ago";
+    else if (ago < 86400) lpText = Math.round(ago / 3600) + " hours ago";
+    else lpText = new Date(lp * 1000).toLocaleDateString(undefined,
+      { weekday: "short", month: "short", day: "numeric" });
+  }
+  $("s-last").textContent = lpText;
+
+  // day-by-day history — each day is its own row, never merged
+  const dl = $("daily-list");
+  dl.innerHTML = "";
+  if (!rep.daily || !rep.daily.length) {
+    dl.innerHTML = '<li class="muted">No practice days yet.</li>';
+  } else {
+    rep.daily.forEach((d) => {
+      const li = document.createElement("li");
+      const nice = new Date(d.date + "T12:00:00").toLocaleDateString(undefined,
+        { weekday: "short", month: "short", day: "numeric" });
+      li.innerHTML = `<span>${nice}</span>` +
+        `<span>${d.seen} words · ${d.accuracy}% · ${d.points} ⭐</span>`;
+      dl.appendChild(li);
+    });
+  }
+
+  const modeLabels = {
+    words: "Spell Words", listen: "Listen & Spell",
+    sentences: "Spell Sentences", memory: "Memory Sentences",
+  };
+  const bm = rep.by_mode || {};
+  const mml = $("modes-list");
+  mml.innerHTML = "";
+  const activeModes = Object.keys(modeLabels)
+    .filter((k) => bm[k] && (bm[k].seen > 0 || bm[k].points > 0));
+  if (!activeModes.length) {
+    mml.innerHTML = '<li class="muted">Nothing yet.</li>';
+  } else {
+    activeModes.forEach((k) => {
+      const m = bm[k];
+      const acc = m.seen ? Math.round((100 * m.correct) / m.seen) : 0;
+      const li = document.createElement("li");
+      li.innerHTML = `<span class="mode-name">${modeLabels[k]}</span>` +
+        `<span class="mode-meta">${m.seen} tries · ${acc}% right · ` +
+        `${m.sessions} session${m.sessions === 1 ? "" : "s"} · ${m.points} ⭐</span>`;
+      mml.appendChild(li);
+    });
+  }
+
   const sl = $("sessions-list");
   sl.innerHTML = "";
   if (!rep.recent_sessions.length) {
@@ -711,6 +798,20 @@ function renderCustom(words) {
 }
 
 function wireParent() {
+  // grade levels 1-9 in half-grade steps ("3rd grade · early" = 3.0)
+  const sel = $("set-level");
+  const ordinal = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th"];
+  sel.innerHTML = "";
+  for (let g = 1; g <= 9; g++) {
+    [0, 0.5].forEach((half) => {
+      if (g === 9 && half) return; // 9.0 is the top of the bank
+      const o = document.createElement("option");
+      o.value = String(g + half);
+      o.textContent = ordinal[g - 1] + " grade" + (half ? " · later" : " · early");
+      sel.appendChild(o);
+    });
+  }
+
   $("custom-add").addEventListener("click", async () => {
     const val = $("custom-input").value.trim();
     if (!val) return;
@@ -729,7 +830,7 @@ function wireParent() {
     const body = {
       pin: state.parentPin,
       name: $("set-name").value,
-      max_level: parseInt($("set-level").value, 10),
+      max_level: parseFloat($("set-level").value),
       show_speaker: $("set-speaker").checked,
     };
     const newPin = $("set-pin").value.trim();

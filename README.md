@@ -11,7 +11,11 @@ words he misses most from their own phones.
 ## What it does
 
 **For the kid**
-- Three big buttons: **Spell Words**, **Spell Sentences**, **Memory Sentences**.
+- Four big buttons: **Spell Words**, **Listen & Spell** (hear the word — it's
+  never shown — and type it), **Spell Sentences**, **Memory Sentences**.
+- Sentence modes check **capital letters** too ("The" typed as "the" gets a
+  friendly "check the capital letter" nudge). The letter box waiting for the
+  next letter gently pulses so he always knows where he is.
 - The word appears; **as soon as he types the first letter it disappears**, and
   he fills in the rest from memory into big letter boxes (look–cover–write–check,
   the evidence-backed method).
@@ -29,7 +33,12 @@ words he misses most from their own phones.
   earned this session — perfect for "go earn 10 points".
 
 **For parents** (tap ⚙️ → PIN, default `1234`)
-- Most-missed words, accuracy, words practiced, sessions, total points.
+- Most-missed words, accuracy, words practiced, sessions, total points —
+  plus **day-by-day history** (each day its own row), **per-practice-type
+  stats** (words / listen / sentences / memory kept separate), and when he
+  **last practiced**.
+- **Level** goes from 1st through 9th grade in half-grade steps, so the app
+  grows with him.
 - Add his real weekly **school spelling list** — those words show up more often.
 - Settings: child's name, level (2nd grade / 2nd–3rd), show/hide the optional
   tap-to-hear speaker button, and change the PIN.
@@ -74,7 +83,8 @@ after you close SSH: `nohup env HOST=0.0.0.0 PORT=8013 python3 server.py &`
 
 ## Content & method
 
-The built-in bank (~710 words, 103 sentences) is drawn from public-domain /
+The built-in bank (~1,550 words graded 1st-9th in half-grade steps,
+103 sentences) is drawn from public-domain /
 freely-reproducible elementary sources: **Dolch** 2nd & 3rd grade sight words +
 nouns, **Fry** instant words for this grade band, **phonics-pattern** groups
 (silent-e, vowel teams, r-controlled, digraphs, blends, double consonants,

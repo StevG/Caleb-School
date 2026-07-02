@@ -29,6 +29,10 @@
         <span class="mc-emoji">🔤</span>
         <span class="mc-title">Spell Words</span>
       </button>
+      <button class="mode-card listen" data-mode="listen">
+        <span class="mc-emoji">🔊</span>
+        <span class="mc-title">Listen &amp; Spell</span>
+      </button>
       <button class="mode-card sentences" data-mode="sentences">
         <span class="mc-emoji">📝</span>
         <span class="mc-title">Spell Sentences</span>
@@ -126,6 +130,12 @@
       <div class="stat"><div class="stat-num" id="s-words">0</div><div class="stat-lbl">Words practiced</div></div>
       <div class="stat"><div class="stat-num" id="s-sessions">0</div><div class="stat-lbl">Sessions</div></div>
     </div>
+    <div class="stat wide"><div class="stat-num small" id="s-last">never</div><div class="stat-lbl">Last practiced</div></div>
+
+    <div class="card">
+      <div class="card-head">Day by day</div>
+      <ul id="daily-list" class="sessions-list"><li class="muted">No practice days yet.</li></ul>
+    </div>
 
     <div class="card">
       <div class="card-head">Most-missed words</div>
@@ -145,6 +155,11 @@
     </div>
 
     <div class="card">
+      <div class="card-head">By practice type</div>
+      <ul id="modes-list" class="modes-list"><li class="muted">Nothing yet.</li></ul>
+    </div>
+
+    <div class="card">
       <div class="card-head">Recent sessions</div>
       <ul id="sessions-list" class="sessions-list"><li class="muted">Nothing yet.</li></ul>
     </div>
@@ -153,11 +168,8 @@
       <div class="card-head">Settings</div>
       <label class="setting"><span>Child's name</span>
         <input id="set-name" type="text" autocomplete="off"></label>
-      <label class="setting"><span>Level</span>
-        <select id="set-level">
-          <option value="2">2nd grade (easier)</option>
-          <option value="3">2nd–3rd grade</option>
-        </select></label>
+      <label class="setting"><span>Level (up to)</span>
+        <select id="set-level"><!-- grade options filled by app.js --></select></label>
       <label class="setting toggle"><span>Show speaker button (tap to hear a word)</span>
         <input id="set-speaker" type="checkbox"></label>
       <label class="setting"><span>Change PIN (4–8 digits)</span>

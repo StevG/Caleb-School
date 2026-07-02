@@ -50,6 +50,9 @@ MIME = {
 
 # --- persistence -----------------------------------------------------------
 
+VALID_MODES = ("words", "listen", "sentences", "memory")
+
+
 def _default_state():
     return {
         "profile": {
@@ -60,6 +63,10 @@ def _default_state():
             "max_level": 3,
         },
         "words": {},          # word -> {seen, correct, missed, streak, last_ts}
+        "modes": {},          # mode -> {seen, correct, missed, points}
+        "days": {},           # "YYYY-MM-DD" -> {seen, correct, missed, points,
+                              #                  modes: {mode: {...}}}
+        "last_answer_ts": 0,  # when Caleb last answered anything
         "custom_words": [],   # parent-added words
         "sessions": [],       # list of {ts, mode, count, correct, points}
     }
@@ -113,7 +120,7 @@ def eligible_words(state):
     Custom (school-list) words are always included, even when the same word
     exists in the built-in bank above the level cap — the parent asked for it.
     """
-    max_level = int(state["profile"].get("max_level", 3))
+    max_level = float(state["profile"].get("max_level", 3))
     pool = [item["w"] for item in WORDS if item["level"] <= max_level]
     for w in state.get("custom_words", []):
         cw = clean_token(w)
@@ -166,7 +173,7 @@ def build_word_session(state, count):
 
 
 def build_sentence_session(state, count):
-    max_level = int(state["profile"].get("max_level", 3))
+    max_level = float(state["profile"].get("max_level", 3))
     pool = [s for s in SENTENCES if s["level"] <= max_level] or SENTENCES
     picks = random.sample(pool, min(count, len(pool)))
     items = []
@@ -177,31 +184,60 @@ def build_sentence_session(state, count):
     return items
 
 
-def record_answer(state, word, correct, aided=False):
+def record_answer(state, word, correct, aided=False, mode="words"):
     """Record one attempt.
 
     An *aided* correct is a retype right after the spelling was revealed —
     it still earns a point (the kid fixed it), but it must not count toward
     accuracy or the mastery streak, or two copy-types would mark a missed
-    word "learned".
+    word "learned". Per-mode counters mirror the same rules so the parent
+    report can break results down by practice type.
     """
     w = clean_token(word)
     if not w:
         return
+    mode = mode if mode in VALID_MODES else "words"
+    state["last_answer_ts"] = int(time.time())
+    m = state.setdefault("modes", {}).setdefault(
+        mode, {"seen": 0, "correct": 0, "missed": 0, "points": 0})
+    # per-day bucket — each day stands on its own in the report
+    today = time.strftime("%Y-%m-%d")
+    days = state.setdefault("days", {})
+    d = days.setdefault(
+        today, {"seen": 0, "correct": 0, "missed": 0, "points": 0, "modes": {}})
+    dm = d["modes"].setdefault(mode, {"seen": 0, "correct": 0, "points": 0})
+    if len(days) > 60:  # keep two months of history
+        for old in sorted(days)[:-60]:
+            del days[old]
+
     if correct and aided:
         state["profile"]["points"] = state["profile"].get("points", 0) + 1
+        m["points"] += 1
+        d["points"] += 1
+        dm["points"] += 1
         return
     s = state["words"].setdefault(
         w, {"seen": 0, "correct": 0, "missed": 0, "streak": 0, "last_ts": 0})
     s["seen"] += 1
     s["last_ts"] = int(time.time())
+    m["seen"] += 1
+    d["seen"] += 1
+    dm["seen"] += 1
     if correct:
         s["correct"] += 1
         s["streak"] = s.get("streak", 0) + 1
         state["profile"]["points"] = state["profile"].get("points", 0) + 1
+        m["correct"] += 1
+        m["points"] += 1
+        d["correct"] += 1
+        d["points"] += 1
+        dm["correct"] += 1
+        dm["points"] += 1
     else:
         s["missed"] += 1
         s["streak"] = 0
+        m["missed"] += 1
+        d["missed"] += 1
 
 
 # --- parent report ---------------------------------------------------------
@@ -226,6 +262,37 @@ def parent_report(state):
 
     sessions = state.get("sessions", [])
     recent = list(reversed(sessions[-14:]))
+
+    # last 14 practice days, newest first — each day is its own row,
+    # deliberately NOT rolled into the lifetime numbers
+    daily = []
+    for date in sorted(state.get("days", {}), reverse=True)[:14]:
+        d = state["days"][date]
+        seen = d.get("seen", 0)
+        daily.append({
+            "date": date,
+            "seen": seen,
+            "correct": d.get("correct", 0),
+            "missed": d.get("missed", 0),
+            "points": d.get("points", 0),
+            "accuracy": round(100 * d.get("correct", 0) / seen) if seen else 0,
+        })
+
+    by_mode = {}
+    for mode in VALID_MODES:
+        m = state.get("modes", {}).get(mode)
+        n_sessions = sum(1 for s in sessions if s.get("mode") == mode)
+        if not m and not n_sessions:
+            continue
+        m = m or {"seen": 0, "correct": 0, "missed": 0, "points": 0}
+        by_mode[mode] = {
+            "seen": m.get("seen", 0),
+            "correct": m.get("correct", 0),
+            "missed": m.get("missed", 0),
+            "points": m.get("points", 0),
+            "sessions": n_sessions,
+        }
+
     return {
         "profile": {
             "name": state["profile"].get("name", "Caleb"),
@@ -241,6 +308,9 @@ def parent_report(state):
             "sessions": len(sessions),
         },
         "most_missed": missed[:25],
+        "by_mode": by_mode,
+        "daily": daily,
+        "last_practice_ts": state.get("last_answer_ts", 0),
         "recent_sessions": recent,
         "custom_words": state.get("custom_words", []),
     }
@@ -340,7 +410,8 @@ class Handler(BaseHTTPRequestHandler):
         with _lock:
             state = load_state()
             record_answer(state, body.get("word", ""),
-                          bool(body.get("correct")), bool(body.get("aided")))
+                          bool(body.get("correct")), bool(body.get("aided")),
+                          str(body.get("mode", "words")))
             save_state(state)
             points = state["profile"].get("points", 0)
         self._send_json({"points": points})
@@ -396,7 +467,9 @@ class Handler(BaseHTTPRequestHandler):
                 p["show_speaker"] = bool(body["show_speaker"])
             if "max_level" in body:
                 try:
-                    p["max_level"] = max(2, min(3, int(body["max_level"])))
+                    # grade levels 1.0-9.0, half-grade steps (e.g. 3.5)
+                    lvl = round(float(body["max_level"]) * 2) / 2
+                    p["max_level"] = max(1.0, min(9.0, lvl))
                 except (ValueError, TypeError):
                     pass
             new_pin = str(body.get("new_pin", "")).strip()
@@ -444,8 +517,10 @@ class Handler(BaseHTTPRequestHandler):
         name = state["profile"].get("name", "Caleb")
         sessions = state.get("sessions", [])
         last = "never"
-        if sessions:
-            ago = int(time.time()) - sessions[-1].get("ts", 0)
+        last_ts = state.get("last_answer_ts", 0) or (
+            sessions[-1].get("ts", 0) if sessions else 0)
+        if last_ts:
+            ago = int(time.time()) - last_ts
             if ago < 3600:
                 last = f"{max(1, ago // 60)} min ago"
             elif ago < 86400:
@@ -490,13 +565,26 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
 
+class QuietServer(ThreadingHTTPServer):
+    """Don't spew tracebacks when a phone drops a connection mid-request —
+    iOS does that constantly (speculative connections, app switching)."""
+
+    def handle_error(self, request, client_address):
+        import sys
+        exc = sys.exc_info()[1]
+        if isinstance(exc, (ConnectionResetError, BrokenPipeError,
+                            ConnectionAbortedError, TimeoutError)):
+            return
+        super().handle_error(request, client_address)
+
+
 def main():
     port = int(os.environ.get("PORT", "8013"))
     # Default loopback per the HomeHub contract. For LAN testing on another
     # box (e.g. a Raspberry Pi), opt in with HOST=0.0.0.0 so phones/iPads on
     # the network can reach it. Never set that on the HomeHub Mac.
     host = os.environ.get("HOST", "127.0.0.1")
-    httpd = ThreadingHTTPServer((host, port), Handler)
+    httpd = QuietServer((host, port), Handler)
     print(f"[spelling] listening on http://{host}:{port} "
           f"({len(WORDS)} words, {len(SENTENCES)} sentences)")
     try:

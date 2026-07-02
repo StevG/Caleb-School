@@ -31,8 +31,11 @@ gentle shake, then the correct spelling is **revealed to study** (amber boxes)
 credit). Missed words come back later in the session and in later sessions
 until mastered.
 
-Three modes share that mechanic (owner-specified behavior — keep it exact):
+Four modes share that mechanic (owner-specified behavior — keep it exact):
 - **Spell Words** — one word at a time, goal of 10/15/20.
+- **Listen & Spell** — the word is spoken (auto + 🔊 to repeat) and NEVER
+  shown; he types it from sound alone. True recall, one step harder than
+  look-cover-write. Wrong answers reveal-and-retry like everywhere else.
 - **Spell Sentences (fill-in)** — the WHOLE sentence stays visible the whole
   time. The word he's on is highlighted and stays readable until his first
   keystroke; then only that word hides and he fills it in. Sequential, word
@@ -87,3 +90,12 @@ Three modes share that mechanic (owner-specified behavior — keep it exact):
   third mode. Play-screen pill now counts session points ("go earn 10").
 - 2026-07-01 — Bank expanded to ~710 words (+compounds, numbers, days,
   colors, family, contractions) and 103 sentences (levels 1-3).
+- 2026-07-02 — Owner additions: pulsing "active" letter box (cursor);
+  sentence modes are CASE-SENSITIVE (capitals count, with a friendly
+  "check the capital letter" nudge when that's the only error); new
+  Listen & Spell mode (audio-only words); per-mode statistics, per-day
+  history rows, and a "last practiced" readout on the parent dashboard —
+  stats deliberately NOT rolled into one metric.
+- 2026-07-02 — Word bank regraded: 1st-9th grade ladder in half-grade steps
+  (~1,550 words). Parent Level select is "Nth grade · early/later"; the
+  server clamps max_level to 1.0-9.0. Word modes stay lowercase-only.
