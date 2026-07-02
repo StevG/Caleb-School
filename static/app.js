@@ -16,8 +16,9 @@ const postJSON = (url, body) => api(url, {
 // keep the capitals (he must type them); word modes compare lowercase.
 const cleanChars = (s) => s.replace(/[^a-zA-Z'-]/g, "");
 const toTarget = (s) => cleanChars(s).toLowerCase();
-const MODE_LABELS = { words: "Spell Words", listen: "Listen & Spell",
-                      sentences: "Spell Sentences", memory: "Memory Sentences" };
+const MODE_LABELS = { copy: "Copy It", words: "Hide & Spell",
+                      listen: "Listen & Spell",
+                      sentences: "Fill In", memory: "Remember It" };
 function show(screenId) {
   document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
   $(screenId).classList.add("active");
@@ -279,7 +280,7 @@ function wireHome() {
     btn.addEventListener("click", () => {
       state.mode = btn.dataset.mode;
       state.assignment = null; // free play, not a mission
-      if (state.mode === "words" || state.mode === "listen") {
+      if (["copy", "words", "listen"].includes(state.mode)) {
         chooseMode(btn); // ask how many — right under the tapped card
       } else {
         startSession(); // sentence modes jump straight in
@@ -319,7 +320,8 @@ function chooseMode(card) {
   if (card.classList.contains("chosen")) return; // second tap: already asking
   document.querySelector(".mode-cards").classList.add("choosing");
   card.classList.add("chosen");
-  const others = [...document.querySelectorAll(".mode-card:not(.chosen)")];
+  const others = [...document.querySelectorAll(
+    ".mode-card:not(.chosen), .mode-cards .section-head")];
   others.forEach((c, i) => {
     c.style.transitionDelay = `${i * 45}ms`;
     c.classList.add("leaving");
@@ -340,7 +342,8 @@ function resetHomeMenu() {
   row.classList.remove("pop-in");
   const wrap = document.querySelector(".mode-cards");
   if (wrap) wrap.classList.remove("choosing");
-  const cards = [...document.querySelectorAll(".mode-card")];
+  const cards = [...document.querySelectorAll(
+    ".mode-card, .mode-cards .section-head")];
   cards.forEach((c) => c.classList.remove("chosen", "off"));
   // let display:none lift before un-fading, so the return animates
   requestAnimationFrame(() => cards.forEach((c, i) => {
@@ -445,10 +448,12 @@ function presentWordItem(item) {
   } else if (stage === 1) {
     const hint = item.heart
       ? "Heart word! The red part is the tricky bit ♥"
-      : "New word! Copy it — it stays right here.";
+      : state.mode === "copy"
+        ? "Copy it — it stays right here 👀"
+        : "New word! Copy it — it stays right here.";
     beginWord(item.w, hint, false, true, item.heart);
   } else {
-    beginWord(item.w, "Look at the word, then type it!", false, false, item.heart);
+    beginWord(item.w, "Look at the word — it hides when you type!", false, false, item.heart);
   }
 }
 
@@ -1108,8 +1113,8 @@ function renderReport(rep) {
   const rungs = [
     ["mastered", "★ Mastered", "var(--green)"],
     ["sound", "🔊 From sound", "var(--blue)"],
-    ["memory", "✏️ From memory", "var(--amber)"],
-    ["copy", "🐣 Copying", "#d9cfc0"],
+    ["memory", "🙈 From memory", "var(--amber)"],
+    ["copy", "👀 Copying", "#d9cfc0"],
   ];
   const jTotal = Math.max(1, rungs.reduce((n, [k]) => n + (journey[k] || 0), 0));
   rungs.forEach(([k, label, color]) => {
@@ -1170,14 +1175,10 @@ function renderReport(rep) {
     });
   }
 
-  const modeLabels = {
-    words: "Spell Words", listen: "Listen & Spell",
-    sentences: "Spell Sentences", memory: "Memory Sentences",
-  };
   const bm = rep.by_mode || {};
   const mml = $("modes-list");
   mml.innerHTML = "";
-  const activeModes = Object.keys(modeLabels)
+  const activeModes = Object.keys(MODE_LABELS)
     .filter((k) => bm[k] && (bm[k].seen > 0 || bm[k].points > 0));
   if (!activeModes.length) {
     mml.innerHTML = '<li class="muted">Nothing yet.</li>';
@@ -1186,7 +1187,7 @@ function renderReport(rep) {
       const m = bm[k];
       const acc = m.seen ? Math.round((100 * m.correct) / m.seen) : 0;
       const li = document.createElement("li");
-      li.innerHTML = `<span class="mode-name">${modeLabels[k]}</span>` +
+      li.innerHTML = `<span class="mode-name">${MODE_LABELS[k]}</span>` +
         `<span class="mode-meta">${m.seen} tries · ${acc}% right · ` +
         `${m.sessions} session${m.sessions === 1 ? "" : "s"} · ${m.points} ⭐</span>`;
       mml.appendChild(li);

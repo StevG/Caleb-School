@@ -11,8 +11,11 @@ words he misses most from their own phones.
 ## What it does
 
 **For the kid**
-- Four big buttons: **Spell Words**, **Listen & Spell** (hear the word — it's
-  never shown — and type it), **Spell Sentences**, **Memory Sentences**.
+- Five games in two sections. Words: **Copy It** (the word stays put),
+  **Hide & Spell** (it hides at the first keystroke), **Listen & Spell**
+  (hear it — never shown — and type it). Sentences: **Fill In**,
+  **Remember It**. Each word game is one rung of the learning ladder, and
+  only Listen & Spell can mark a word mastered.
 - **Every word climbs a ladder**: first he copies it (it stays visible),
   then spells it from memory (hides as he types), then from sound alone —
   then it's mastered ★. Climbs earn a "⬆️ Level up!"; misses drop a rung and
@@ -25,10 +28,10 @@ words he misses most from their own phones.
   the evidence-backed method).
 - Tap **Check** → happy feedback + a ⭐, or a gentle "try again" that reveals the
   correct spelling to study, then lets him retype it.
-- **Spell Sentences (fill-in):** the whole sentence stays visible; the word
-  he's on is highlighted and hides only when he starts typing it — sequential,
+- **Fill In:** the whole sentence stays visible; the word he's on is
+  highlighted and hides only when he starts typing it — sequential,
   word by word, no memorizing the sentence.
-- **Memory Sentences:** he reads the sentence (or taps 🔊 to hear it), taps
+- **Remember It:** he reads the sentence (or taps 🔊 to hear it), taps
   "I'm ready!", the whole sentence hides, and he types every word from memory —
   real dictation practice.
 - Missed words are automatically repeated later in the session and in future

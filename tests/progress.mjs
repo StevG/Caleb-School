@@ -12,13 +12,15 @@ page.on('dialog', d => d.accept());
 
 await page.goto('http://127.0.0.1:9911', { waitUntil: 'networkidle' });
 
-// seed: a 5-word list; "said" mastered (5 unaided rights climbs the whole
-// ladder: 1 + 2 + 2), two other words right twice, "because" missed 4x,
-// one aided retype (must NOT count toward accuracy)
+// seed: a 5-word list; "said" mastered (3 rights in Hide & Spell climb to
+// from-sound, 2 rights in Listen & Spell finish it — only listen can master),
+// two other words right twice, "because" missed 4x, one aided retype
+// (must NOT count toward accuracy)
 await page.evaluate(async () => {
   const post = (u, b) => fetch(u, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
   await post('/api/parent/lists', { pin: '1234', action: 'create', name: 'Unit 4 list', words: 'said friend because tomorrow enough' });
-  for (let i = 0; i < 5; i++) await post('/api/answer', { word: 'said', correct: true, mode: 'words' });
+  for (let i = 0; i < 3; i++) await post('/api/answer', { word: 'said', correct: true, mode: 'words' });
+  for (let i = 0; i < 2; i++) await post('/api/answer', { word: 'said', correct: true, mode: 'listen' });
   for (const w of ['friend', 'tomorrow']) for (let i = 0; i < 2; i++)
     await post('/api/answer', { word: w, correct: true, mode: 'words' });
   for (let i = 0; i < 4; i++) await post('/api/answer', { word: 'because', correct: false, mode: 'words' });

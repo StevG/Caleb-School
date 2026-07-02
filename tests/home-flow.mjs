@@ -15,7 +15,7 @@ await page.goto('http://127.0.0.1:9911', { waitUntil: 'networkidle' });
 const base = await page.evaluate(() => ({
   cards: [...document.querySelectorAll('.mode-card')].filter(c => c.offsetParent).length,
   chips: !document.getElementById('goal-row').classList.contains('hidden') }));
-check('start: all 4 games shown, no chips', base.cards === 4 && !base.chips, JSON.stringify(base));
+check('start: all 5 games shown, no chips', base.cards === 5 && !base.chips, JSON.stringify(base));
 
 // tap Spell Words -> others leave, chips arrive right under the words card
 await page.click('.mode-card.words');
@@ -40,7 +40,7 @@ const backed = await page.evaluate(() => ({
   cards: [...document.querySelectorAll('.mode-card')].filter(c => c.offsetParent).length,
   chips: !document.getElementById('goal-row').classList.contains('hidden'),
   home: document.getElementById('home').classList.contains('active') }));
-check('⬅ All games restores the full menu', backed.cards === 4 && !backed.chips && backed.home, JSON.stringify(backed));
+check('⬅ All games restores the full menu', backed.cards === 5 && !backed.chips && backed.home, JSON.stringify(backed));
 
 // switch to Listen & Spell instead -> chips under THAT card now
 await page.click('.mode-card.listen');
@@ -61,7 +61,7 @@ await page.waitForTimeout(500);
 const restored = await page.evaluate(() => ({
   cards: [...document.querySelectorAll('.mode-card')].filter(c => c.offsetParent).length,
   chips: !document.getElementById('goal-row').classList.contains('hidden') }));
-check('after quitting, home shows all 4 games again', restored.cards === 4 && !restored.chips, JSON.stringify(restored));
+check('after quitting, home shows all 5 games again', restored.cards === 5 && !restored.chips, JSON.stringify(restored));
 
 // sentence modes still start with a single tap (no chips step)
 await page.click('.mode-card.sentences');

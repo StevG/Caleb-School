@@ -74,7 +74,7 @@ const mission = await page.evaluate(() => {
            text: card ? card.textContent : '' };
 });
 check('mission card on the kid home screen',
-  mission.shown && mission.text.includes('Spell Words') && mission.text.includes('Friday test'), mission.text.trim());
+  mission.shown && mission.text.includes('Hide & Spell') && mission.text.includes('Friday test'), mission.text.trim());
 
 // play the mission: exactly the 3 list words, hidden-on-type (stage 2)
 await page.click('.mission-card');

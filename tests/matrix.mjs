@@ -27,9 +27,13 @@ for (const [label, w, h] of VIEWPORTS) {
 
   await page.goto('http://127.0.0.1:9911', { waitUntil: 'networkidle' });
 
-  // HOME
-  check(`${label} home: cards + points visible`, await inBounds('.mode-card.sentences') && await inBounds('.points-big') && await inBounds('#gear'));
+  // HOME (5 game cards in two sections — the home column scrolls on short
+  // viewports, so bring the last card into view before checking it)
+  check(`${label} home: header + points visible`, await inBounds('.points-big') && await inBounds('#gear'));
+  await page.$eval('.mode-card.memory', el => el.scrollIntoView({ block: 'nearest' }));
+  check(`${label} home: all game cards reachable`, await inBounds('.mode-card.memory'));
   await page.screenshot({ path: `${OUT}/m-${label}-home.png` });
+  await page.$eval('.mode-card.words', el => el.scrollIntoView({ block: 'nearest' }));
 
   // PLAY
   await page.click('.mode-card.words');

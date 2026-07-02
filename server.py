@@ -45,6 +45,11 @@ DEFAULT_PIN = "1234"
 STAGE_COPY, STAGE_MEMORY, STAGE_SOUND, STAGE_MASTERED = 1, 2, 3, 4
 STAGE_UP = {STAGE_COPY: 1, STAGE_MEMORY: 2, STAGE_SOUND: 2}
 STAGE_NAMES = {1: "copy", 2: "memory", 3: "sound", 4: "mastered"}
+# Each word game maps to a rung, and a game can only prove skills up to its
+# own rung: copying a word can never mark it "spells it from memory", and
+# only Listen & Spell (true from-sound recall) can finish a word off as
+# mastered. Modes not listed (listen, sentences, memory) climb uncapped.
+CLIMB_CAP = {"copy": STAGE_MEMORY, "words": STAGE_SOUND}
 
 WORDS, SENTENCES = wordbank.build_pool()
 WORD_GROUP = {item["w"]: item["group"] for item in WORDS}
@@ -100,7 +105,7 @@ MIME = {
 
 # --- persistence -----------------------------------------------------------
 
-VALID_MODES = ("words", "listen", "sentences", "memory")
+VALID_MODES = ("copy", "words", "listen", "sentences", "memory")
 
 
 def _default_child(name="Caleb"):
@@ -599,8 +604,9 @@ def build_sentence_session(state, count):
 # pinned to a word list. It sits on the kid's home screen until finished;
 # finishing stores the score and pings the parents' devices.
 
-MODE_LABELS = {"words": "Spell Words", "listen": "Listen & Spell",
-               "sentences": "Spell Sentences", "memory": "Memory Sentences"}
+MODE_LABELS = {"copy": "Copy It", "words": "Hide & Spell",
+               "listen": "Listen & Spell",
+               "sentences": "Fill In", "memory": "Remember It"}
 
 
 def find_assignment(state, aid):
@@ -639,7 +645,8 @@ def build_assignment_session(state, a):
     out = []
     for w in words:
         item = {"w": w, "group": WORD_GROUP.get(w, "My words"),
-                "stage": STAGE_MEMORY if mode == "words"
+                "stage": STAGE_COPY if mode == "copy"
+                else STAGE_MEMORY if mode == "words"
                 else word_stage(stats.get(w))}
         heart = wordbank.HEART_WORDS.get(w)
         if heart:
@@ -710,8 +717,11 @@ def record_answer(state, word, correct, aided=False, mode="words"):
         d["points"] += 1
         dm["correct"] += 1
         dm["points"] += 1
-        # climb the ladder
-        if stage < STAGE_MASTERED:
+        # climb the ladder — but a game can only prove up to its own rung
+        # (CLIMB_CAP): copying never advances a from-memory word, and only
+        # from-sound games push a word to mastered. Streaks don't bank while
+        # capped, so an easy game can't pre-pay a harder one's climb.
+        if stage < min(STAGE_MASTERED, CLIMB_CAP.get(mode, STAGE_MASTERED)):
             s["stage_streak"] = s.get("stage_streak", 0) + 1
             if s["stage_streak"] >= STAGE_UP[stage]:
                 s["stage"] = stage + 1
@@ -1062,6 +1072,15 @@ class Handler(BaseHTTPRequestHandler):
             items = build_sentence_session(state, max(1, min(count, 12)))
         else:
             items = build_word_session(state, count)
+            # presentation follows the GAME, not the ladder: Copy It always
+            # shows the word, Hide & Spell always hides it on the first
+            # keystroke (listen ignores stage — it's audio-only anyway)
+            if mode == "copy":
+                for it in items:
+                    it["stage"] = STAGE_COPY
+            elif mode == "words":
+                for it in items:
+                    it["stage"] = STAGE_MEMORY
         self._send_json({"mode": mode, "child": state["id"], "items": items})
 
     def _api_answer(self, body):

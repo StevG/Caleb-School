@@ -21,12 +21,13 @@ Read these before changing anything significant:
 ## What this app is
 
 A PWA served by a stdlib-Python server, deployed on **HomeHub**
-(`StevG/HomeHub`) as the `spelling` app. Kid practices spelling
-(look–cover–write–check: the word hides at the first keystroke) in four
-modes — words, listen & spell (audio only, word never shown), sentence
+(`StevG/HomeHub`) as the `spelling` app. Kid practices spelling in five
+games across two home sections. Words: copy (stays visible), words/"Hide &
+Spell" (hides at the first keystroke), listen (audio only, never shown) —
+one ladder rung each, climb-capped per game (docs/SCORING.md). Sentences:
 fill-in (whole sentence visible, only the current word hides; capitals
-count), and memory sentences (read/hear it, then type the whole thing from
-memory; capitals count). Word bank is graded 1st-9th in half-grade steps
+count) and memory (read/hear it, then type the whole thing from memory;
+capitals count). Word bank is graded 1st-9th in half-grade steps
 (`max_level` float, default 3). Parents get a PIN-gated dashboard
 (most-missed words, per-mode and per-day stats, custom school word lists).
 Points (⭐) are the reward currency — the parents trade them for iPad time.
@@ -90,7 +91,9 @@ child); `/api/state` + `/api/parent/report` return the roster; `POST
 /api/parent/children {action: add|rename|delete}` manages the kids. Legacy
 single-kid files migrate automatically.
 
-`GET /api/state` · `GET /api/session?mode=words|listen|sentences|memory&count=N` ·
+`GET /api/state` · `GET /api/session?mode=copy|words|listen|sentences|memory&count=N`
+(presentation follows the mode: copy always visible, words always
+hides-on-type; `CLIMB_CAP` keeps copying from mastering words) ·
 `POST /api/answer {word, correct, aided, mode}` · `POST /api/session_end` ·
 `POST /api/parent/login|settings|custom_words|lists|children` (PIN in body;
 `lists` actions: create/delete/toggle_list/toggle_word/add_words/remove_word/

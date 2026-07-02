@@ -26,7 +26,7 @@ check('API: word items carry heart mapping', !!saidItem && saidItem.heart === 'a
 check('API: sentence tokens carry heart mapping', !!api.heartTok, JSON.stringify(api.heartTok));
 
 // UI: fresh heart word at stage 1 -> red letters + heart hint
-await page.click('.mode-card.words');
+await page.click('.mode-card.copy');
 await page.click('.chip[data-goal="10"]');
 await page.waitForSelector('#play.active');
 await page.waitForTimeout(300);

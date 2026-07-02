@@ -1,3 +1,7 @@
+// The learning ladder under the three word games: Copy It presents visible
+// and climbs only copy->memory; Hide & Spell presents hidden-on-type and
+// climbs up to sound; only Listen & Spell (true from-sound recall) can push
+// a word to mastered. Plus the dashboard views built on the ladder.
 import pw from '/opt/node22/lib/node_modules/playwright/index.js';
 const { chromium } = pw;
 const OUT = '/tmp/claude-0/-home-user/27945fa0-10eb-51a8-82b0-25f497905001/scratchpad';
@@ -11,89 +15,78 @@ const check = (n, ok, x='') => results.push(`${ok?'PASS':'FAIL'}  ${n}${x?' — 
 await page.goto('http://127.0.0.1:9911', { waitUntil: 'networkidle' });
 await page.evaluate(() => { window.__spoken = []; window.speechSynthesis.speak = (u) => window.__spoken.push(u.text); });
 
-// ---------- STAGE 1: new word stays visible while typing ----------
-await page.click('.mode-card.words');
+// ---------- Copy It: always visible, climbs 1 -> 2 only ----------
+await page.click('.mode-card.copy');
 await page.click('.chip[data-goal="10"]');
 await page.waitForSelector('#play.active');
 await page.waitForTimeout(300);
 const stage1 = await page.evaluate(() => state.itemStage);
 const w1 = (await page.textContent('#prompt-word')).trim();
-check('stage1: fresh word presented at stage 1 (copy)', stage1 === 1, `stage=${stage1} word="${w1}"`);
+check('Copy It: word presented at stage 1', stage1 === 1, `stage=${stage1} word="${w1}"`);
 const hint1 = (await page.textContent('#prompt-hint')).trim();
-check('stage1: hint explains copying', hint1.toLowerCase().includes('copy'), hint1);
+check('Copy It: hint explains copying', hint1.toLowerCase().includes('copy') || hint1.includes('♥'), hint1);
 await page.focus('#typed');
-await page.type('#typed', w1[0]);
+await page.type('#typed', w1[0].toLowerCase());
 await page.waitForTimeout(150);
-const stillVisible = await page.$eval('#prompt-word', el => !el.classList.contains('gone'));
-check('stage1: word STAYS VISIBLE after first keystroke', stillVisible);
-await page.screenshot({ path: `${OUT}/g1-stage1-copy.png` });
-// complete it -> level up feedback
+check('Copy It: word STAYS VISIBLE after first keystroke',
+  await page.$eval('#prompt-word', el => !el.classList.contains('gone')));
 await page.fill('#typed', w1.toLowerCase());
 await page.dispatchEvent('#typed', 'input');
 await page.click('#check');
 await page.waitForTimeout(400);
 const fb = (await page.textContent('#feedback')).trim();
-check('stage1: correct triggers Level up! feedback', fb.includes('Level up'), `"${fb}"`);
-
-// ---------- STAGE 2 presentation: word seeded to memory stage hides on type ----------
-// seed 'planet' to stage 2 via API, then hunt for it in sessions
-await page.evaluate(async () => {
-  await fetch('/api/parent/custom_words', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ pin: '1234', action: 'add', words: 'planet rocket' }) });
-  await fetch('/api/answer', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ word: 'planet', correct: true, mode: 'words' }) }); // 1 -> 2
-  // seed 'rocket' all the way to stage 3 (sound)
-  for (let i = 0; i < 3; i++) {
-    await fetch('/api/answer', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ word: 'rocket', correct: true, mode: 'words' }) });
-  }
-});
-// custom unmastered words sort first in the review bucket, so a new session should serve them early
+check('Copy It: fresh word correct -> Level up! (1 -> 2)', fb.includes('Level up'), `"${fb}"`);
+await page.screenshot({ path: `${OUT}/g1-copy-mode.png` });
 await page.click('#quit');
 await page.waitForSelector('#home.active');
-let sawStage2 = null, sawStage3 = null;
-for (let attempt = 0; attempt < 4 && (!sawStage2 || !sawStage3); attempt++) {
-  await page.click('.mode-card.words');
-  await page.click('.chip[data-goal="20"]');
-  await page.waitForSelector('#play.active');
-  await page.waitForTimeout(300);
-  for (let i = 0; i < 22; i++) {
-    if (await page.$eval('#done', el => el.classList.contains('active'))) break;
-    const st = await page.evaluate(() => state.itemStage);
-    const target = await page.evaluate(() => state.target);
-    if (target === 'planet' && !sawStage2) {
-      const visible = (await page.textContent('#prompt-word')).trim();
-      await page.focus('#typed');
-      await page.type('#typed', 'p');
-      await page.waitForTimeout(150);
-      const gone = await page.$eval('#prompt-word', el => el.classList.contains('gone'));
-      sawStage2 = { st, visible, gone };
-      await page.fill('#typed', 'planet');
-    } else if (target === 'rocket' && !sawStage3) {
-      const shown = (await page.textContent('#prompt-word')).trim();
-      const spoken = await page.evaluate(() => window.__spoken[window.__spoken.length - 1]);
-      sawStage3 = { st, shown, spoken };
-      await page.screenshot({ path: `${OUT}/g2-stage3-sound.png` });
-      await page.focus('#typed');
-      await page.fill('#typed', 'rocket');
-    } else {
-      const t = await page.evaluate(() => state.target);
-      await page.focus('#typed');
-      await page.fill('#typed', t);
-    }
-    await page.dispatchEvent('#typed', 'input');
-    await page.click('#check');
-    await page.waitForTimeout(1000);
-  }
-  await page.waitForTimeout(300);
-  const onDone = await page.$eval('#done', el => el.classList.contains('active'));
-  if (onDone) { await page.click('#home-btn'); } else { await page.click('#quit'); }
-  await page.waitForSelector('#home.active');
-}
-check('stage2: seeded word presented at stage 2, shown then hides on type',
-  !!sawStage2 && sawStage2.st === 2 && sawStage2.visible === 'planet' && sawStage2.gone, JSON.stringify(sawStage2));
-check('stage3: seeded word presented at stage 3 — hidden and auto-spoken',
-  !!sawStage3 && sawStage3.st === 3 && sawStage3.shown === '' && sawStage3.spoken === 'rocket', JSON.stringify(sawStage3));
+
+// ---------- Hide & Spell: always hides on type ----------
+await page.evaluate(async () => {
+  const post = (u, b) => fetch(u, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
+  await post('/api/parent/custom_words', { pin: '1234', action: 'add', words: 'planet rocket' });
+});
+await page.click('.mode-card.words');
+await page.click('.chip[data-goal="10"]');
+await page.waitForSelector('#play.active');
+await page.waitForTimeout(300);
+const hs = await page.evaluate(() => ({ stage: state.itemStage,
+  visible: document.getElementById('prompt-word').textContent.trim() }));
+check('Hide & Spell: word presented at stage 2 (visible first)',
+  hs.stage === 2 && hs.visible.length > 0, JSON.stringify(hs));
+await page.focus('#typed');
+await page.type('#typed', hs.visible[0].toLowerCase());
+await page.waitForTimeout(150);
+check('Hide & Spell: word GONE after first keystroke',
+  await page.$eval('#prompt-word', el => el.classList.contains('gone')));
+await page.click('#quit');
+await page.waitForSelector('#home.active');
+
+// ---------- climb caps (API-level, exact) ----------
+const caps = await page.evaluate(async () => {
+  const post = (u, b) => fetch(u, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
+  const stageOf = async (w) => {
+    const rep = await (await fetch('/api/parent/report', { headers: { 'X-Parent-Pin': '1234' } })).json();
+    return rep.lists[0].words.find(x => x.word === w)?.stage;
+  };
+  await post('/api/answer', { word: 'rocket', correct: true, mode: 'words' }); // 1 -> 2
+  const s2 = await stageOf('rocket');
+  for (let i = 0; i < 5; i++) await post('/api/answer', { word: 'rocket', correct: true, mode: 'copy' });
+  const afterCopy = await stageOf('rocket'); // copy can't climb a stage-2 word
+  await post('/api/answer', { word: 'rocket', correct: true, mode: 'words' });
+  await post('/api/answer', { word: 'rocket', correct: true, mode: 'words' }); // 2 -> 3
+  const s3 = await stageOf('rocket');
+  for (let i = 0; i < 4; i++) await post('/api/answer', { word: 'rocket', correct: true, mode: 'words' });
+  const afterWords = await stageOf('rocket'); // words can't master a stage-3 word
+  await post('/api/answer', { word: 'rocket', correct: true, mode: 'listen' });
+  await post('/api/answer', { word: 'rocket', correct: true, mode: 'listen' }); // 3 -> 4
+  const s4 = await stageOf('rocket');
+  return { s2, afterCopy, s3, afterWords, s4 };
+});
+check('ladder: Hide & Spell correct climbs 1 -> 2', caps.s2 === 2, JSON.stringify(caps));
+check('cap: Copy It can NOT climb a from-memory word', caps.afterCopy === 2, String(caps.afterCopy));
+check('ladder: Hide & Spell climbs 2 -> 3', caps.s3 === 3, String(caps.s3));
+check('cap: Hide & Spell can NOT master a from-sound word', caps.afterWords === 3, String(caps.afterWords));
+check('Listen & Spell masters it (3 -> 4)', caps.s4 === 4, String(caps.s4));
 
 // ---------- DASHBOARD: journey + school list statuses ----------
 await page.click('#gear');
@@ -104,17 +97,12 @@ check('dashboard: learning journey renders 4 rungs', jRows.length === 4, JSON.st
 const listRows = await page.$$eval('#lists-wrap details.wlist summary .list-count', els => els.map(e => e.textContent.trim()));
 check('dashboard: school list row shows on:total count', listRows.length >= 1 && /^\d+:\d+/.test(listRows[0]), JSON.stringify(listRows));
 const chips = await page.$$eval('#lists-wrap .word-row', els => els.map(e => ({ cls: e.className, t: e.textContent })));
-check('dashboard: chips carry status classes', chips.some(c => c.cls.includes('st-learning') || c.cls.includes('st-mastered')), JSON.stringify(chips));
+check('dashboard: chips carry status classes', chips.some(c => c.cls.includes('st-mastered')), JSON.stringify(chips));
 const mast = (await page.textContent('#s-mastered')).trim();
-check('dashboard: mastered stat tile present', /^\d+$/.test(mast), mast);
+check('dashboard: mastered stat tile counts rocket', mast === '1', mast);
 await page.screenshot({ path: `${OUT}/g3-parent-journey.png` });
 
-// ---------- LEGACY MIGRATION: old-format word with streak>=2 counts as mastered ----------
 const legacy = await page.evaluate(async () => {
-  // hit report twice: once now, then after injecting nothing more — the
-  // migration test itself is server-side; just verify a fresh legacy-style
-  // record classifies correctly by asking the debug path: post 2 corrects
-  // to a word then read its most_missed/mastered flags via report.
   const r = await fetch('/api/parent/report', { headers: { 'X-Parent-Pin': '1234' } });
   return r.json();
 });

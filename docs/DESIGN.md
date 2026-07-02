@@ -31,25 +31,31 @@ gentle shake, then the correct spelling is **revealed to study** (amber boxes)
 credit). Missed words come back later in the session and in later sessions
 until mastered.
 
-Four modes share that mechanic (owner-specified behavior — keep it exact):
-- **Spell Words** — one word at a time, goal of 10/15/20. Each word is
-  presented at its LADDER stage (owner-specified progression): stage 1 the
-  word stays visible while he copies it; stage 2 it hides at the first
-  keystroke; stage 3 it's audio-only. Unaided successes climb, misses drop a
-  rung, "Level up!" celebrates climbs (full rules: docs/SCORING.md).
-- **Listen & Spell** — the word is spoken (auto + 🔊 to repeat) and NEVER
-  shown; he types it from sound alone. True recall, one step harder than
-  look-cover-write. Wrong answers reveal-and-retry like everywhere else.
-- **Spell Sentences (fill-in)** — the WHOLE sentence stays visible the whole
-  time. The word he's on is highlighted and stays readable until his first
-  keystroke; then only that word hides and he fills it in. Sequential, word
-  by word — he never memorizes more than the word he just looked at.
-  Completed words turn green in place. 6 sentences per session.
-- **Memory Sentences** — he reads the whole sentence big (and can tap 🔊 to
-  hear it — the speaker always shows in this mode, it's dictation), taps
-  "I'm ready!", the entire sentence becomes blanks, and he types every word
-  from memory. The speaker re-reads the full sentence any time. 3 sentences
-  per session (dictation guidance: fewer, harder items).
+Five games in two home-screen sections share that mechanic (owner-specified
+2026-07-02 — each word game is one ladder rung, chosen BY THE KID, and a
+game can only prove skills up to its own rung; see docs/SCORING.md):
+
+**WORDS 🔤** (each asks 10/15/20)
+- **Copy It 👀** — the word stays visible the whole time he types. The
+  gentle on-ramp; a correct climbs a brand-new word copy→memory, nothing
+  more.
+- **Hide & Spell 🙈** — the word shows big and hides at the first
+  keystroke (look–cover–write–check). Corrects climb up to from-sound;
+  it can never mark a word mastered.
+- **Listen & Spell 🔊** — the word is spoken (auto + 🔊 to repeat) and
+  NEVER shown; he types it from sound alone. The only game that finishes
+  a word off as mastered — true recall.
+
+**SENTENCES 📝**
+- **Fill In ✏️** — the WHOLE sentence stays visible the whole time. The
+  word he's on is highlighted and stays readable until his first
+  keystroke; then only that word hides and he fills it in. Sequential,
+  word by word. Completed words turn green in place. 6 per session.
+- **Remember It 🧠** — he reads the whole sentence big (and can tap 🔊 to
+  hear it — the speaker always shows here, it's dictation), taps
+  "I'm ready!", the entire sentence becomes blanks, and he types every
+  word from memory. The speaker re-reads the full sentence any time.
+  3 per session (dictation guidance: fewer, harder items).
 
 ## UI rules (learned + confirmed)
 - Letter boxes stay on **one line** — the word's shape is a memory cue; box
@@ -79,6 +85,15 @@ Four modes share that mechanic (owner-specified behavior — keep it exact):
 - Not a game with an economy — points are minutes of iPad time, period.
 
 ## Decisions log
+- 2026-07-02 — Home split into Words/Sentences sections with five explicit
+  games (owner-specified): Copy It 👀 / Hide & Spell 🙈 / Listen & Spell 🔊
+  and Fill In ✏️ / Remember It 🧠. The adaptive per-word stage mix inside
+  the old "Spell Words" is gone — the KID picks the difficulty, and
+  `CLIMB_CAP` (server.py) keeps the ladder honest: Copy It climbs only
+  copy→memory, Hide & Spell up to from-sound, and only Listen & Spell can
+  mark a word mastered (streaks don't bank while capped). Presentation
+  follows the game, not the word's stage. Journey rungs and games now
+  share names/emojis, so the parent report reads 1:1 against the games.
 - 2026-07-02 — Switched-off sources look switched off (owner report): when
   a grade band, custom list, or the whole Word bank is unchecked, its
   contents grey out (`.src-off`) — but the word checkmarks stay visible in

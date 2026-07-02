@@ -12,27 +12,36 @@ Two currencies, deliberately separate:
 
 ## The ladder (per word)
 
-Every word climbs four rungs, and words-mode presents each word AT its rung:
+Every word climbs four rungs. Since 2026-07-02 the rungs map 1:1 to the
+word GAMES the kid picks on the home screen — presentation follows the
+game, and each game can only prove skills up to its own rung
+(`CLIMB_CAP` in server.py):
 
-| Stage | Name | Presentation | Advance after |
-|---|---|---|---|
-| 1 | Copy it 🐣 | word stays visible while typing (errorless copying) | 1 unaided correct |
-| 2 | From memory ✏️ | hides at the first keystroke (look–cover–write–check) | 2 unaided corrects |
-| 3 | From sound 🔊 | audio only, never shown | 2 unaided corrects |
-| 4 | Mastered ★ | — | (records `mastered_ts`) |
+| Stage | Name | Game (mode) | Advance after | Game's climb cap |
+|---|---|---|---|---|
+| 1 | Copy it 👀 | Copy It (`copy`): word stays visible while typing | 1 unaided correct | can only climb 1→2 |
+| 2 | From memory 🙈 | Hide & Spell (`words`): hides at the first keystroke | 2 unaided corrects | can climb up to 3 |
+| 3 | From sound 🔊 | Listen & Spell (`listen`): audio only, never shown | 2 unaided corrects | uncapped (can master) |
+| 4 | Mastered ★ | — | (records `mastered_ts`) | |
 
 Rules (implemented in `server.record_answer`, constants at top of server.py):
 - **Any miss drops the word one rung** (min stage 1) and resets its
-  stage streak. Rebuilding from a lower rung is the pedagogy, not a bug.
+  stage streak — in every game. Rebuilding from a lower rung is the
+  pedagogy, not a bug.
+- **A capped game neither climbs nor banks streaks**: five perfect copies
+  of a stage-2 word change nothing — "mastered" always means "spelled it
+  from sound alone", so only Listen & Spell can finish a word.
 - **Aided retypes never advance anything** — a copy of a just-revealed
   answer is stage-1-level evidence at best.
 - Stage-up news rides back on the `/api/answer` response
   (`{stage_up, stage}`) so the kid gets "⬆️ Level up!" in the moment and a
   level-up count on the done screen.
 - Answers from ANY mode move the same ladder (a miss in sentence mode drops
-  the word too; a correct in Listen mode climbs it). One word, one truth.
-- If the parent disabled the speaker, stage-3 words present as stage 2
-  (`presentWordItem` in app.js) — no audio means no audio test.
+  the word too; sentence modes climb uncapped like listen). One word, one
+  truth.
+- If the parent disabled the speaker, stage-3 items outside listen mode
+  present as stage 2 (`presentWordItem` in app.js) — no audio means no
+  audio test.
 - In-session requeue after a miss re-presents the word one rung down,
   mirroring the drop the server just recorded.
 
