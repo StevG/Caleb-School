@@ -116,6 +116,9 @@ Four modes share that mechanic (owner-specified behavior — keep it exact):
   enabled:total count, each word toggleable (on by default). Everything
   off falls back to the bank (no empty sessions). Legacy custom_words
   migrates into a "School list".
+- 2026-07-02 — Heart words: irregular graphemes render red (♥ hints) in the
+  word prompt and post-miss reveal, per the science-of-reading heart-word
+  method. Data in `wordbank.HEART_WORDS`; rendering via `heartSpans()`.
 - 2026-07-02 — Grade selection moved INTO Word lists (owner: "why does it
   say up to 3rd grade?"): the bank is now one permanent nested list per
   half-grade band — band checkboxes, per-word checkboxes (bank_off), and a

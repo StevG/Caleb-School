@@ -110,6 +110,8 @@ body.has-update .screen{padding-top:calc(env(safe-area-inset-top) + 46px)}
 .prompt-wrap{display:flex;align-items:center;gap:14px;min-height:70px}
 .prompt-word{font-size:60px;font-weight:900;letter-spacing:2px;transition:opacity .15s}
 .prompt-word.gone{opacity:0}
+/* heart words: the grapheme learned "by heart" shows red */
+.prompt-word .heart{color:var(--red)}
 .speaker{background:#fff;border:none;box-shadow:var(--shadow);border-radius:50%;
   width:56px;height:56px;font-size:26px;cursor:pointer}
 .speaker:active{transform:scale(.92)}

@@ -14,6 +14,7 @@ from main).
 | `staged.mjs` | The learning ladder: stage-1 copy stays visible, stage-2 hides, stage-3 audio-only, level-up feedback, journey card, school-list statuses |
 | `updates.mjs` | The PWA update prompt: `/api/version` change → "Update" bar appears → tap reloads (touches a static file to simulate a deploy) |
 | `lists.mjs` | Word-lists manager: create/toggle lists, per-word switches, on:total counts, pool filtering, bank checkbox, everything-off fallback |
+| `hearts.mjs` | Heart words: heart fields on session items/tokens, red grapheme spans in prompt + reveal, heart hints, `heartSpans()` edge cases |
 
 ## Running
 

@@ -22,10 +22,9 @@ The pieces already generalize; don't fork the app, extend it:
 
 ## From the 2026-07 instruction research (docs/RESEARCH.md — prioritized)
 
-- **Heart-letter highlighting** — when presenting a heart word (data ready in
-  `wordbank.HEART_WORDS`), render the irregular grapheme in red/with a ♥ in
-  the prompt and in the reveal, and speak "the *ai* in said is the tricky
-  part". Highest-value next feature; the data side is done.
+- ~~**Heart-letter highlighting**~~ — DONE 2026-07-02: heart words render
+  their irregular grapheme(s) in red in the prompt and the reveal, with a
+  "learn it by heart ♥" hint, across all modes (data: `wordbank.HEART_WORDS`).
 - **"Map it" on misses (Elkonin boxes)** — after the reveal, show the word
   segmented by grapheme (b|oa|t) before the aided retype, turning copying
   into phoneme-grapheme mapping.

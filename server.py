@@ -331,8 +331,15 @@ def build_word_session(state, count):
                 chosen.append(w)
     chosen = chosen[:count]
     random.shuffle(chosen)
-    return [{"w": w, "group": WORD_GROUP.get(w, "My words"),
-             "stage": word_stage(stats.get(w))} for w in chosen]
+    out = []
+    for w in chosen:
+        item = {"w": w, "group": WORD_GROUP.get(w, "My words"),
+                "stage": word_stage(stats.get(w))}
+        heart = wordbank.HEART_WORDS.get(w)
+        if heart:
+            item["heart"] = heart  # irregular grapheme(s) to highlight
+        out.append(item)
+    return out
 
 
 def build_sentence_session(state, count):
@@ -341,8 +348,13 @@ def build_sentence_session(state, count):
     picks = random.sample(pool, min(count, len(pool)))
     items = []
     for s in picks:
-        tokens = [{"display": tok, "answer": clean_token(tok)}
-                  for tok in s["s"].split()]
+        tokens = []
+        for tok in s["s"].split():
+            t = {"display": tok, "answer": clean_token(tok)}
+            heart = wordbank.HEART_WORDS.get(t["answer"])
+            if heart:
+                t["heart"] = heart
+            tokens.append(t)
         items.append({"s": s["s"], "tokens": tokens})
     return items
 

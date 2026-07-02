@@ -45,6 +45,7 @@ const state = {
   memorizing: false, // memory mode: still in the read-the-sentence phase
   caseSensitive: false, // sentence modes require the capitals too
   itemStage: 2,      // ladder stage of the current word (words mode)
+  itemHeart: null,   // irregular grapheme(s) of the current heart word
   keepVisible: false, // stage 1 "copy it": word stays visible while typing
   levelUps: 0,       // stage-ups this session (celebrated on the done screen)
   // ignore typing while a result is showing. We use this flag instead of
@@ -238,6 +239,7 @@ function loadNext() {
     $("sentence-line").classList.add("hidden");
     state.itemStage = 3;
     beginListenWord(item.w);
+    state.itemHeart = item.heart || null; // for the reveal after a miss
   } else {
     state.sentence = null;
     $("sentence-line").classList.add("hidden");
@@ -256,11 +258,15 @@ function presentWordItem(item) {
   state.itemStage = stage;
   if (stage >= 3) {
     beginListenWord(item.w);
+    state.itemHeart = item.heart || null; // for the reveal after a miss
     $("prompt-hint").textContent = "You know this one — listen 🔊 and type it!";
   } else if (stage === 1) {
-    beginWord(item.w, "New word! Copy it — it stays right here.", false, true);
+    const hint = item.heart
+      ? "Heart word! The red part is the tricky bit ♥"
+      : "New word! Copy it — it stays right here.";
+    beginWord(item.w, hint, false, true, item.heart);
   } else {
-    beginWord(item.w, "Look at the word, then type it!");
+    beginWord(item.w, "Look at the word, then type it!", false, false, item.heart);
   }
 }
 
@@ -278,14 +284,40 @@ function sizePrompt() {
     Math.max(28, Math.min(maxFs, Math.floor(room / (0.62 * len)))) + "px";
 }
 
-function beginWord(display, hint, cased, keepVisible) {
+// Heart words: wrap the irregular grapheme(s) in .heart spans so they show
+// red — "the part you learn by heart". heart is like "ai", "o-e", "oul";
+// hyphen separates multiple graphemes, matched left-to-right in the word.
+function heartSpans(display, heart) {
+  if (!heart) return esc(display);
+  const lower = display.toLowerCase();
+  const ranges = [];
+  let from = 0;
+  for (const part of heart.toLowerCase().split("-")) {
+    if (!part) continue;
+    const i = lower.indexOf(part, from);
+    if (i === -1) return esc(display); // mapping doesn't fit — show plain
+    ranges.push([i, i + part.length]);
+    from = i + part.length;
+  }
+  let out = "";
+  let pos = 0;
+  for (const [s, e] of ranges) {
+    out += esc(display.slice(pos, s)) +
+      `<span class="heart">${esc(display.slice(s, e))}</span>`;
+    pos = e;
+  }
+  return out + esc(display.slice(pos));
+}
+
+function beginWord(display, hint, cased, keepVisible, heart) {
   // cased (sentence modes): capitals count — "The" must be typed as "The"
   state.caseSensitive = !!cased;
   state.keepVisible = !!keepVisible; // stage 1: don't hide while typing
+  state.itemHeart = heart || null;
   state.target = cased ? cleanChars(display) : toTarget(display);
   $("prompt-hint").textContent = hint || "";
   const pw = $("prompt-word");
-  pw.textContent = display;
+  pw.innerHTML = heartSpans(display, heart);
   sizePrompt();
   pw.classList.remove("gone");
   renderBoxes(state.target.length, "");
@@ -410,7 +442,8 @@ function doCheck() {
       state.requeued = true;
       // re-present a rung down the ladder — the same drop the server records
       const back = { w: state.target, group: "",
-                     stage: Math.max(1, (state.itemStage || 2) - 1) };
+                     stage: Math.max(1, (state.itemStage || 2) - 1),
+                     heart: state.itemHeart || undefined };
       const pos = Math.min(state.queue.length, 2 + Math.floor(Math.random() * 3));
       state.queue.splice(pos, 0, back);
       state.total++;
@@ -418,9 +451,11 @@ function doCheck() {
     setTimeout(() => {
       renderBoxes(state.target.length, state.target); // resets .boxes class...
       boxes.classList.add("reveal");                  // ...so add reveal after
-      $("prompt-word").textContent = state.target;
+      $("prompt-word").innerHTML = heartSpans(state.target, state.itemHeart);
       $("prompt-word").classList.remove("gone");
-      $("prompt-hint").textContent = "This is how you spell it. Try again!";
+      $("prompt-hint").textContent = state.itemHeart
+        ? "The red part is the tricky bit — learn it by heart ♥"
+        : "This is how you spell it. Try again!";
       $("feedback").textContent = ""; // don't leave "Almost!" under the answer
       $("feedback").className = "feedback";
       $("check").classList.add("hidden");
@@ -441,9 +476,10 @@ function advance() {
       // after a reveal the word is no secret — show it for the retype
       state.curHidden = false;
       renderCurrentSentence();
-      beginWord(tok.display, "Try again — you can do it!", true);
+      beginWord(tok.display, "Try again — you can do it!", true, false, tok.heart);
     } else {
-      beginWord(state.target, "Try again — you can do it!");
+      beginWord(state.target, "Try again — you can do it!",
+        false, false, state.itemHeart);
     }
     return;
   }
@@ -466,7 +502,8 @@ function setupSentence(item) {
   state.curHidden = false; // current word stays visible until he types
   renderCurrentSentence();
   const tok = item.tokens[item.wordIdx];
-  beginWord(tok.display, "Type the yellow word — it hides when you start!", true);
+  beginWord(tok.display, "Type the yellow word — it hides when you start!",
+    true, false, tok.heart);
 }
 
 function setupMemory(item) {
@@ -504,6 +541,7 @@ function beginMemoryWord() {
   const tok = item.tokens[item.wordIdx];
   state.caseSensitive = true; // capitals count in sentences
   state.keepVisible = false;
+  state.itemHeart = tok.heart || null; // for the reveal after a miss
   state.target = cleanChars(tok.display);
   const pw = $("prompt-word");
   pw.textContent = "";
@@ -575,7 +613,7 @@ function advanceSentenceWord() {
     state.curHidden = false;
     renderCurrentSentence();
     const tok = item.tokens[item.wordIdx];
-    beginWord(tok.display, "Next word!", true);
+    beginWord(tok.display, "Next word!", true, false, tok.heart);
   }
 }
 
