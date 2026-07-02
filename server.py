@@ -473,6 +473,14 @@ def record_answer(state, word, correct, aided=False, mode="words"):
     m["seen"] += 1
     d["seen"] += 1
     dm["seen"] += 1
+    # per-word daily tally [seen, correct] — lets the report show how any
+    # GROUP of words (a school list, a grade band) trends day by day
+    wd = s.setdefault("days", {}).setdefault(today, [0, 0])
+    wd[0] += 1
+    wd[1] += 1 if correct else 0
+    if len(s["days"]) > 30:
+        for old in sorted(s["days"])[:-30]:
+            del s["days"][old]
     if correct:
         s["correct"] += 1
         s["streak"] = s.get("streak", 0) + 1
@@ -501,6 +509,66 @@ def record_answer(state, word, correct, aided=False, mode="words"):
         s["stage"] = max(STAGE_COPY, stage - 1)
         s["stage_streak"] = 0
     return (stage_up, s.get("stage"))
+
+
+def _group_progress(stats, words):
+    """Results for one GROUP of words (a school list or a grade band) — the
+    view a parent needs the week of a spelling test: how many are mastered,
+    the unaided accuracy, which words keep going wrong, and a day-by-day
+    trend built from the per-word daily tallies."""
+    seen = [w for w in words if stats.get(w, {}).get("seen", 0)]
+    total_seen = sum(stats[w]["seen"] for w in seen)
+    total_correct = sum(stats[w]["correct"] for w in seen)
+    daily = {}
+    for w in words:
+        for day, (n, ok) in stats.get(w, {}).get("days", {}).items():
+            d = daily.setdefault(day, [0, 0])
+            d[0] += n
+            d[1] += ok
+    trend = [{"date": day, "seen": v[0], "correct": v[1]}
+             for day, v in sorted(daily.items())[-10:]]
+    trouble = sorted(
+        ({"word": w, "missed": stats[w].get("missed", 0),
+          "stage": word_stage(stats[w])}
+         for w in seen if stats[w].get("missed", 0) > 0),
+        key=lambda t: -t["missed"])[:5]
+    return {
+        "total": len(words),
+        "practiced": len(seen),
+        "mastered": sum(1 for w in words if stats.get(w)
+                        and stats[w].get("seen", 0)
+                        and word_stage(stats[w]) >= STAGE_MASTERED),
+        "accuracy": round(100 * total_correct / total_seen)
+                    if total_seen else 0,
+        "last_ts": max((stats[w].get("last_ts", 0) for w in seen), default=0),
+        "trend": trend,
+        "trouble": trouble,
+    }
+
+
+def source_progress(state):
+    """Per-source results: every custom list (the school-test story), then
+    every ENABLED grade band that has been practiced (long-running view)."""
+    stats = state["words"]
+    off = set(state.get("bank_off", []))
+    lists = []
+    for lst in state.get("lists", []):
+        words = [wd["w"] for wd in lst.get("words", []) if wd.get("on", True)]
+        entry = _group_progress(stats, words)
+        entry["id"] = lst.get("id", "")
+        entry["name"] = lst.get("name", "List")
+        lists.append(entry)
+    bands = []
+    for b in enabled_bands(state):
+        words = [item["w"] for item in WORDS
+                 if float(item["level"]) == b and item["w"] not in off]
+        entry = _group_progress(stats, words)
+        if not entry["practiced"]:
+            continue  # an untouched band is noise, not a result
+        entry["level"] = b
+        bands.append(entry)
+    bands.sort(key=lambda e: e["level"])
+    return {"lists": lists, "bands": bands}
 
 
 def lists_status(state):
@@ -619,6 +687,7 @@ def parent_report(state):
         },
         "bank_count": len(bank_words(state)),
         "hearts_in_pool": count_pool_hearts(state),
+        "progress": source_progress(state),
         "bank": bank_status(state),
         "summary": {
             "points": state["profile"].get("points", 0),
@@ -875,6 +944,17 @@ class Handler(BaseHTTPRequestHandler):
                     p["max_level"] = max(bands) if bands else 3.0
                 except (ValueError, TypeError):
                     pass
+            # targeted resets (owner-specified): scores stay meaningful per
+            # list/band, so these are scoped — stars and practice progress
+            # reset separately, and lists/settings always survive.
+            if body.get("reset_points"):
+                p["points"] = 0
+            if body.get("reset_progress"):
+                state["words"] = {}
+                state["modes"] = {}
+                state["days"] = {}
+                state["sessions"] = []
+                state["last_answer_ts"] = 0
             # the PIN is the PARENTS' pin — one per family, not per child
             new_pin = str(body.get("new_pin", "")).strip()
             pin_changed = False
@@ -975,6 +1055,12 @@ class Handler(BaseHTTPRequestHandler):
                 target = clean_token(str(body.get("word", "")))
                 lst["words"] = [wd for wd in lst["words"]
                                 if wd["w"] != target]
+            elif action == "reset_list" and lst is not None:
+                # start this list fresh: wipe its words' progress (ladder,
+                # counters, daily tallies). A word shared with the bank
+                # starts over there too — that's what "fresh" means.
+                for wd in lst["words"]:
+                    state["words"].pop(wd["w"], None)
             elif action == "bank_toggle_band":
                 try:
                     band = float(body.get("level"))

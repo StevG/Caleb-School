@@ -13,6 +13,7 @@ view answers one question a parent of a struggling speller actually asks.
 | Learning journey card | "Where is everything on the ladder?" | `journey` {copy, memory, sound, mastered} + `summary.mastered_this_week` |
 | Word lists card | "What is he practicing, and is he ready for Friday's test?" | Two kinds of sources, same checklist UI. **The bank** (`bank`: enabled, enabled_count:total, bands[]): one PERMANENT nested list per half-grade band, each with its own checkbox, `on:total` count, and per-word checkboxes (`bank_off` stores switched-off words) — plus a "Copy words" action that clones a band's checked words into a new or existing custom list without typing. **Custom lists** (`lists` [{id, name, enabled, total, enabled_count, mastered, words:[{word, on, stage, seen, missed}]}]): same rows plus ✕ remove and Delete — deletable, unlike grades. Words: green = mastered, struck = off, ✗N = misses. Deliberately utilitarian. |
 | Heart words only ♥ toggle | "Can we drill just the tricky-part words?" | `profile.hearts_only` (set via settings) + `hearts_in_pool` (how many heart words the checked sources hold — also returned by `/api/parent/lists` calls so the note stays live). Bank/list word rows carry `heart: true` → the red ♥ after the word. Filter applies to words + listen modes; zero hearts in the selection falls back to ALL heart words (never an empty session). |
+| Results by list card | "Is he ready for Friday's test? Is this week's list improving?" | `progress` — `{lists: [...], bands: [...]}`. Per group: `total/practiced/mastered` (bar), `accuracy` (unaided only), `last_ts`, `trend` (last 10 practice days as `{date, seen, correct}`, summed from the per-word `days` tallies), `trouble` (top-5 missed words with counts). Lists always show (id + name, with a "start over" reset); bands only once practiced (level label). |
 | Most-missed words | "What should we drill in the car?" | `most_missed` (sorted by misses; `stage` included) |
 | Day by day | "Is practice actually happening?" | `daily` — one row PER DAY, never merged (words, accuracy, stars) |
 | By practice type | "Which modes does he use / avoid?" | `by_mode` per words/listen/sentences/memory (tries, accuracy, sessions, stars) |
@@ -38,13 +39,22 @@ lists:        [{id, name, enabled, words: [{w, on}]}]  (custom word lists;
               legacy flat custom_words migrates into one "School list")
 bank_off:     [word]  (bank words switched off individually)
 words:        word -> {seen, correct, missed, streak, last_ts,
-                       stage (1-4), stage_streak, mastered_ts?}
+                       stage (1-4), stage_streak, mastered_ts?,
+                       days: {"YYYY-MM-DD": [seen, correct]}}  (unaided
+              only, pruned to 30 days — feeds the per-list/band trends)
 modes:        mode -> {seen, correct, missed, points}
 days:         "YYYY-MM-DD" -> {seen, correct, missed, points,
                                modes: {mode: {seen, correct, points}}}
               (pruned to 60 days)
 last_answer_ts, custom_words [str], sessions [{ts, mode, count, correct, points}]
 ```
+
+Resets (all PIN-gated, all per child, none touch lists/settings):
+- `settings {reset_points: true}` — stars back to 0, progress untouched.
+- `settings {reset_progress: true}` — words/modes/days/sessions cleared,
+  stars kept (they're the iPad-time currency, not a statistic).
+- `lists {action: reset_list, list_id}` — "start over": wipes progress on
+  that list's words only (a word shared with the bank restarts there too).
 
 Semantics to preserve:
 - `seen/correct/missed` count **unaided** attempts only; aided retypes add

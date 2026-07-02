@@ -94,7 +94,8 @@ single-kid files migrate automatically.
 `POST /api/answer {word, correct, aided, mode}` · `POST /api/session_end` ·
 `POST /api/parent/login|settings|custom_words|lists|children` (PIN in body;
 `lists` actions: create/delete/toggle_list/toggle_word/add_words/remove_word/
-bank_toggle_band/bank_toggle_word/bank_copy; settings accepts
+reset_list/bank_toggle_band/bank_toggle_word/bank_copy; settings accepts
+`reset_points`/`reset_progress` (targeted per-child resets) plus
 `enabled_grades` list — legacy `max_level` maps onto it — plus
 `hearts_only` to narrow word/listen practice to heart words) ·
 `GET /api/parent/report` (PIN in `X-Parent-Pin` header) · `GET /.hub/status`.

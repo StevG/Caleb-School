@@ -53,9 +53,9 @@ The pieces already generalize; don't fork the app, extend it:
   theme group when he's ready.
 - **Word-reveal grace** — a "show me again" button that counts as aided,
   for when he genuinely forgot mid-word.
-- **Spend/adjust stars** — points are add-only today; parents "spend" them
-  for iPad time verbally. A parent-side spend/reset control would close the
-  loop (owner-aware, unscheduled).
+- **Spend/adjust stars** — "Reset stars to 0" shipped 2026-07-02 alongside
+  per-list ("start over") and per-child progress resets. Still open if
+  wanted: decrementing a specific amount ("spent 30 min = −30 ⭐").
 - **Ladder tuning** — if mastery proves too easy/hard, adjust `STAGE_UP`
   in server.py (see docs/SCORING.md) rather than adding mechanisms.
 

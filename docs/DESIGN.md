@@ -79,6 +79,14 @@ Four modes share that mechanic (owner-specified behavior — keep it exact):
 - Not a game with an economy — points are minutes of iPad time, period.
 
 ## Decisions log
+- 2026-07-02 — Results by list (owner-specified, "the spelling-test view"):
+  a dashboard card showing, per school list (and per practiced grade band,
+  folded), mastery bar, unaided accuracy, day-by-day trend chips (from new
+  per-word daily tallies), and the list's own trouble words. Resets are
+  TARGETED rather than account-wide: "start over" per list, and separate
+  Settings buttons for stars and practice progress (lists/settings always
+  survive; stars and progress reset independently — stars are currency,
+  progress is data).
 - 2026-07-02 — Multiple children (owner-specified): the family doc is
   `{pin, children:[...]}` — ONE parent PIN, each child carrying their entire
   world (progress, word lists, bank switches, hearts-only, speaker, points).

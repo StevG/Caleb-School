@@ -1031,6 +1031,7 @@ function renderReport(rep) {
 
   // word sources: the custom lists first (the bank's copy-target dropdown
   // needs them cached), then the bank with its grade bands
+  renderProgress(rep.progress);
   renderLists(rep.lists || []);
   renderBank(rep.bank);
   $("hearts-only").checked = rep.profile.hearts_only === true;
@@ -1044,6 +1045,75 @@ function renderReport(rep) {
   const rc = $("remove-child");
   rc.classList.toggle("hidden", (rep.children || []).length < 2);
   rc.textContent = `Remove ${rep.profile.name || "this child"}…`;
+}
+
+// ---------- Results by list (the spelling-test view) ----------
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function fmtDay(iso) {           // "2026-07-02" -> "Jul 2"
+  const [, m, d] = iso.split("-").map(Number);
+  return `${MONTHS[m - 1]} ${d}`;
+}
+function fmtAgo(ts) {
+  if (!ts) return "";
+  const days = Math.floor((Date.now() / 1000 - ts) / 86400);
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
+  const d = new Date(ts * 1000);
+  return `${MONTHS[d.getMonth()]} ${d.getDate()}`;
+}
+
+// One group's results — a school list (resettable) or a grade band.
+function progressEntry(e, label, listId) {
+  const div = document.createElement("div");
+  div.className = "prog-entry";
+  const pct = e.total ? Math.round(100 * e.mastered / e.total) : 0;
+  let html =
+    `<div class="prog-top"><span class="prog-name">${esc(label)}</span>` +
+    (listId ? `<button class="prog-reset">start over</button>` : "") +
+    `<span class="prog-count">★ ${e.mastered}/${e.total}</span></div>` +
+    `<div class="prog-bar"><span style="width:${pct}%"></span></div>`;
+  if (!e.practiced) {
+    html += `<div class="prog-meta muted">Not practiced yet.</div>`;
+  } else {
+    html += `<div class="prog-meta">${e.accuracy}% right unaided · ` +
+      `${e.practiced} of ${e.total} tried · last ${fmtAgo(e.last_ts)}</div>`;
+    if (e.trend && e.trend.length) {
+      html += `<div class="prog-trend">` + e.trend.slice(-5).map((t) =>
+        `<span class="pt-day">${fmtDay(t.date)} <b>${t.correct}/${t.seen}</b></span>`
+      ).join("") + `</div>`;
+    }
+    if (e.trouble && e.trouble.length) {
+      html += `<div class="prog-trouble">Still tricky: ` + e.trouble.map((t) =>
+        `<span class="wr-miss">${esc(t.word)} ✗${t.missed}</span>`
+      ).join("&ensp;") + `</div>`;
+    }
+  }
+  div.innerHTML = html;
+  const rb = div.querySelector(".prog-reset");
+  if (rb) rb.addEventListener("click", async () => {
+    if (!confirm(`Start "${label}" over? Progress on its words goes back to zero (stars are kept).`)) return;
+    try {
+      await listsCall({ action: "reset_list", list_id: listId });
+      await openParent();   // results + journey + tiles all change
+    } catch (_) { listsFail(); }
+  });
+  return div;
+}
+
+function renderProgress(prog) {
+  const wrap = $("progress-lists");
+  wrap.innerHTML = "";
+  if (!prog) return;
+  if (!prog.lists.length) {
+    wrap.innerHTML = '<div class="muted" style="padding:6px 2px">' +
+      "Results appear here once a school list is added below.</div>";
+  }
+  prog.lists.forEach((e) => wrap.appendChild(progressEntry(e, e.name, e.id)));
+  const bw = $("progress-bands");
+  bw.innerHTML = "";
+  $("progress-bands-wrap").classList.toggle("hidden", !prog.bands.length);
+  prog.bands.forEach((e) => bw.appendChild(progressEntry(e, gradeLabel(e.level))));
 }
 
 // ---------- Word lists (the parent picks what he practices) ----------
@@ -1335,6 +1405,33 @@ function wireParent() {
       }
     } catch (_) {
       $("settings-saved").textContent = "Could not save.";
+    }
+  });
+
+  $("reset-stars").addEventListener("click", async () => {
+    const name = $("set-name").value || "this child";
+    if (!confirm(`Set ${name}'s stars back to 0? (Practice progress is kept.)`)) return;
+    try {
+      await postJSON("/api/parent/settings",
+        { pin: state.parentPin, child: state.parentChild, reset_points: true });
+      await openParent();
+      refreshState().catch(() => {});
+    } catch (_) {
+      $("settings-saved").textContent = "Could not reset.";
+    }
+  });
+
+  $("reset-progress").addEventListener("click", async () => {
+    const name = $("set-name").value || "this child";
+    if (!confirm(`Reset ALL of ${name}'s practice progress? Every word starts over. ` +
+                 "Stars, word lists, and settings are kept. This can't be undone.")) return;
+    try {
+      await postJSON("/api/parent/settings",
+        { pin: state.parentPin, child: state.parentChild, reset_progress: true });
+      await openParent();
+      refreshState().catch(() => {});
+    } catch (_) {
+      $("settings-saved").textContent = "Could not reset.";
     }
   });
 

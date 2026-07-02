@@ -304,6 +304,28 @@ details.wlist[open] summary .tri{transform:rotate(90deg)}
 .hearts-note{color:var(--muted);font-size:13px;font-weight:400;
   white-space:nowrap;margin-left:auto}
 
+/* Results by list — the spelling-test view */
+.prog-entry{padding:10px 0;border-bottom:1px solid var(--line)}
+.prog-entry:last-child{border-bottom:none}
+.prog-top{display:flex;align-items:center;gap:10px}
+.prog-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;
+  font-weight:700;font-size:15px}
+.prog-count{font-weight:800;font-size:14px;color:var(--green-d);white-space:nowrap}
+.prog-reset{background:none;border:none;color:var(--muted);font-size:12px;
+  text-decoration:underline;cursor:pointer;padding:2px 4px;flex:none}
+.prog-bar{display:block;height:8px;background:#eee3d0;border-radius:6px;
+  overflow:hidden;margin:6px 0 4px}
+.prog-bar span{display:block;height:100%;background:var(--green);border-radius:6px}
+.prog-meta{color:var(--muted);font-size:13px}
+.prog-trend{display:flex;gap:6px;flex-wrap:wrap;margin-top:5px}
+.pt-day{background:#f6efe2;border-radius:8px;padding:3px 8px;font-size:12px;
+  color:var(--muted);white-space:nowrap}
+.pt-day b{color:var(--ink)}
+.prog-trouble{margin-top:5px;font-size:13px;color:var(--muted)}
+.prog-bands{margin-top:8px}
+.prog-bands summary{cursor:pointer;font-size:14px;font-weight:600;
+  color:var(--muted);padding:4px 0}
+
 .journey-list{list-style:none;margin:0;padding:0}
 .journey-list li{display:flex;align-items:center;gap:10px;padding:7px 0;font-size:15px}
 .journey-bar{flex:1;height:12px;background:#f1ede3;border-radius:8px;overflow:hidden}

@@ -155,6 +155,16 @@
     </div>
 
     <div class="card">
+      <div class="card-head">Results by list</div>
+      <p class="card-note">The spelling-test view: each list's mastery, accuracy, day-by-day practice results, and the words that keep going wrong.</p>
+      <div id="progress-lists"></div>
+      <details id="progress-bands-wrap" class="prog-bands hidden">
+        <summary>Grade bands he's practiced</summary>
+        <div id="progress-bands"></div>
+      </details>
+    </div>
+
+    <div class="card">
       <div class="card-head">Most-missed words</div>
       <ul id="missed-list" class="missed-list"><li class="muted">No misses yet.</li></ul>
     </div>
@@ -204,6 +214,8 @@
         <input id="set-pin" type="text" inputmode="numeric" placeholder="leave blank to keep"></label>
       <button id="save-settings" class="mini-btn wide">Save settings</button>
       <div id="settings-saved" class="saved-note"></div>
+      <button id="reset-stars" class="mini-btn danger wide">Reset stars to 0…</button>
+      <button id="reset-progress" class="mini-btn danger wide">Reset practice progress… (keeps stars, lists &amp; settings)</button>
       <button id="remove-child" class="mini-btn danger wide hidden">Remove this child…</button>
     </div>
   </div>
