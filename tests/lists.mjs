@@ -35,7 +35,8 @@ check('grade bands are permanent (no delete button)',
   await page.$$eval('#bank-wrap details.band', els =>
     els.every(e => !e.querySelector('.danger'))));
 
-// uncheck a band -> summary count drops and the server persists it
+// uncheck a band -> summary count drops by that band's size and persists
+const band1Size = parseInt(bandRows[0].count, 10); // its enabled count
 const before = parseInt(bankCount, 10);
 await page.click('#bank-wrap details.band summary input');
 await page.waitForTimeout(400);
@@ -44,9 +45,9 @@ const savedBands = await page.evaluate(async () => {
   const r = await fetch('/api/parent/report', { headers: { 'X-Parent-Pin': '1234' } });
   return (await r.json()).bank.bands.filter(b => b.enabled).map(b => b.level);
 });
-check('band toggle: count drops by 50 and persists',
-  after === before - 50 && !savedBands.includes(1) && savedBands.includes(3),
-  `${before} -> ${after}, saved: ${JSON.stringify(savedBands)}`);
+check('band toggle: count drops by the band size and persists',
+  after === before - band1Size && !savedBands.includes(1) && savedBands.includes(3),
+  `${before} -> ${after} (band=${band1Size}), saved: ${JSON.stringify(savedBands)}`);
 await page.click('#bank-wrap details.band summary input'); // restore
 await page.waitForTimeout(300);
 
@@ -63,10 +64,12 @@ const bandCount = (await page.$$eval('#bank-wrap details.band summary .list-coun
 const offOnServer = await page.evaluate(async (w) => {
   const r = await fetch('/api/parent/report', { headers: { 'X-Parent-Pin': '1234' } });
   const b = (await r.json()).bank.bands[0];
-  return { count: b.enabled_count, off: b.words.find(x => x.word === w)?.on === false };
+  return { count: b.enabled_count, total: b.total,
+           off: b.words.find(x => x.word === w)?.on === false };
 }, bankWord);
-check('bank word toggle: band shows 49:50 and persists',
-  bandCount.startsWith('49:50') && offOnServer.count === 49 && offOnServer.off,
+check('bank word toggle: band count drops by one and persists',
+  bandCount.startsWith(`${band1Size - 1}:${band1Size}`) &&
+  offOnServer.count === band1Size - 1 && offOnServer.off,
   `${bandCount} word="${bankWord}"`);
 await page.evaluate(() => {
   document.querySelector('#bank-wrap details.wlist').open = true;
@@ -158,7 +161,7 @@ const copied = await page.$$eval('#lists-wrap details.wlist summary', els =>
                   count: e.querySelector('.list-count').textContent.trim() })));
 check('copy band -> new list with all its words',
   copied.length === 1 && copied[0].name.includes('1st grade') &&
-  copied[0].count.startsWith('50:50'), JSON.stringify(copied));
+  copied[0].count.startsWith(`${band1Size}:${band1Size}`), JSON.stringify(copied));
 
 console.log(results.join('\n'));
 console.log('\nJS ERRORS:', errors.length ? errors : 'none');

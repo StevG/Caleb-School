@@ -119,6 +119,12 @@ Four modes share that mechanic (owner-specified behavior — keep it exact):
 - 2026-07-02 — Heart words: irregular graphemes render red (♥ hints) in the
   word prompt and post-miss reveal, per the science-of-reading heart-word
   method. Data in `wordbank.HEART_WORDS`; rendering via `heartSpans()`.
+- 2026-07-02 — Word bank expanded to full grade-level curriculum lists
+  (~2,870 words; each grade now carries a published-program-scale list from
+  K12Reader/Super Teacher/spelling-words-well 36-week sequences for 1-6 and
+  vocabulary.com/middle-school master lists for 7-9). Existing placements
+  and pattern-group tags were preserved; sources + merge rules in
+  docs/RESEARCH.md.
 - 2026-07-02 — Grade selection moved INTO Word lists (owner: "why does it
   say up to 3rd grade?"): the bank is now one permanent nested list per
   half-grade band — band checkboxes, per-word checkboxes (bank_off), and a

@@ -66,19 +66,31 @@ per day for typical learners, 1–2 for working-memory struggles): 10/15/20
 words (kid picks), 6 fill-in sentences (memory load is one word at a time),
 3 memory sentences (whole-sentence recall is the heavy lift).
 
-## Grade ladder (added 2026-07-02)
+## Grade ladder (added 2026-07-02, expanded to full curriculum lists same day)
 
-`wordbank.GRADE_LISTS` adds ~840 words at half-grade levels 1.0-9.0
-(35-50 per level, no duplicates with the pattern/theme groups). Anchoring:
-Fry frequency bands + Dolch (grades 1-3), K12Reader / Super Teacher /
-spelling-words-well grade lists (1-6), vocabulary.com "150 words every Nth
-grader should know how to spell" + middle-school master lists (6-8), and
-9th-grade/high-school freshman lists including the commonly-misspelled canon
-(accommodate, occurrence, conscience, bureaucracy...). The X.0/X.5
-first-half/second-half split is editorial judgment guided by 36-week
-curriculum sequences — no published source splits by semester; thinnest at
-6.5/7.5/8.5. Classic hard-spellers are placed at the grade where they're
-conventionally taught.
+`wordbank.GRADE_LISTS` carries the full grade-level curriculum at half-grade
+levels 1.0-9.0 (~64-177 per half-grade; whole grades land at ~150-600 words
+counting the pattern/theme groups, comparable to a published year's list).
+Anchoring, per band:
+
+- **Grades 1-3:** K12Reader's 36-week grade spelling programs (weeks 1-18 →
+  X.0, weeks 19-36 → X.5) cross-checked against Fry frequency bands, Dolch
+  (grades 1-3), Super Teacher and spelling-words-well grade lists.
+- **Grades 4-6:** K12Reader 36-week lists + Super Teacher +
+  spelling-words-well, including the standard morphology units (-tion/-sion,
+  -able/-ible, plurals like alumni/cacti, homophone pairs).
+- **Grades 7-9:** vocabulary.com "150 words every Nth grader should know how
+  to spell" + middle-school master lists + high-school-freshman /
+  commonly-misspelled canon (accommodate, occurrence, conscience,
+  bureaucracy...).
+
+Merge rules (script-enforced, 2026-07-02): every word passes the typeable
+charset `[a-z'-]`; a word already anywhere in the bank keeps its original
+group/level (pattern groups stay the most descriptive tag); a word listed at
+two levels by different sources keeps the earliest. The X.0/X.5 split follows
+the 36-week sequences where a source has them, editorial judgment elsewhere —
+no published source splits by semester. Classic hard-spellers are placed at
+the grade where they're conventionally taught.
 
 ## How spelling is taught in US schools (researched 2026-07)
 

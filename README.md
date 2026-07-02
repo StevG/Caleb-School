@@ -104,12 +104,14 @@ exactly what changes (nothing in the code) when you later deploy on HomeHub.
 
 ## Content & method
 
-The built-in bank (~1,550 words graded 1st-9th in half-grade steps,
-103 sentences) is drawn from public-domain /
-freely-reproducible elementary sources: **Dolch** 2nd & 3rd grade sight words +
-nouns, **Fry** instant words for this grade band, **phonics-pattern** groups
-(silent-e, vowel teams, r-controlled, digraphs, blends, double consonants,
-suffixes/prefixes, soft c/g), and a set of commonly-misspelled "tricky" words.
+The built-in bank (~2,870 words graded 1st-9th in half-grade steps — full
+grade-level curriculum lists, ~150-600 words per grade — plus 103 sentences)
+is drawn from public-domain / freely-reproducible elementary sources:
+**Dolch** 2nd & 3rd grade sight words + nouns, **Fry** instant words,
+**K12Reader / Super Teacher / spelling-words-well** 36-week grade programs,
+**phonics-pattern** groups (silent-e, vowel teams, r-controlled, digraphs,
+blends, double consonants, suffixes/prefixes, soft c/g), and the
+commonly-misspelled "tricky"/heart-word canon.
 Sentences are short, decodable, and properly punctuated for an 8-year-old.
 
 Method follows the research: explicit pattern practice, immediate feedback with
