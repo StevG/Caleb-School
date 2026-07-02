@@ -41,12 +41,14 @@ words he misses most from their own phones.
   journey** view of where every word sits on the ladder — plus most-missed
   words, accuracy, **day-by-day history**, **per-practice-type stats**, and
   when he **last practiced** (each metric kept separate on purpose).
-- **Word lists**: school words are their own toggleable lists, not mixed into
-  the big bank. Check/uncheck the built-in bank and any custom list (counts
-  show on : total, like 10:20); open a list to switch single words on or off
-  (all on by default). Chips go grey → amber (learning, with its rung) →
-  green ★ as he masters them. Turn the bank off during test week to drill
-  only the school list.
+- **Word lists**: everything he practices is a checklist. The built-in bank
+  opens into one row per half-grade (1st early → 9th), each grade with its
+  own checkbox, on : total count, and per-word checkboxes — so you pick
+  exact grades (no more "up to"), or silence single words. Grades are
+  permanent; custom lists (weekly school lists) work the same way but can
+  be deleted — and any grade can be **copied into a custom list** with one
+  tap, no typing. Words turn green ★ as he masters them. Turn the bank off
+  during test week to drill only the school list.
 - **Level** goes from 1st through 9th grade in half-grade steps, so the app
   grows with him.
 - Add his real weekly **school spelling list** — those words show up more often.

@@ -45,6 +45,19 @@ STAGE_NAMES = {1: "copy", 2: "memory", 3: "sound", 4: "mastered"}
 WORDS, SENTENCES = wordbank.build_pool()
 WORD_GROUP = {item["w"]: item["group"] for item in WORDS}
 
+# The bank is organized in half-grade bands (1.0, 1.5, ... 9.0). Each band is
+# individually selectable in the parent's Word lists card; a word belongs to
+# the band matching its level.
+BAND_COUNTS = {}
+for _item in WORDS:
+    BAND_COUNTS[float(_item["level"])] = \
+        BAND_COUNTS.get(float(_item["level"]), 0) + 1
+GRADE_BANDS = sorted(BAND_COUNTS)
+
+
+def default_bands(max_level=3.0):
+    return [b for b in GRADE_BANDS if b <= float(max_level)]
+
 _lock = threading.RLock()
 
 # A short hash of everything in static/ (name + size + mtime). It changes the
@@ -97,6 +110,7 @@ def _default_state():
         },
         "words": {},          # word -> {seen, correct, missed, streak, last_ts}
         "lists": [],          # [{id, name, enabled, words: [{w, on}]}]
+        "bank_off": [],       # bank words switched off individually
         "modes": {},          # mode -> {seen, correct, missed, points}
         "days": {},           # "YYYY-MM-DD" -> {seen, correct, missed, points,
                               #                  modes: {mode: {...}}}
@@ -121,6 +135,10 @@ def load_state():
         for k, v in base["profile"].items():
             state["profile"].setdefault(k, v)
         state["profile"].setdefault("bank_enabled", True)
+        # migrate the old single "max level" cap into per-band selection
+        if "enabled_grades" not in state["profile"]:
+            state["profile"]["enabled_grades"] = default_bands(
+                state["profile"].get("max_level", 3))
         # migrate the old flat school list into the lists model
         if state.get("custom_words") and not state["lists"]:
             state["lists"].append({
@@ -199,9 +217,58 @@ def enabled_list_words(state):
     return out
 
 
+def enabled_bands(state):
+    raw = state["profile"].get("enabled_grades")
+    bands = {float(b) for b in raw if float(b) in BAND_COUNTS} if raw else set()
+    # nobody left a kid with zero words: empty selection = the default bands
+    return bands or set(default_bands(state["profile"].get("max_level", 3)))
+
+
 def bank_words(state):
-    max_level = float(state["profile"].get("max_level", 3))
-    return [item["w"] for item in WORDS if item["level"] <= max_level]
+    bands = enabled_bands(state)
+    off = set(state.get("bank_off", []))
+    return [item["w"] for item in WORDS
+            if float(item["level"]) in bands and item["w"] not in off]
+
+
+def bank_status(state):
+    """The bank as the Word-lists card shows it: one entry per grade band,
+    each with its words (individually switchable, never removable)."""
+    stats = state["words"]
+    off = set(state.get("bank_off", []))
+    on_bands = enabled_bands(state)
+    bands = []
+    total_on = 0
+    for b in GRADE_BANDS:
+        words = []
+        n_on = 0
+        for item in WORDS:
+            if float(item["level"]) != b:
+                continue
+            w = item["w"]
+            s = stats.get(w)
+            is_on = w not in off
+            n_on += is_on
+            words.append({
+                "word": w,
+                "on": is_on,
+                "stage": word_stage(s) if s and s.get("seen", 0) else 0,
+            })
+        if b in on_bands:
+            total_on += n_on
+        bands.append({
+            "level": b,
+            "enabled": b in on_bands,
+            "total": len(words),
+            "enabled_count": n_on,
+            "words": words,
+        })
+    return {
+        "enabled": state["profile"].get("bank_enabled", True),
+        "total": len(WORDS),
+        "enabled_count": total_on,
+        "bands": bands,
+    }
 
 
 def eligible_words(state):
@@ -465,6 +532,7 @@ def parent_report(state):
             "bank_enabled": state["profile"].get("bank_enabled", True),
         },
         "bank_count": len(bank_words(state)),
+        "bank": bank_status(state),
         "summary": {
             "points": state["profile"].get("points", 0),
             "words_practiced": practiced,
@@ -646,9 +714,20 @@ class Handler(BaseHTTPRequestHandler):
                 p["bank_enabled"] = bool(body["bank_enabled"])
             if "max_level" in body:
                 try:
-                    # grade levels 1.0-9.0, half-grade steps (e.g. 3.5)
+                    # legacy single cap: keep working by selecting every band
+                    # at or below it (grade levels 1.0-9.0, half steps)
                     lvl = round(float(body["max_level"]) * 2) / 2
                     p["max_level"] = max(1.0, min(9.0, lvl))
+                    p["enabled_grades"] = default_bands(p["max_level"])
+                except (ValueError, TypeError):
+                    pass
+            if "enabled_grades" in body:
+                try:
+                    bands = sorted({float(b) for b in body["enabled_grades"]
+                                    if float(b) in BAND_COUNTS})
+                    p["enabled_grades"] = bands
+                    # sentences and labels follow the highest selected band
+                    p["max_level"] = max(bands) if bands else 3.0
                 except (ValueError, TypeError):
                     pass
             new_pin = str(body.get("new_pin", "")).strip()
@@ -748,11 +827,55 @@ class Handler(BaseHTTPRequestHandler):
                 target = clean_token(str(body.get("word", "")))
                 lst["words"] = [wd for wd in lst["words"]
                                 if wd["w"] != target]
+            elif action == "bank_toggle_band":
+                try:
+                    band = float(body.get("level"))
+                except (ValueError, TypeError):
+                    return self._send_json({"error": "bad level"}, 400)
+                bands = enabled_bands(state)
+                if bool(body.get("enabled", True)):
+                    bands.add(band)
+                else:
+                    bands.discard(band)
+                state["profile"]["enabled_grades"] = sorted(bands)
+                state["profile"]["max_level"] = max(bands) if bands else 3.0
+            elif action == "bank_toggle_word":
+                # bank words can be switched off, never removed
+                target = clean_token(str(body.get("word", "")))
+                off = set(state.get("bank_off", []))
+                if bool(body.get("enabled", True)):
+                    off.discard(target)
+                elif target in WORD_GROUP:
+                    off.add(target)
+                state["bank_off"] = sorted(off)
+            elif action == "bank_copy":
+                # copy a band's checked words into a list (new or existing) —
+                # a school list without any typing
+                try:
+                    band = float(body.get("level"))
+                except (ValueError, TypeError):
+                    return self._send_json({"error": "bad level"}, 400)
+                off = set(state.get("bank_off", []))
+                words = [item["w"] for item in WORDS
+                         if float(item["level"]) == band
+                         and item["w"] not in off]
+                if lst is None:
+                    name = str(body.get("name", "")).strip()[:40] or \
+                        f"Grade {band:g} words"
+                    lst = {"id": new_list_id(state), "name": name,
+                           "enabled": True, "words": []}
+                    lists.append(lst)
+                have = {wd["w"] for wd in lst["words"]}
+                for w in words:
+                    if w not in have:
+                        have.add(w)
+                        lst["words"].append({"w": w, "on": True})
             else:
                 return self._send_json({"error": "bad action"}, 400)
             save_state(state)
             status = lists_status(state)
-        self._send_json({"lists": status})
+            bank = bank_status(state)
+        self._send_json({"lists": status, "bank": bank})
 
     def _hub_status(self):
         state = load_state()

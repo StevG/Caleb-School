@@ -91,7 +91,7 @@ for (const [label, w, h] of VIEWPORTS) {
     if (d) d.open = true;
   });
   check(`${label} word lists: bank row, list, chips, buttons all fit`,
-    await inX('.bank-row') && await inX('#lists-wrap details.wlist summary')
+    await inX('#bank-wrap summary') && await inX('#lists-wrap details.wlist summary')
     && await inX('#lists-wrap .word-row')
     && await inX('.wlist-actions .danger') && await inX('#custom-add'));
   await page.screenshot({ path: `${OUT}/m-${label}-parent.png` });

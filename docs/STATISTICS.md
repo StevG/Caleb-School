@@ -11,7 +11,7 @@ view answers one question a parent of a struggling speller actually asks.
 | Accuracy tile | "How is he doing overall?" | `summary.accuracy` (unaided only) |
 | Last practiced bar | "Did he do it today?" | `last_practice_ts` |
 | Learning journey card | "Where is everything on the ladder?" | `journey` {copy, memory, sound, mastered} + `summary.mastered_this_week` |
-| Word lists card | "What is he practicing, and is he ready for Friday's test?" | `profile.bank_enabled` + `bank_count` (the bank row) and `lists` [{id, name, enabled, total, enabled_count, mastered, words:[{word, on, stage, seen, missed}]}]. Each list row: checkbox + `enabled:total` count + ★mastered. Inside: a plain single-column checklist — checkbox per word (checked = practiced), the word (green when mastered, struck when off), and right-aligned status ("★ mastered" / rung name / "not tried", ✗N misses); ✕ removes. Deliberately utilitarian, not pretty. |
+| Word lists card | "What is he practicing, and is he ready for Friday's test?" | Two kinds of sources, same checklist UI. **The bank** (`bank`: enabled, enabled_count:total, bands[]): one PERMANENT nested list per half-grade band, each with its own checkbox, `on:total` count, and per-word checkboxes (`bank_off` stores switched-off words) — plus a "Copy words" action that clones a band's checked words into a new or existing custom list without typing. **Custom lists** (`lists` [{id, name, enabled, total, enabled_count, mastered, words:[{word, on, stage, seen, missed}]}]): same rows plus ✕ remove and Delete — deletable, unlike grades. Words: green = mastered, struck = off, ✗N = misses. Deliberately utilitarian. |
 | Most-missed words | "What should we drill in the car?" | `most_missed` (sorted by misses; `stage` included) |
 | Day by day | "Is practice actually happening?" | `daily` — one row PER DAY, never merged (words, accuracy, stars) |
 | By practice type | "Which modes does he use / avoid?" | `by_mode` per words/listen/sentences/memory (tries, accuracy, sessions, stars) |
@@ -20,10 +20,12 @@ view answers one question a parent of a struggling speller actually asks.
 ## Data model (data/progress.json)
 
 ```
-profile:      name, points, pin, show_speaker, max_level (1.0-9.0 halves),
-              bank_enabled
+profile:      name, points, pin, show_speaker, bank_enabled,
+              enabled_grades [1.0..9.0 halves] (max_level kept in sync =
+              max(enabled_grades); legacy max_level input maps to bands)
 lists:        [{id, name, enabled, words: [{w, on}]}]  (custom word lists;
               legacy flat custom_words migrates into one "School list")
+bank_off:     [word]  (bank words switched off individually)
 words:        word -> {seen, correct, missed, streak, last_ts,
                        stage (1-4), stage_streak, mastered_ts?}
 modes:        mode -> {seen, correct, missed, points}

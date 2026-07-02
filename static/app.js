@@ -904,14 +904,12 @@ function renderReport(rep) {
     });
   }
 
-  // word sources: the bank row + the custom lists
-  $("bank-enabled").checked = rep.profile.bank_enabled !== false;
-  $("bank-sub").textContent = "(up to " + gradeLabel(rep.profile.max_level || 3) + ")";
-  $("bank-count").textContent = (rep.bank_count || 0) + " words";
+  // word sources: the custom lists first (the bank's copy-target dropdown
+  // needs them cached), then the bank with its grade bands
   renderLists(rep.lists || []);
+  renderBank(rep.bank);
 
   $("set-name").value = rep.profile.name || "";
-  $("set-level").value = String(rep.profile.max_level || 3);
   $("set-speaker").checked = rep.profile.show_speaker !== false;
   $("set-pin").value = "";
   $("settings-saved").textContent = "";
@@ -919,6 +917,108 @@ function renderReport(rep) {
 
 // ---------- Word lists (the parent picks what he practices) ----------
 const STAGE_TAGS = { 1: "copying", 2: "from memory", 3: "from sound" };
+
+// The built-in bank: like the custom lists (checkboxes down to single
+// words) except PERMANENT — grades and their words can be switched off but
+// never deleted. Each grade band can also be copied into a custom list, so
+// a school list can be built without typing.
+let cachedLists = [];
+
+function renderBank(bank) {
+  const wrap = $("bank-wrap");
+  if (!bank) { wrap.innerHTML = ""; return; }
+  const wasOpen = !!wrap.querySelector("details.wlist[open]");
+  const openBands = new Set(
+    [...wrap.querySelectorAll("details.band[open]")].map((d) => d.dataset.level));
+  wrap.innerHTML = "";
+  const det = document.createElement("details");
+  det.className = "wlist";
+  if (wasOpen) det.open = true;
+
+  const sum = document.createElement("summary");
+  sum.innerHTML = `<span class="tri">▶</span>` +
+    `<input type="checkbox" id="bank-enabled" ${bank.enabled ? "checked" : ""}` +
+    ` aria-label="use the word bank">` +
+    `<span class="list-name">Word bank</span>` +
+    `<span class="list-count" id="bank-count">${bank.enabled_count}:${bank.total}</span>`;
+  const master = sum.querySelector("input");
+  master.addEventListener("click", (e) => e.stopPropagation());
+  master.addEventListener("change", () => {
+    postJSON("/api/parent/settings",
+      { pin: state.parentPin, bank_enabled: master.checked })
+      .then(() => { $("custom-status").textContent = ""; })
+      .catch(listsFail);
+  });
+  det.appendChild(sum);
+
+  const body = document.createElement("div");
+  body.className = "wlist-body bank-body";
+  bank.bands.forEach((band) => {
+    const bd = document.createElement("details");
+    bd.className = "band";
+    bd.dataset.level = String(band.level);
+    if (openBands.has(String(band.level))) bd.open = true;
+
+    const bsum = document.createElement("summary");
+    bsum.innerHTML = `<span class="tri">▶</span>` +
+      `<input type="checkbox" ${band.enabled ? "checked" : ""}` +
+      ` aria-label="include this grade">` +
+      `<span class="list-name">${gradeLabel(band.level)}</span>` +
+      `<span class="list-count">${band.enabled_count}:${band.total}</span>`;
+    const bcb = bsum.querySelector("input");
+    bcb.addEventListener("click", (e) => e.stopPropagation());
+    bcb.addEventListener("change", () => {
+      listsCall({ action: "bank_toggle_band", level: band.level,
+                  enabled: bcb.checked }).catch(listsFail);
+    });
+    bd.appendChild(bsum);
+
+    const bbody = document.createElement("div");
+    bbody.className = "wlist-body";
+    const rows = document.createElement("div");
+    rows.className = "word-rows";
+    band.words.forEach((it) => {
+      const row = document.createElement("div");
+      row.className = "word-row" +
+        (it.stage >= 4 ? " st-mastered" : "") + (it.on ? "" : " off");
+      const status = it.stage >= 4 ? "★ mastered"
+        : it.stage >= 1 ? STAGE_TAGS[it.stage] : "";
+      row.innerHTML =
+        `<input type="checkbox" ${it.on ? "checked" : ""}` +
+        ` aria-label="practice this word">` +
+        `<span class="wr-word">${esc(it.word)}</span>` +
+        `<span class="wr-status">${status}</span>`;
+      const wcb = row.querySelector("input");
+      wcb.addEventListener("change", () => {
+        listsCall({ action: "bank_toggle_word", word: it.word,
+                    enabled: wcb.checked }).catch(listsFail);
+      });
+      rows.appendChild(row);
+    });
+    bbody.appendChild(rows);
+
+    // copy this grade's checked words into a custom list — no typing
+    const copy = document.createElement("div");
+    copy.className = "wlist-actions";
+    const opts = cachedLists.map((l) =>
+      `<option value="${esc(l.id)}">into: ${esc(l.name)}</option>`).join("");
+    copy.innerHTML =
+      `<select aria-label="copy target">` +
+      `<option value="">as a new list</option>${opts}</select>` +
+      `<button class="mini-btn">Copy words</button>`;
+    copy.querySelector("button").addEventListener("click", () => {
+      const target = copy.querySelector("select").value;
+      listsCall({ action: "bank_copy", level: band.level,
+                  list_id: target || undefined,
+                  name: gradeLabel(band.level) + " words" }).catch(listsFail);
+    });
+    bbody.appendChild(copy);
+    bd.appendChild(bbody);
+    body.appendChild(bd);
+  });
+  det.appendChild(body);
+  wrap.appendChild(det);
+}
 
 function listsFail() {
   $("custom-status").textContent = "Could not update — check your connection.";
@@ -928,6 +1028,7 @@ async function listsCall(body) {
   const r = await postJSON("/api/parent/lists",
     { pin: state.parentPin, ...body });
   renderLists(r.lists);
+  if (r.bank) renderBank(r.bank);
   $("custom-status").textContent = "";
   return r;
 }
@@ -935,6 +1036,7 @@ async function listsCall(body) {
 // lists: [{id, name, enabled, total, enabled_count, mastered,
 //          words: [{word, on, stage, seen, missed}]}]
 function renderLists(lists) {
+  cachedLists = lists || []; // the bank's copy-target dropdown reads this
   const wrap = $("lists-wrap");
   // keep lists the parent opened open across re-renders
   const openIds = new Set(
@@ -1030,27 +1132,6 @@ function gradeLabel(v) {
 }
 
 function wireParent() {
-  // grade levels 1-9 in half-grade steps ("3rd grade · early" = 3.0)
-  const sel = $("set-level");
-  sel.innerHTML = "";
-  for (let g = 1; g <= 9; g++) {
-    [0, 0.5].forEach((half) => {
-      if (g === 9 && half) return; // 9.0 is the top of the bank
-      const o = document.createElement("option");
-      o.value = String(g + half);
-      o.textContent = gradeLabel(g + half);
-      sel.appendChild(o);
-    });
-  }
-
-  // the bank is a source like any list — one checkbox
-  $("bank-enabled").addEventListener("change", () => {
-    postJSON("/api/parent/settings",
-      { pin: state.parentPin, bank_enabled: $("bank-enabled").checked })
-      .then(() => { $("custom-status").textContent = ""; })
-      .catch(listsFail);
-  });
-
   $("custom-add").addEventListener("click", async () => {
     const val = $("custom-input").value.trim();
     if (!val) return;
@@ -1068,7 +1149,6 @@ function wireParent() {
     const body = {
       pin: state.parentPin,
       name: $("set-name").value,
-      max_level: parseFloat($("set-level").value),
       show_speaker: $("set-speaker").checked,
     };
     const newPin = $("set-pin").value.trim();
