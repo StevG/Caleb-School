@@ -12,6 +12,7 @@ from main).
 | `new-features.mjs` | Active-box cursor, capitals in sentences, Listen & Spell, per-mode / per-day stats, last-practiced |
 | `matrix.mjs` | Layout bounds at iPhone/iPad × portrait/landscape + mid-word rotation |
 | `staged.mjs` | The learning ladder: stage-1 copy stays visible, stage-2 hides, stage-3 audio-only, level-up feedback, journey card, school-list statuses |
+| `updates.mjs` | The PWA update prompt: `/api/version` change → "Update" bar appears → tap reloads (touches a static file to simulate a deploy) |
 
 ## Running
 

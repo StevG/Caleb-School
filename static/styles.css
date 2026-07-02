@@ -35,6 +35,20 @@ body{
 .screen.active{display:flex}
 .hidden{display:none !important}
 
+/* Update banner: a slim bar pinned to the top on every screen. When shown,
+   screens gain matching top padding so nothing hides behind it. */
+.update-bar{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  display:flex;align-items:center;justify-content:center;gap:14px;
+  padding:calc(env(safe-area-inset-top) + 9px) 14px 9px;
+  background:var(--blue);color:#fff;font-weight:800;font-size:15px;
+  box-shadow:0 3px 12px rgba(0,0,0,.18)}
+.update-bar button{
+  background:#fff;color:var(--blue-d);border:none;border-radius:12px;
+  padding:8px 18px;font-weight:800;font-size:15px;cursor:pointer}
+.update-bar button:active{transform:scale(.96)}
+body.has-update .screen{padding-top:calc(env(safe-area-inset-top) + 46px)}
+
 /* ---------- HOME ---------- */
 .gear{
   position:absolute;top:calc(env(safe-area-inset-top) + 14px);

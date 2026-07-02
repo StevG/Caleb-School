@@ -64,18 +64,27 @@ No pip, no dependencies — a stock Raspberry Pi OS install has everything.
 ```bash
 git clone https://github.com/StevG/Caleb-School.git
 cd Caleb-School
-HOST=0.0.0.0 PORT=8013 python3 server.py
+HOST=0.0.0.0 PORT=8013 AUTO_UPDATE=1 python3 server.py
 ```
 
 Then on the iPad/iPhone open `http://<pi-ip>:8013` (find the IP with
 `hostname -I` on the Pi) and use Share → **Add to Home Screen** for the
 full-screen app icon. Progress saves to `data/progress.json` on the Pi.
 
-Notes: `HOST=0.0.0.0` is for LAN testing only — never use it on the HomeHub
-Mac (HomeHub expects loopback behind its tunnel). Offline caching (service
-worker) is off over plain HTTP; everything else works. To keep it running
-after you close SSH: `nohup env HOST=0.0.0.0 PORT=8013 python3 server.py &`
-— or just leave the SSH window open for a quick test.
+- **`AUTO_UPDATE=1`** makes the Pi self-update: it checks git every ~90 s and,
+  on new commits to `main`, fast-forwards and restarts itself — so you never
+  have to SSH in to pull. Leave it off to update manually (`git pull` +
+  restart).
+- The installed app also shows its own **"Update" bar** when a new version is
+  deployed (it watches `/api/version`) — one tap refreshes the phone, so it
+  never keeps a stale copy.
+- `HOST=0.0.0.0` is for LAN use only — never on the HomeHub Mac. Offline
+  caching is off over plain HTTP; everything else works. Keep it running with
+  `nohup env HOST=0.0.0.0 PORT=8013 AUTO_UPDATE=1 python3 server.py &`, or set
+  it up as a service (see **`docs/HOSTING.md`**).
+
+See **`docs/HOSTING.md`** for the full standalone-vs-HomeHub guide — including
+exactly what changes (nothing in the code) when you later deploy on HomeHub.
 
 ## Files
 

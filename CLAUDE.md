@@ -13,6 +13,9 @@ Read these before changing anything significant:
 - **`docs/RESEARCH.md`** — the curriculum research behind the word bank and
   practice method (sources cited). Don't re-research what's already there.
 - **`docs/ROADMAP.md`** — agreed future work and extension points.
+- **`docs/HOSTING.md`** — standalone (Raspberry Pi) vs. HomeHub: the env-var
+  knobs (`HOST`, `AUTO_UPDATE`) and git self-update, and what changes
+  (nothing in the code) when migrating to HomeHub.
 - **`tests/README.md`** — the Playwright suites; run them before pushing.
 
 ## What this app is
@@ -36,7 +39,14 @@ them casually.
   end is plain HTML/CSS/JS — no frameworks, no build step, no node_modules.
 - **HomeHub contract** (see HomeHub's `INTEGRATING_NEW_APPS.md`): bind
   `127.0.0.1`, read `$PORT`, run in the foreground, keep `GET /.hub/status`
-  working. Prod port 8013, dev 8113.
+  working. Prod port 8013, dev 8113. Standalone-only behavior (`HOST=0.0.0.0`,
+  `AUTO_UPDATE` git self-update) is env-gated and auto-disables under HomeHub
+  — see `docs/HOSTING.md`. Don't make it default-on.
+- **Version/refresh**: the server derives a content hash of `static/`
+  (`asset_version()`), serves it at `GET /api/version`, and stamps it into
+  `sw.js` so every deploy is a new service worker. The client polls
+  `/api/version` and shows an "Update" bar → tap reloads. Don't cache
+  `/api/*`; keep `sw.js` served no-store.
 - **`data/` is gitignored and sacred.** Progress lives in
   `data/progress.json`; HomeHub auto-pulls `main` every ~30 s, so anything not
   gitignored gets clobbered. Never commit data; never write outside `data/`.

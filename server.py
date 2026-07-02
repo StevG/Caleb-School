@@ -13,9 +13,12 @@ HomeHub contract:
 Run locally:   PORT=9999 python3 server.py   then open http://127.0.0.1:9999
 """
 
+import hashlib
 import json
 import os
 import random
+import subprocess
+import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -43,6 +46,28 @@ WORDS, SENTENCES = wordbank.build_pool()
 WORD_GROUP = {item["w"]: item["group"] for item in WORDS}
 
 _lock = threading.RLock()
+
+# A short hash of everything in static/ (name + size + mtime). It changes the
+# moment any front-end file changes, which lets an installed PWA notice a new
+# deploy and prompt the user to refresh — the same code path serves the app on
+# the Raspberry Pi and on HomeHub, so this works identically in both.
+_version_cache = {"sig": None, "version": "dev"}
+
+
+def asset_version():
+    parts = []
+    for root, _dirs, files in os.walk(STATIC_DIR):
+        for name in files:
+            try:
+                st = os.stat(os.path.join(root, name))
+            except OSError:
+                continue
+            parts.append(f"{name}:{st.st_size}:{int(st.st_mtime)}")
+    sig = "|".join(sorted(parts))
+    if sig != _version_cache["sig"]:
+        _version_cache["sig"] = sig
+        _version_cache["version"] = hashlib.sha1(sig.encode()).hexdigest()[:12]
+    return _version_cache["version"]
 
 MIME = {
     ".html": "text/html; charset=utf-8",
@@ -167,14 +192,20 @@ def build_word_session(state, count):
     def is_mastered(w):
         return bool(stats.get(w)) and word_stage(stats[w]) >= STAGE_MASTERED
 
-    # Review = seen but not yet mastered (missed words bubble to the top).
-    review = [w for w in pool if w in stats and not is_mastered(w)]
-    review.sort(key=lambda w: (-stats[w].get("missed", 0),
-                               stats[w].get("last_ts", 0)))
-    # Custom words the child hasn't mastered are worth surfacing often.
-    review.sort(key=lambda w: 0 if w in custom else 1)
+    # Priority bucket = words to keep working: anything seen-but-unmastered,
+    # PLUS every not-yet-mastered school word — even brand-new ones, so a list
+    # the parent just pasted starts showing up right away (not by luck in a
+    # 1,500-word pool). School words sort ahead, then most-missed / oldest.
+    priority = [w for w in pool
+                if (w in stats and not is_mastered(w))
+                or (w in custom and not is_mastered(w))]
+    priority.sort(key=lambda w: (
+        0 if w in custom else 1,
+        -stats.get(w, {}).get("missed", 0),
+        stats.get(w, {}).get("last_ts", 0)))
+    review = priority
 
-    fresh = [w for w in pool if w not in stats]
+    fresh = [w for w in pool if w not in stats and w not in custom]
     random.shuffle(fresh)
 
     # Least-recently-practised mastered words, as filler if we run short.
@@ -437,6 +468,10 @@ class Handler(BaseHTTPRequestHandler):
         path = parsed.path
         if path == "/.hub/status":
             return self._hub_status()
+        if path == "/api/version":
+            return self._send_json({"version": asset_version()})
+        if path == "/sw.js":
+            return self._serve_sw()
         if path == "/api/state":
             return self._api_state()
         if path == "/api/session":
@@ -623,6 +658,25 @@ class Handler(BaseHTTPRequestHandler):
             ],
         })
 
+    def _serve_sw(self):
+        """Serve the service worker with the current version stamped in, so
+        its bytes change on every deploy and the browser installs the update.
+        Served no-store so the browser always re-checks it."""
+        try:
+            with open(os.path.join(STATIC_DIR, "sw.js"), "r",
+                      encoding="utf-8") as f:
+                body = f.read().replace("%%VERSION%%", asset_version())
+        except OSError:
+            self.send_error(404)
+            return
+        data = body.encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/javascript; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+        self.end_headers()
+        self.wfile.write(data)
+
     # -- static files --
     def _serve_static(self, path):
         if path == "/":
@@ -651,12 +705,77 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
 
+# --- optional git auto-update (for standalone hosts like a Raspberry Pi) ----
+# Off by default. Enable with AUTO_UPDATE=1 and the server will, on an
+# interval, `git fetch` + fast-forward the current branch and re-exec itself
+# so new code takes effect — the same self-updating behavior HomeHub gives its
+# apps. Under HomeHub (which already auto-pulls) this stays disabled so the two
+# never fight. Data lives in the gitignored data/ dir, so pulls never touch it.
+
+def _git(*args, timeout=45):
+    return subprocess.run(["git", "-C", HERE, *args],
+                          capture_output=True, text=True, timeout=timeout)
+
+
+def _auto_update_enabled():
+    flag = os.environ.get("AUTO_UPDATE", "").strip().lower()
+    if flag not in ("1", "true", "yes", "on"):
+        return False
+    if os.environ.get("HUB_SLUG") or os.environ.get("HUB_ENV"):
+        return False  # HomeHub manages updates itself
+    try:
+        inside = _git("rev-parse", "--is-inside-work-tree", timeout=10)
+        return inside.returncode == 0 and inside.stdout.strip() == "true"
+    except Exception:
+        return False
+
+
+def _auto_update_loop(httpd, interval, branch):
+    script = os.path.join(HERE, "server.py")
+    while True:
+        time.sleep(interval)
+        try:
+            before = _git("rev-parse", "HEAD").stdout.strip()
+            if _git("fetch", "origin", branch).returncode != 0:
+                continue  # offline / transient — try again next tick
+            merged = _git("merge", "--ff-only", f"origin/{branch}")
+            after = _git("rev-parse", "HEAD").stdout.strip()
+            if merged.returncode == 0 and after and after != before:
+                print(f"[spelling] auto-update {before[:7]} -> {after[:7]}; "
+                      f"restarting", flush=True)
+                try:
+                    httpd.server_close()
+                except Exception:
+                    pass
+                # replace this process with a fresh one running the new code
+                os.execv(sys.executable, [sys.executable, script] + sys.argv[1:])
+        except Exception:
+            continue  # never let the updater take the server down
+
+
+def start_auto_updater(httpd):
+    if not _auto_update_enabled():
+        return
+    branch = os.environ.get("AUTO_UPDATE_BRANCH", "").strip()
+    if not branch:
+        cur = _git("rev-parse", "--abbrev-ref", "HEAD", timeout=10)
+        branch = cur.stdout.strip() if cur.returncode == 0 else "main"
+    try:
+        interval = max(15, int(os.environ.get("AUTO_UPDATE_INTERVAL", "90")))
+    except ValueError:
+        interval = 90
+    t = threading.Thread(target=_auto_update_loop,
+                         args=(httpd, interval, branch), daemon=True)
+    t.start()
+    print(f"[spelling] auto-update ON (branch {branch}, every {interval}s)",
+          flush=True)
+
+
 class QuietServer(ThreadingHTTPServer):
     """Don't spew tracebacks when a phone drops a connection mid-request —
     iOS does that constantly (speculative connections, app switching)."""
 
     def handle_error(self, request, client_address):
-        import sys
         exc = sys.exc_info()[1]
         if isinstance(exc, (ConnectionResetError, BrokenPipeError,
                             ConnectionAbortedError, TimeoutError)):
@@ -673,6 +792,7 @@ def main():
     httpd = QuietServer((host, port), Handler)
     print(f"[spelling] listening on http://{host}:{port} "
           f"({len(WORDS)} words, {len(SENTENCES)} sentences)")
+    start_auto_updater(httpd)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

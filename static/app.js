@@ -61,9 +61,7 @@ function boot() {
   wireDone();
   wireGate();
   wireParent();
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
-  }
+  initUpdates();
   api("/api/state").then((s) => {
     state.points = s.points || 0;
     state.showSpeaker = s.show_speaker !== false;
@@ -72,6 +70,85 @@ function boot() {
     // help the second parent get in the first time (hidden once changed)
     $("gate-hint").classList.toggle("hidden", !s.pin_is_default);
   }).catch(() => {});
+}
+
+// ---------- keeping the installed app fresh ----------
+// An installed PWA keeps its page alive across app switches, so a new deploy
+// can go unnoticed. We watch for it two ways — the service-worker update
+// event, and polling /api/version (iOS home-screen apps don't always fire the
+// SW event) — and show an "Update" bar the parent can tap to refresh. Works
+// the same whether the app is served from the Pi or from HomeHub.
+let bootVersion = null;
+let updateShown = false;
+let swReg = null;
+
+function showUpdateBar() {
+  if (updateShown) return;
+  updateShown = true;
+  $("update-bar").classList.remove("hidden");
+  document.body.classList.add("has-update");
+}
+
+function initUpdates() {
+  $("update-btn").addEventListener("click", doUpdate);
+
+  api("/api/version").then((v) => { bootVersion = v.version; }).catch(() => {});
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js").then((reg) => {
+      swReg = reg;
+      // an update installed on a previous visit is already waiting
+      if (reg.waiting && navigator.serviceWorker.controller) showUpdateBar();
+      reg.addEventListener("updatefound", () => {
+        const nw = reg.installing;
+        if (!nw) return;
+        nw.addEventListener("statechange", () => {
+          // "installed" + an existing controller => this is an update, not
+          // the first install, so it's safe to offer the refresh
+          if (nw.state === "installed" && navigator.serviceWorker.controller) {
+            showUpdateBar();
+          }
+        });
+      });
+    }).catch(() => {});
+
+    let reloading = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (reloading) return;
+      reloading = true;
+      window.location.reload();
+    });
+  }
+
+  // re-check whenever the app comes back to the foreground, plus a slow tick
+  const recheck = () => {
+    if (document.hidden) return;
+    if (swReg) swReg.update().catch(() => {});
+    api("/api/version").then((v) => {
+      if (bootVersion && v.version && v.version !== bootVersion) showUpdateBar();
+    }).catch(() => {});
+  };
+  document.addEventListener("visibilitychange", recheck);
+  window.addEventListener("focus", recheck);
+  setInterval(recheck, 60000);
+}
+
+function doUpdate() {
+  $("update-btn").textContent = "Updating…";
+  const hardReload = () => window.location.reload();
+  // if a new worker is waiting, let it take over (its controllerchange
+  // triggers the reload); otherwise just reload to pull fresh files.
+  Promise.resolve(
+    "serviceWorker" in navigator
+      ? navigator.serviceWorker.getRegistration() : null
+  ).then((reg) => {
+    if (reg && reg.waiting) {
+      reg.waiting.postMessage("SKIP_WAITING");
+      setTimeout(hardReload, 1500); // fallback if controllerchange is slow
+    } else {
+      hardReload();
+    }
+  }).catch(hardReload);
 }
 
 // ---------- HOME ----------

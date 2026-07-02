@@ -1,6 +1,9 @@
-// Minimal service worker: caches the app shell so it opens fast and works
-// offline, but always tries the network first for API calls and fresh files.
-const CACHE = "spelling-v3";
+// Service worker: caches the app shell (fast launch + offline), but always
+// tries the network first so a fresh deploy is picked up. %%VERSION%% is
+// stamped in by server.py — it changes on every deploy, so the browser sees
+// this file as new and installs the update; the page then prompts to refresh.
+const VERSION = "%%VERSION%%";
+const CACHE = "spelling-" + VERSION;
 const SHELL = [
   "/",
   "/index.html",
@@ -13,7 +16,13 @@ const SHELL = [
 ];
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // Cache the shell, but do NOT skipWaiting — we wait so the page can show
+  // an "Update" button; it messages us SKIP_WAITING when the user taps it.
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).catch(() => {}));
+});
+
+self.addEventListener("message", (e) => {
+  if (e.data === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("activate", (e) => {
@@ -26,7 +35,7 @@ self.addEventListener("activate", (e) => {
 
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
-  // Never cache API traffic — progress must be live.
+  // Never cache API traffic — progress and the version check must be live.
   if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/.hub/")) {
     return; // fall through to network
   }
