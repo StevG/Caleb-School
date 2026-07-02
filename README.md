@@ -41,6 +41,26 @@ PORT=9999 python3 server.py
 # open http://127.0.0.1:9999
 ```
 
+## Test it on a Raspberry Pi (or any spare box on the LAN)
+
+No pip, no dependencies — a stock Raspberry Pi OS install has everything.
+
+```bash
+git clone https://github.com/StevG/Caleb-School.git
+cd Caleb-School
+HOST=0.0.0.0 PORT=8013 python3 server.py
+```
+
+Then on the iPad/iPhone open `http://<pi-ip>:8013` (find the IP with
+`hostname -I` on the Pi) and use Share → **Add to Home Screen** for the
+full-screen app icon. Progress saves to `data/progress.json` on the Pi.
+
+Notes: `HOST=0.0.0.0` is for LAN testing only — never use it on the HomeHub
+Mac (HomeHub expects loopback behind its tunnel). Offline caching (service
+worker) is off over plain HTTP; everything else works. To keep it running
+after you close SSH: `nohup env HOST=0.0.0.0 PORT=8013 python3 server.py &`
+— or just leave the SSH window open for a quick test.
+
 ## Files
 
 | File | What it is |

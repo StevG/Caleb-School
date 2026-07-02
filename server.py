@@ -492,8 +492,12 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     port = int(os.environ.get("PORT", "8013"))
-    httpd = ThreadingHTTPServer(("127.0.0.1", port), Handler)
-    print(f"[spelling] listening on http://127.0.0.1:{port} "
+    # Default loopback per the HomeHub contract. For LAN testing on another
+    # box (e.g. a Raspberry Pi), opt in with HOST=0.0.0.0 so phones/iPads on
+    # the network can reach it. Never set that on the HomeHub Mac.
+    host = os.environ.get("HOST", "127.0.0.1")
+    httpd = ThreadingHTTPServer((host, port), Handler)
+    print(f"[spelling] listening on http://{host}:{port} "
           f"({len(WORDS)} words, {len(SENTENCES)} sentences)")
     try:
         httpd.serve_forever()
