@@ -125,6 +125,9 @@ body.has-update .screen{padding-top:calc(env(safe-area-inset-top) + 46px)}
 .speaker{background:#fff;border:none;box-shadow:var(--shadow);border-radius:50%;
   width:56px;height:56px;font-size:26px;cursor:pointer}
 .speaker:active{transform:scale(.92)}
+/* pulses while actually talking — shows it's working even on a muted phone */
+.speaker.speaking{animation:speaking .9s ease-in-out infinite}
+@keyframes speaking{50%{transform:scale(1.18)}}
 .prompt-hint{color:var(--muted);font-size:17px;min-height:22px}
 
 /* one row, always — box size (--bs) is computed per word in renderBoxes() */

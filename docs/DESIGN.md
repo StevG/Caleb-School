@@ -79,6 +79,14 @@ Four modes share that mechanic (owner-specified behavior — keep it exact):
 - Not a game with an economy — points are minutes of iPad time, period.
 
 ## Decisions log
+- 2026-07-02 — Speech hardened for iOS (owner field report): speak-after-
+  cancel settle delay (a tap mid-utterance used to be silently dropped),
+  resume() before speaking (synth wakes paused after app switches), a
+  silent unlock utterance inside the session-start tap (auto-speak was
+  blocked until the first manual 🔊 tap), a kept utterance reference (GC
+  kills audio mid-word), and the 🔊 button pulses while actually talking —
+  visible proof it's working even when the iPhone ring/silent switch has
+  muted speech (iOS mutes speechSynthesis on silent; nothing an app can do).
 - 2026-07-02 — Checkboxes are predictable (owner bug report): unchecking
   every grade band STICKS — no more silent snap-back to the up-to-3rd-grade
   defaults. An empty selection shows a calm amber heads-up in the Word

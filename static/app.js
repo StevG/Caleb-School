@@ -223,6 +223,7 @@ function wireHome() {
 const isSentenceMode = () => state.mode === "sentences" || state.mode === "memory";
 
 async function startSession() {
+  unlockSpeech(); // still inside the start tap — lets auto-speak work on iOS
   // memory sentences are the hardest work, so fewer per session
   // (dictation guidance: 2-5 sentences/day; fewer for a struggling speller)
   const count = state.mode === "memory" ? 3
@@ -737,6 +738,46 @@ function wirePlay() {
   $("speaker").addEventListener("click", speakCurrent);
 }
 
+// ---------- speech (iOS-safe) ----------
+// iOS Safari quirks handled here, each one earned the hard way:
+// (1) speak() right after cancel() gets silently dropped — wait a beat;
+// (2) the synth can come back PAUSED after an app switch — resume() first;
+// (3) utterances are garbage-collected mid-speech unless referenced;
+// (4) only gesture-initiated speech is allowed until one real utterance
+//     runs inside a tap — startSession() burns its tap on unlockSpeech()
+//     so auto-speak (Listen & Spell, ladder stage 3) works from word one.
+// Note: the iPhone RING/SILENT switch mutes speech synthesis entirely —
+// the pulsing speaker shows the app IS talking even when the phone is mute.
+let currentUtterance = null;
+
+function speakText(text) {
+  const synth = window.speechSynthesis;
+  if (!synth || !text) return;
+  try { synth.resume(); } catch (_) {}
+  const u = new SpeechSynthesisUtterance(text);
+  u.rate = 0.8;
+  u.lang = "en-US";
+  u.onstart = () => $("speaker").classList.add("speaking");
+  u.onend = u.onerror = () => $("speaker").classList.remove("speaking");
+  currentUtterance = u; // hold the reference (3)
+  if (synth.speaking || synth.pending) {
+    synth.cancel();
+    setTimeout(() => { if (currentUtterance === u) synth.speak(u); }, 80);
+  } else {
+    synth.speak(u);
+  }
+}
+
+function unlockSpeech() {
+  const synth = window.speechSynthesis;
+  if (!synth) return;
+  try {
+    const u = new SpeechSynthesisUtterance("");
+    u.volume = 0;
+    synth.speak(u); // inside the session-start tap — see (4) above
+  } catch (_) {}
+}
+
 function speakCurrent() {
   if (!("speechSynthesis" in window)) return;
   let text = state.target;
@@ -747,11 +788,7 @@ function speakCurrent() {
     if (!tok) return; // between the last word and the next sentence
     text = tok.answer;
   }
-  if (!text) return;
-  const u = new SpeechSynthesisUtterance(text);
-  u.rate = 0.8; u.lang = "en-US";
-  window.speechSynthesis.cancel();
-  window.speechSynthesis.speak(u);
+  speakText(text);
 }
 
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
@@ -804,7 +841,9 @@ function goHome() {
   $("goal-row").classList.add("hidden");
   state.sentence = null;
   state.memorizing = false;
+  currentUtterance = null;
   window.speechSynthesis && window.speechSynthesis.cancel();
+  $("speaker").classList.remove("speaking");
   show("home");
 }
 

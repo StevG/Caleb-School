@@ -17,6 +17,7 @@ from main).
 | `hearts.mjs` | Heart words: heart fields on session items/tokens, red grapheme spans in prompt + reveal, heart hints, `heartSpans()` edge cases, ♥ list markers + the hearts-only filter |
 | `children.mjs` | Multiple children: per-child lists/settings/points, home-screen picker, dashboard child tabs, add/rename/remove, device pick persistence |
 | `progress.mjs` | Results by list: per-list/band mastery + accuracy + daily trend + trouble words, per-list "start over", settings resets (stars / progress), reset scoping per child |
+| `audio.mjs` | Speech: iOS-safe speak path (cancel→settle→speak, resume, last-tap-wins), session-start audio unlock, speaker pulse, memory-mode whole-sentence dictation in both phases, quit cancels |
 
 ## Running
 
