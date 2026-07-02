@@ -968,32 +968,35 @@ function renderLists(lists) {
 
     const body = document.createElement("div");
     body.className = "wlist-body";
-    const chips = document.createElement("div");
-    chips.className = "chips-wrap";
+    // plain utility list: one word per row, checkbox = practice it or not
+    const rows = document.createElement("div");
+    rows.className = "word-rows";
     l.words.forEach((it) => {
-      const chip = document.createElement("span");
-      chip.className = "word-chip" +
+      const row = document.createElement("div");
+      row.className = "word-row" +
         (it.stage >= 4 ? " st-mastered" : it.stage >= 1 ? " st-learning" : "") +
         (it.on ? "" : " off");
-      let extra = "";
-      if (it.stage >= 4) extra = " ★";
-      else if (it.stage >= 1) extra = ` <span class="chip-stage">${STAGE_TAGS[it.stage]}</span>`;
-      if (it.missed > 0) extra += ` <span class="chip-miss">✗${it.missed}</span>`;
-      chip.innerHTML = `<span class="chip-word">${esc(it.word)}</span>${extra} ` +
-        `<button aria-label="remove">✕</button>`;
-      // tap the chip = switch the word on/off; ✕ = remove it from the list
-      chip.addEventListener("click", () => {
+      const status = it.stage >= 4 ? "★ mastered"
+        : it.stage >= 1 ? STAGE_TAGS[it.stage] : "not tried";
+      const miss = it.missed > 0
+        ? ` <span class="wr-miss">✗${it.missed}</span>` : "";
+      row.innerHTML =
+        `<input type="checkbox" ${it.on ? "checked" : ""} aria-label="practice this word">` +
+        `<span class="wr-word">${esc(it.word)}</span>` +
+        `<span class="wr-status">${status}${miss}</span>` +
+        `<button class="wr-x" aria-label="remove">✕</button>`;
+      const wcb = row.querySelector("input");
+      wcb.addEventListener("change", () => {
         listsCall({ action: "toggle_word", list_id: l.id,
-                    word: it.word, enabled: !it.on }).catch(listsFail);
+                    word: it.word, enabled: wcb.checked }).catch(listsFail);
       });
-      chip.querySelector("button").addEventListener("click", (e) => {
-        e.stopPropagation();
+      row.querySelector(".wr-x").addEventListener("click", () => {
         listsCall({ action: "remove_word", list_id: l.id, word: it.word })
           .catch(listsFail);
       });
-      chips.appendChild(chip);
+      rows.appendChild(row);
     });
-    body.appendChild(chips);
+    body.appendChild(rows);
 
     const actions = document.createElement("div");
     actions.className = "wlist-actions";

@@ -33,11 +33,11 @@ check('list keeps its name', name.trim() === 'Week of Jul 7', name.trim());
 // open the list, toggle one word off -> count drops to 3:4, chip dims
 await page.click('#lists-wrap details.wlist summary .list-name');
 await page.waitForTimeout(200);
-const chipWord = await page.textContent('#lists-wrap .word-chip .chip-word');
-await page.click('#lists-wrap .word-chip'); // tap toggles
+const chipWord = await page.textContent('#lists-wrap .word-row .wr-word');
+await page.click('#lists-wrap .word-row input[type=checkbox]'); // uncheck the word
 await page.waitForTimeout(400);
 rows = await page.$$eval('#lists-wrap details.wlist summary .list-count', els => els.map(e => e.textContent.trim()));
-const dimmed = await page.$eval('#lists-wrap .word-chip', el => el.classList.contains('off'));
+const dimmed = await page.$eval('#lists-wrap .word-row', el => el.classList.contains('off'));
 check('word toggle: count drops to 3:4 and chip dims', rows[0].startsWith('3:4') && dimmed, `${rows[0]} word="${chipWord}"`);
 
 // list stays open after the re-render

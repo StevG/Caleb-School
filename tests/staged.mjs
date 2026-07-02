@@ -103,7 +103,7 @@ const jRows = await page.$$eval('#journey-list li', els => els.map(e => e.textCo
 check('dashboard: learning journey renders 4 rungs', jRows.length === 4, JSON.stringify(jRows));
 const listRows = await page.$$eval('#lists-wrap details.wlist summary .list-count', els => els.map(e => e.textContent.trim()));
 check('dashboard: school list row shows on:total count', listRows.length >= 1 && /^\d+:\d+/.test(listRows[0]), JSON.stringify(listRows));
-const chips = await page.$$eval('#lists-wrap .word-chip', els => els.map(e => ({ cls: e.className, t: e.textContent })));
+const chips = await page.$$eval('#lists-wrap .word-row', els => els.map(e => ({ cls: e.className, t: e.textContent })));
 check('dashboard: chips carry status classes', chips.some(c => c.cls.includes('st-learning') || c.cls.includes('st-mastered')), JSON.stringify(chips));
 const mast = (await page.textContent('#s-mastered')).trim();
 check('dashboard: mastered stat tile present', /^\d+$/.test(mast), mast);

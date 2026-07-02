@@ -11,7 +11,7 @@ view answers one question a parent of a struggling speller actually asks.
 | Accuracy tile | "How is he doing overall?" | `summary.accuracy` (unaided only) |
 | Last practiced bar | "Did he do it today?" | `last_practice_ts` |
 | Learning journey card | "Where is everything on the ladder?" | `journey` {copy, memory, sound, mastered} + `summary.mastered_this_week` |
-| Word lists card | "What is he practicing, and is he ready for Friday's test?" | `profile.bank_enabled` + `bank_count` (the bank row) and `lists` [{id, name, enabled, total, enabled_count, mastered, words:[{word, on, stage, seen, missed}]}]. Each list row: checkbox + `enabled:total` count + ★mastered. Chips inside: grey = not tried, amber = learning (shows rung), green ★ = mastered, ✗N = misses; dimmed/struck = switched off. Tap a chip to toggle it; ✕ removes it. |
+| Word lists card | "What is he practicing, and is he ready for Friday's test?" | `profile.bank_enabled` + `bank_count` (the bank row) and `lists` [{id, name, enabled, total, enabled_count, mastered, words:[{word, on, stage, seen, missed}]}]. Each list row: checkbox + `enabled:total` count + ★mastered. Inside: a plain single-column checklist — checkbox per word (checked = practiced), the word (green when mastered, struck when off), and right-aligned status ("★ mastered" / rung name / "not tried", ✗N misses); ✕ removes. Deliberately utilitarian, not pretty. |
 | Most-missed words | "What should we drill in the car?" | `most_missed` (sorted by misses; `stage` included) |
 | Day by day | "Is practice actually happening?" | `daily` — one row PER DAY, never merged (words, accuracy, stars) |
 | By practice type | "Which modes does he use / avoid?" | `by_mode` per words/listen/sentences/memory (tries, accuracy, sessions, stars) |
