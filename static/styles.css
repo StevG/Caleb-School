@@ -230,7 +230,7 @@ body.has-update .screen{padding-top:calc(env(safe-area-inset-top) + 46px)}
 .list-count .mastered-n{color:var(--green-d)}
 details.wlist{border-bottom:1px solid var(--line)}
 details.band summary{list-style:none;display:flex;align-items:center;gap:12px;
-  padding:10px 2px;font-size:15px;cursor:pointer}
+  padding:7px 2px;font-size:15px;cursor:pointer}
 details.band summary::-webkit-details-marker{display:none}
 details.band summary .tri{color:var(--muted);font-size:11px;transition:transform .15s;flex:none}
 details.band[open] summary .tri{transform:rotate(90deg)}
@@ -255,7 +255,7 @@ details.wlist[open] summary .tri{transform:rotate(90deg)}
 
 /* words inside a list: a plain single-column checklist */
 .word-rows{margin-top:2px}
-.word-row{display:flex;align-items:center;gap:10px;padding:7px 2px;
+.word-row{display:flex;align-items:center;gap:10px;padding:3px 2px;
   border-bottom:1px solid var(--line);font-size:15px}
 .word-row:last-child{border-bottom:none}
 .word-row input[type=checkbox]{width:20px;height:20px;flex:none;accent-color:var(--blue)}
