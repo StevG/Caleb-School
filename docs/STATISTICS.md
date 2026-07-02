@@ -12,6 +12,7 @@ view answers one question a parent of a struggling speller actually asks.
 | Last practiced bar | "Did he do it today?" | `last_practice_ts` |
 | Learning journey card | "Where is everything on the ladder?" | `journey` {copy, memory, sound, mastered} + `summary.mastered_this_week` |
 | Word lists card | "What is he practicing, and is he ready for Friday's test?" | Two kinds of sources, same checklist UI. **The bank** (`bank`: enabled, enabled_count:total, bands[]): one PERMANENT nested list per half-grade band, each with its own checkbox, `on:total` count, and per-word checkboxes (`bank_off` stores switched-off words) — plus a "Copy words" action that clones a band's checked words into a new or existing custom list without typing. **Custom lists** (`lists` [{id, name, enabled, total, enabled_count, mastered, words:[{word, on, stage, seen, missed}]}]): same rows plus ✕ remove and Delete — deletable, unlike grades. Words: green = mastered, struck = off, ✗N = misses. Deliberately utilitarian. |
+| Heart words only ♥ toggle | "Can we drill just the tricky-part words?" | `profile.hearts_only` (set via settings) + `hearts_in_pool` (how many heart words the checked sources hold — also returned by `/api/parent/lists` calls so the note stays live). Bank/list word rows carry `heart: true` → the red ♥ after the word. Filter applies to words + listen modes; zero hearts in the selection falls back to ALL heart words (never an empty session). |
 | Most-missed words | "What should we drill in the car?" | `most_missed` (sorted by misses; `stage` included) |
 | Day by day | "Is practice actually happening?" | `daily` — one row PER DAY, never merged (words, accuracy, stars) |
 | By practice type | "Which modes does he use / avoid?" | `by_mode` per words/listen/sentences/memory (tries, accuracy, sessions, stars) |
@@ -20,7 +21,7 @@ view answers one question a parent of a struggling speller actually asks.
 ## Data model (data/progress.json)
 
 ```
-profile:      name, points, pin, show_speaker, bank_enabled,
+profile:      name, points, pin, show_speaker, bank_enabled, hearts_only,
               enabled_grades [1.0..9.0 halves] (max_level kept in sync =
               max(enabled_grades); legacy max_level input maps to bands)
 lists:        [{id, name, enabled, words: [{w, on}]}]  (custom word lists;

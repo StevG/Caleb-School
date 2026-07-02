@@ -125,6 +125,12 @@ Four modes share that mechanic (owner-specified behavior — keep it exact):
   vocabulary.com/middle-school master lists for 7-9). Existing placements
   and pattern-group tags were preserved; sources + merge rules in
   docs/RESEARCH.md.
+- 2026-07-02 — Heart words in the Word lists card (owner-specified): every
+  heart word shows a small red ♥ to the right of the word in the bank bands
+  and custom lists, and a "Heart words only ♥" toggle at the top of the card
+  narrows practice (words + listen modes) to the heart words inside whatever
+  sources are checked — with a note showing how many that gives. A selection
+  with zero hearts falls back to ALL heart words, never an empty session.
 - 2026-07-02 — Grade selection moved INTO Word lists (owner: "why does it
   say up to 3rd grade?"): the bank is now one permanent nested list per
   half-grade band — band checkboxes, per-word checkboxes (bank_off), and a

@@ -72,6 +72,75 @@ check('heartSpans: plain word untouched', plain === 'cat', plain);
 check('heartSpans: split grapheme o-e wraps both', multi === 'c<span class="heart">o</span>m<span class="heart">e</span>', multi);
 check('heartSpans: matches case-insensitively', cased.includes('<span class="heart">ai</span>'), cased);
 
+// ---- parent dashboard: ♥ markers + the "heart words only" filter ----
+await page.click('#quit');
+await page.waitForSelector('#home.active');
+await page.click('#gear');
+for (const d of ['1','2','3','4']) await page.click(`.pin-key:has-text("${d}")`);
+await page.waitForTimeout(600);
+
+// heart words show a ♥ to the right of the word — in the bank bands...
+await page.evaluate(() => {
+  document.querySelector('#bank-wrap details.wlist').open = true;
+  document.querySelector('#bank-wrap details.band').open = true;
+});
+const bandHeart = await page.evaluate(() => {
+  const rows = [...document.querySelectorAll('#bank-wrap details.band .word-row')];
+  const withHeart = rows.find(r => r.querySelector('.wr-heart'));
+  return withHeart ? withHeart.querySelector('.wr-word').textContent.trim() : null;
+});
+check('bank rows mark heart words with ♥', !!bandHeart, `first: "${bandHeart}"`);
+
+// ...and in custom lists ("said" is a heart word, from the list made above)
+await page.evaluate(() => {
+  document.querySelector('#lists-wrap details.wlist').open = true;
+});
+const listHeart = await page.evaluate(() => {
+  const row = [...document.querySelectorAll('#lists-wrap .word-row')]
+    .find(r => r.querySelector('.wr-word').textContent.includes('said'));
+  return { heart: !!row?.querySelector('.wr-heart'),
+           plain: [...document.querySelectorAll('#lists-wrap .word-row')]
+             .find(r => r.querySelector('.wr-word').textContent.includes('friend'))
+             ?.querySelectorAll('.wr-heart').length === 1 };
+});
+check('list rows mark heart words with ♥', listHeart.heart, JSON.stringify(listHeart));
+
+// the "Heart words only" toggle: shows a count, persists, filters sessions
+const noteBefore = (await page.textContent('#hearts-note')).trim();
+check('hearts-only note counts hearts in the selection', /^\d+ available$/.test(noteBefore), noteBefore);
+await page.click('#hearts-only');
+await page.waitForTimeout(400);
+const noteAfter = (await page.textContent('#hearts-note')).trim();
+check('checked: note flips to "practicing N"', /^practicing \d+$/.test(noteAfter), noteAfter);
+const heartsState = await page.evaluate(async () => {
+  const rep = await (await fetch('/api/parent/report', { headers: { 'X-Parent-Pin': '1234' } })).json();
+  const sess = await (await fetch('/api/session?mode=words&count=15')).json();
+  return { saved: rep.profile.hearts_only,
+           allHearts: sess.items.length > 0 && sess.items.every(i => i.heart) };
+});
+check('hearts-only persists to the server', heartsState.saved === true);
+check('hearts-only session: every word is a heart word', heartsState.allHearts);
+
+// no hearts in the selection -> falls back to ALL heart words, never empty
+const fallback = await page.evaluate(async () => {
+  await fetch('/api/parent/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pin: '1234', bank_enabled: false }) });
+  await fetch('/api/parent/lists', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pin: '1234', action: 'create', name: 'no hearts', words: 'tent lamp desk' }) });
+  // switch the heart-bearing list off so the selection truly has zero hearts
+  const rep = await (await fetch('/api/parent/report', { headers: { 'X-Parent-Pin': '1234' } })).json();
+  const heartsList = rep.lists.find(l => l.name === 'hearts');
+  await fetch('/api/parent/lists', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pin: '1234', action: 'toggle_list', list_id: heartsList.id, enabled: false }) });
+  const sess = await (await fetch('/api/session?mode=words&count=8')).json();
+  // restore for any later suites
+  await fetch('/api/parent/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pin: '1234', bank_enabled: true, hearts_only: false }) });
+  return { n: sess.items.length, allHearts: sess.items.every(i => i.heart) };
+});
+check('hearts-only with no hearts selected: falls back to all heart words',
+  fallback.n === 8 && fallback.allHearts, JSON.stringify(fallback));
+
 console.log(results.join('\n'));
 console.log('\nJS ERRORS:', errors.length ? errors : 'none');
 await browser.close();

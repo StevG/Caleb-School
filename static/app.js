@@ -946,6 +946,8 @@ function renderReport(rep) {
   // needs them cached), then the bank with its grade bands
   renderLists(rep.lists || []);
   renderBank(rep.bank);
+  $("hearts-only").checked = rep.profile.hearts_only === true;
+  updateHeartsNote(rep.hearts_in_pool);
 
   $("set-name").value = rep.profile.name || "";
   $("set-speaker").checked = rep.profile.show_speaker !== false;
@@ -955,6 +957,22 @@ function renderReport(rep) {
 
 // ---------- Word lists (the parent picks what he practices) ----------
 const STAGE_TAGS = { 1: "copying", 2: "from memory", 3: "from sound" };
+
+// the ♥ shown to the right of a heart word in the word rows
+function heartMark() {
+  return ' <span class="wr-heart" title="heart word">♥</span>';
+}
+
+// "Heart words only" narrows practice to the heart words inside whatever
+// sources are checked below. The note shows how many words that gives.
+let heartsInPool = null;
+function updateHeartsNote(n) {
+  if (typeof n === "number") heartsInPool = n;
+  if (heartsInPool === null) return;
+  $("hearts-note").textContent = $("hearts-only").checked
+    ? `practicing ${heartsInPool}` : `${heartsInPool} available`;
+}
+
 
 // The built-in bank: like the custom lists (checkboxes down to single
 // words) except PERMANENT — grades and their words can be switched off but
@@ -1024,7 +1042,7 @@ function renderBank(bank) {
       row.innerHTML =
         `<input type="checkbox" ${it.on ? "checked" : ""}` +
         ` aria-label="practice this word">` +
-        `<span class="wr-word">${esc(it.word)}</span>` +
+        `<span class="wr-word">${esc(it.word)}${it.heart ? heartMark() : ""}</span>` +
         `<span class="wr-status">${status}</span>`;
       const wcb = row.querySelector("input");
       wcb.addEventListener("change", () => {
@@ -1067,6 +1085,7 @@ async function listsCall(body) {
     { pin: state.parentPin, ...body });
   renderLists(r.lists);
   if (r.bank) renderBank(r.bank);
+  updateHeartsNote(r.hearts_in_pool);
   $("custom-status").textContent = "";
   return r;
 }
@@ -1122,7 +1141,7 @@ function renderLists(lists) {
         ? ` <span class="wr-miss">✗${it.missed}</span>` : "";
       row.innerHTML =
         `<input type="checkbox" ${it.on ? "checked" : ""} aria-label="practice this word">` +
-        `<span class="wr-word">${esc(it.word)}</span>` +
+        `<span class="wr-word">${esc(it.word)}${it.heart ? heartMark() : ""}</span>` +
         `<span class="wr-status">${status}${miss}</span>` +
         `<button class="wr-x" aria-label="remove">✕</button>`;
       const wcb = row.querySelector("input");
@@ -1170,6 +1189,14 @@ function gradeLabel(v) {
 }
 
 function wireParent() {
+  $("hearts-only").addEventListener("change", () => {
+    updateHeartsNote();
+    postJSON("/api/parent/settings",
+      { pin: state.parentPin, hearts_only: $("hearts-only").checked })
+      .then(() => { $("custom-status").textContent = ""; })
+      .catch(listsFail);
+  });
+
   $("custom-add").addEventListener("click", async () => {
     const val = $("custom-input").value.trim();
     if (!val) return;

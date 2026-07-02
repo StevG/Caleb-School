@@ -88,7 +88,8 @@ stay on ONE line (box size is computed per word).
 `POST /api/parent/login|settings|custom_words|lists` (PIN in body;
 `lists` actions: create/delete/toggle_list/toggle_word/add_words/remove_word/
 bank_toggle_band/bank_toggle_word/bank_copy; settings accepts
-`enabled_grades` list — legacy `max_level` maps onto it) ·
+`enabled_grades` list — legacy `max_level` maps onto it — plus
+`hearts_only` to narrow word/listen practice to heart words) ·
 `GET /api/parent/report` (PIN in `X-Parent-Pin` header) · `GET /.hub/status`.
 
 "Aided" = a retype right after the answer was revealed: earns the point,

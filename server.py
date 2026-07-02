@@ -249,11 +249,14 @@ def bank_status(state):
             s = stats.get(w)
             is_on = w not in off
             n_on += is_on
-            words.append({
+            entry = {
                 "word": w,
                 "on": is_on,
                 "stage": word_stage(s) if s and s.get("seen", 0) else 0,
-            })
+            }
+            if w in wordbank.HEART_WORDS:
+                entry["heart"] = True
+            words.append(entry)
         if b in on_bands:
             total_on += n_on
         bands.append({
@@ -271,12 +274,12 @@ def bank_status(state):
     }
 
 
-def eligible_words(state):
-    """The practice pool = the sources the parent has switched on:
-    the built-in bank (grade-capped) and/or any enabled custom lists.
-    List words count even above the grade cap — the parent asked for them.
-    If everything ends up switched off, fall back to the bank: the kid must
-    never tap Practice and get nothing."""
+def source_pool(state):
+    """The words from the sources the parent has switched on: the built-in
+    bank (grade-capped) and/or any enabled custom lists. List words count
+    even above the grade cap — the parent asked for them. If everything ends
+    up switched off, fall back to the bank: the kid must never tap Practice
+    and get nothing."""
     pool = []
     if state["profile"].get("bank_enabled", True):
         pool.extend(bank_words(state))
@@ -284,6 +287,24 @@ def eligible_words(state):
     if not pool:
         pool = bank_words(state)
     return list(dict.fromkeys(pool))
+
+
+def count_pool_hearts(state):
+    """How many heart words the current source selection holds (what the
+    hearts-only filter would practice)."""
+    return sum(1 for w in source_pool(state) if w in wordbank.HEART_WORDS)
+
+
+def eligible_words(state):
+    """source_pool(), narrowed to heart words when the parent switched on
+    "heart words only". If the selection has no heart words at all, practice
+    every heart word instead — honors the filter and never leaves the kid
+    with an empty session."""
+    pool = source_pool(state)
+    if state["profile"].get("hearts_only", False):
+        hearts = [w for w in pool if w in wordbank.HEART_WORDS]
+        pool = hearts or sorted(wordbank.HEART_WORDS)
+    return pool
 
 
 def build_word_session(state, count):
@@ -449,13 +470,16 @@ def lists_status(state):
             stage = word_stage(s) if s and s.get("seen", 0) else 0
             if stage >= STAGE_MASTERED:
                 mastered += 1
-            words.append({
+            entry = {
                 "word": cw,
                 "on": bool(wd.get("on", True)),
                 "stage": stage,
                 "seen": s.get("seen", 0) if s else 0,
                 "missed": s.get("missed", 0) if s else 0,
-            })
+            }
+            if cw in wordbank.HEART_WORDS:
+                entry["heart"] = True
+            words.append(entry)
         out.append({
             "id": lst.get("id", ""),
             "name": lst.get("name", "List"),
@@ -542,8 +566,10 @@ def parent_report(state):
             "show_speaker": state["profile"].get("show_speaker", True),
             "max_level": state["profile"].get("max_level", 3),
             "bank_enabled": state["profile"].get("bank_enabled", True),
+            "hearts_only": state["profile"].get("hearts_only", False),
         },
         "bank_count": len(bank_words(state)),
+        "hearts_in_pool": count_pool_hearts(state),
         "bank": bank_status(state),
         "summary": {
             "points": state["profile"].get("points", 0),
@@ -724,6 +750,8 @@ class Handler(BaseHTTPRequestHandler):
                 p["show_speaker"] = bool(body["show_speaker"])
             if "bank_enabled" in body:
                 p["bank_enabled"] = bool(body["bank_enabled"])
+            if "hearts_only" in body:
+                p["hearts_only"] = bool(body["hearts_only"])
             if "max_level" in body:
                 try:
                     # legacy single cap: keep working by selecting every band
@@ -887,7 +915,9 @@ class Handler(BaseHTTPRequestHandler):
             save_state(state)
             status = lists_status(state)
             bank = bank_status(state)
-        self._send_json({"lists": status, "bank": bank})
+            hearts = count_pool_hearts(state)
+        self._send_json({"lists": status, "bank": bank,
+                         "hearts_in_pool": hearts})
 
     def _hub_status(self):
         state = load_state()
