@@ -65,13 +65,47 @@ for (const [label, w, h] of VIEWPORTS) {
     await inBounds('.gate-title') && await inBounds('.pin-key.del') && await inBounds('.back'));
   await page.screenshot({ path: `${OUT}/m-${label}-gate.png` });
 
-  // PARENT
-  await page.evaluate(() => { state.parentPin = '1234'; return window.openParent(); });
+  // PARENT (seed a school list first — the legacy endpoint dedupes, so
+  // running once per viewport is harmless)
+  await page.evaluate(async () => {
+    await fetch('/api/parent/custom_words', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin: '1234', action: 'add',
+                             words: 'because friend enough tomorrow' }) });
+    state.parentPin = '1234';
+    return window.openParent();
+  });
   await page.waitForTimeout(400);
   check(`${label} parent: opens, header + stats in bounds`,
     await page.$eval('#parent', el => el.classList.contains('active'))
     && await inBounds('.parent-title') && await inBounds('.stat-grid'));
+
+  // Word lists card: everything fits horizontally after scrolling into view
+  const inX = (sel) => page.$eval(sel, (el, vw) => {
+    el.scrollIntoView({ block: 'center' });
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.left >= -1 && r.right <= vw + 1;
+  }, w);
+  await page.evaluate(() => {
+    const d = document.querySelector('#lists-wrap details');
+    if (d) d.open = true;
+  });
+  check(`${label} word lists: bank row, list, chips, buttons all fit`,
+    await inX('.bank-row') && await inX('#lists-wrap details.wlist summary')
+    && await inX('#lists-wrap .word-chip')
+    && await inX('.wlist-actions .danger') && await inX('#custom-add'));
   await page.screenshot({ path: `${OUT}/m-${label}-parent.png` });
+
+  // Update bar: spans the viewport with its button fully visible (its side
+  // padding carries env(safe-area-inset-*) for notches)
+  await page.evaluate(() => window.showUpdateBar());
+  await page.waitForTimeout(120);
+  const barOk = await page.$eval('#update-bar', (el, vw) => {
+    const r = el.getBoundingClientRect();
+    const b = el.querySelector('button').getBoundingClientRect();
+    return r.top >= -1 && b.width > 0 && b.left >= -1 && b.right <= vw + 1;
+  }, w);
+  check(`${label} update bar fits with tappable button`, barOk);
 
   check(`${label} no JS errors`, errors.length === 0, errors.join('; '));
   await ctx.close();
