@@ -23,8 +23,13 @@ body{
   overflow:hidden;
 }
 
+/* Screens fill the VISUAL viewport (--vvh, set by JS from visualViewport):
+   when the iOS keyboard opens, the whole layout shrinks to the space above
+   it, so the Check button rides on top of the keyboard instead of hiding
+   under it. Falls back to full height when JS hasn't set it. */
 .screen{
-  position:fixed;inset:0;display:none;flex-direction:column;
+  position:fixed;top:0;left:0;right:0;height:var(--vvh,100%);
+  display:none;flex-direction:column;
   padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 .screen.active{display:flex}
@@ -205,44 +210,55 @@ body{
 .setting.toggle input{width:24px;height:24px}
 .saved-note{color:var(--green-d);font-weight:700;min-height:20px;margin-top:8px;font-size:14px}
 
-/* ---------- SHORT VIEWPORTS (phone landscape) ---------- */
-/* Everything compacts so no screen needs scrolling at ~390px height. */
-@media (max-height:540px){
-  .hello{font-size:26px}
-  .points-big{font-size:38px;margin-top:0}
-  .points-big .star{font-size:30px}
-  .tagline{font-size:16px;margin:2px 0 12px}
-  .home-inner{gap:4px;padding:16px}
-  .mode-cards{flex-direction:row;gap:12px;max-width:620px}
-  .mode-card{flex:1;padding:16px;font-size:20px;gap:12px}
-  .mc-emoji{font-size:28px}
-  .goal-row{margin-top:12px;max-width:620px}
-  .goal-label{margin:0 0 6px;font-size:15px}
-  .chip{padding:10px 0;font-size:20px}
-  .play-top{padding:10px 18px 4px}
-  .play-body{gap:6px;padding:4px 22px}
-  .prompt-wrap{min-height:48px}
-  .speaker{width:44px;height:44px;font-size:20px}
-  .prompt-hint{font-size:14px;min-height:18px}
-  .feedback{min-height:20px;font-size:17px}
-  .sentence-line{font-size:17px;margin-bottom:0;line-height:1.5}
-  .big-btn{padding:12px;font-size:20px}
-  .play-actions{padding:6px 22px calc(env(safe-area-inset-bottom) + 8px)}
-  .done-emoji{font-size:44px}
-  .done-title{font-size:26px}
-  .done-points{font-size:19px;margin-top:0}
-  .done-total{font-size:15px}
-  .done-actions{flex-direction:row;margin-top:12px;max-width:520px}
-  .gate-inner{gap:4px}
-  .gate-title{font-size:19px}
-  .gate-sub{font-size:14px}
-  .gate-hint{display:none} /* keeps the pinpad above the fold */
-  .pin-dots{margin:6px 0;gap:12px}
-  .pin-dots i{width:12px;height:12px}
-  .pin-err{min-height:16px;font-size:14px}
-  .pinpad{grid-template-columns:repeat(3,54px);gap:8px;margin-top:2px}
-  .pin-key{width:54px;height:54px;font-size:20px}
-}
+/* ---------- SHORT VIEWPORTS ---------- */
+/* body.compact is set by JS whenever the VISIBLE height (visual viewport)
+   drops under 540px — phone landscape, or the keyboard eating the screen.
+   Everything compacts so nothing needs scrolling or hides off-screen. */
+body.compact .hello{font-size:26px}
+body.compact .points-big{font-size:38px;margin-top:0}
+body.compact .points-big .star{font-size:30px}
+body.compact .tagline{font-size:16px;margin:2px 0 12px}
+body.compact .home-inner{gap:4px;padding:16px}
+body.compact .mode-cards{flex-direction:row;gap:12px;max-width:620px}
+body.compact .mode-card{flex:1;padding:16px;font-size:20px;gap:12px}
+body.compact .mc-emoji{font-size:28px}
+body.compact .goal-row{margin-top:12px;max-width:620px}
+body.compact .goal-label{margin:0 0 6px;font-size:15px}
+body.compact .chip{padding:10px 0;font-size:20px}
+body.compact .play-top{padding:10px 18px 4px}
+body.compact .play-body{gap:6px;padding:4px 22px}
+body.compact .prompt-wrap{min-height:48px}
+body.compact .speaker{width:44px;height:44px;font-size:20px}
+body.compact .prompt-hint{font-size:14px;min-height:18px}
+body.compact .feedback{min-height:20px;font-size:17px}
+body.compact .sentence-line{font-size:17px;margin-bottom:0;line-height:1.5}
+body.compact .big-btn{padding:12px;font-size:20px}
+body.compact .play-actions{padding:6px 22px calc(env(safe-area-inset-bottom) + 8px)}
+body.compact .done-emoji{font-size:44px}
+body.compact .done-title{font-size:26px}
+body.compact .done-points{font-size:19px;margin-top:0}
+body.compact .done-total{font-size:15px}
+body.compact .done-actions{flex-direction:row;margin-top:12px;max-width:520px}
+body.compact .gate-inner{gap:4px}
+body.compact .gate-title{font-size:19px}
+body.compact .gate-sub{font-size:14px}
+body.compact .gate-hint{display:none} /* keeps the pinpad above the fold */
+body.compact .pin-dots{margin:6px 0;gap:12px}
+body.compact .pin-dots i{width:12px;height:12px}
+body.compact .pin-err{min-height:16px;font-size:14px}
+body.compact .pinpad{grid-template-columns:repeat(3,54px);gap:8px;margin-top:2px}
+body.compact .pin-key{width:54px;height:54px;font-size:20px}
+
+/* body.kb-tiny: phone LANDSCAPE with the keyboard up (~200px visible).
+   Strip the play screen to essentials: word, boxes, button. */
+body.kb-tiny .play-top{display:none}
+body.kb-tiny .prompt-hint{display:none}
+body.kb-tiny .prompt-wrap{min-height:34px}
+body.kb-tiny .play-body{gap:4px;padding:2px 22px}
+body.kb-tiny .feedback{min-height:0;font-size:15px}
+body.kb-tiny .sentence-line{display:none}
+body.kb-tiny .play-actions{padding:4px 22px 6px}
+body.kb-tiny .big-btn{padding:9px;font-size:18px}
 
 .shake{animation:shake .4s}
 @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}

@@ -41,6 +41,10 @@ const state = {
   sentence: null,    // {s, tokens, wordIdx} in sentence/memory modes
   curHidden: false,  // sentence line: is the current word masked yet?
   memorizing: false, // memory mode: still in the read-the-sentence phase
+  // ignore typing while a result is showing. We use this flag instead of
+  // disabling the input: disabling blurs it, which closes the iOS keyboard
+  // between every word and forces an extra tap to bring it back.
+  locked: false,
 };
 
 // ---------- boot ----------
@@ -120,6 +124,7 @@ async function startSession() {
 // retry after a miss) MUST go through this so no path forgets a piece.
 function resetItemUI() {
   state.answered = false;
+  state.locked = false;
   $("feedback").textContent = "";
   $("feedback").className = "feedback";
   $("check").classList.remove("hidden");
@@ -160,7 +165,7 @@ function sizePrompt() {
   const pw = $("prompt-word");
   const len = Math.max((pw.textContent || "").length, 1);
   const room = Math.min(window.innerWidth, 640) - 110; // 110 ≈ speaker + padding
-  const maxFs = window.innerHeight < 540 ? 40 : 60;
+  const maxFs = vpHeight < 330 ? 30 : vpHeight < 540 ? 40 : 60;
   pw.style.fontSize =
     Math.max(28, Math.min(maxFs, Math.floor(room / (0.62 * len)))) + "px";
 }
@@ -176,7 +181,6 @@ function beginWord(display, hint) {
   const inp = $("typed");
   inp.value = "";
   inp.maxLength = state.target.length;
-  inp.disabled = false;
   // focus to raise the keyboard (works inside the tap gesture chain)
   setTimeout(() => inp.focus(), 30);
 }
@@ -191,7 +195,7 @@ function renderBoxes(n, value) {
   let gap = 10;
   let size = Math.floor((avail - gap * (n - 1)) / n);
   if (size < 40) { gap = 6; size = Math.floor((avail - gap * (n - 1)) / n); }
-  const maxBox = window.innerHeight < 540 ? 42 : 52; // shorter in landscape
+  const maxBox = vpHeight < 330 ? 34 : vpHeight < 540 ? 42 : 52;
   size = Math.max(22, Math.min(maxBox, size));
   wrap.style.setProperty("--bs", size + "px");
   wrap.style.setProperty("--bg-gap", gap + "px");
@@ -204,7 +208,7 @@ function renderBoxes(n, value) {
 }
 
 function onType() {
-  if (state.answered) return;
+  if (state.answered || state.locked) return;
   const inp = $("typed");
   const val = toTarget(inp.value);
   inp.value = val;
@@ -221,11 +225,14 @@ function onType() {
 }
 
 function doCheck() {
-  if (state.answered) return;
+  if (state.answered || state.locked) return;
   const val = $("typed").value.toLowerCase();
   const correct = val === state.target;
   const boxes = $("boxes");
-  $("typed").disabled = true;
+  state.locked = true; // freeze typing while the result shows
+  // keep the input focused (within this tap) so the keyboard stays open
+  // through the whole session instead of bouncing between words
+  $("typed").focus();
 
   if (correct) {
     state.answered = true;
@@ -333,7 +340,8 @@ function setupMemory(item) {
   pw.textContent = "";
   pw.classList.remove("gone");
   renderBoxes(0, "");
-  $("typed").disabled = true;
+  state.locked = true;   // no typing during the read phase...
+  $("typed").blur();     // ...and tuck the keyboard away for reading room
   $("prompt-hint").textContent = "Read the sentence. Tap 🔊 to hear it!";
   $("check").classList.add("hidden");
   $("next").classList.remove("hidden");
@@ -365,7 +373,6 @@ function beginMemoryWord() {
   const inp = $("typed");
   inp.value = "";
   inp.maxLength = state.target.length;
-  inp.disabled = false;
   setTimeout(() => inp.focus(), 30);
 }
 
@@ -511,16 +518,39 @@ function speakCurrent() {
 
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
-// Rotating the device mid-word: re-fit the boxes and prompt to the new size.
-// Skip while showing a result (correct/wrong/reveal) — renderBoxes would
-// wipe those state colors; the next word re-fits anyway.
-window.addEventListener("resize", () => {
-  if (!$("play").classList.contains("active") || !state.target) return;
-  sizePrompt();
-  const wrap = $("boxes");
-  if (/correct|wrong|reveal/.test(wrap.className)) return;
-  renderBoxes(state.target.length, $("typed").value);
-});
+// ---------- viewport / keyboard management ----------
+// iOS overlays the keyboard on the page instead of resizing it. We track
+// the VISUAL viewport (the area actually visible above the keyboard), lay
+// the app out inside it via --vvh, and compact the UI when it gets short —
+// so the Check button always sits just above the keyboard, never under it.
+let vpHeight = window.innerHeight;
+
+function updateViewport() {
+  const vv = window.visualViewport;
+  vpHeight = vv ? Math.round(vv.height) : window.innerHeight;
+  document.documentElement.style.setProperty("--vvh", vpHeight + "px");
+  document.body.classList.toggle("compact", vpHeight < 540);
+  document.body.classList.toggle("kb-tiny", vpHeight < 330);
+  // iOS also pans the page to "reveal" the focused input; with the layout
+  // already fitted to the visible area, pin it back to the top.
+  if (window.scrollY > 0 || (vv && vv.offsetTop > 0)) window.scrollTo(0, 0);
+  // re-fit the current word to the new size (not during result states —
+  // renderBoxes would wipe the correct/wrong/reveal colors)
+  if ($("play").classList.contains("active") && state.target) {
+    sizePrompt();
+    const wrap = $("boxes");
+    if (!/correct|wrong|reveal/.test(wrap.className)) {
+      renderBoxes(state.target.length, $("typed").value);
+    }
+  }
+}
+
+if (window.visualViewport) {
+  window.visualViewport.addEventListener("resize", updateViewport);
+  window.visualViewport.addEventListener("scroll", updateViewport);
+}
+window.addEventListener("resize", updateViewport);
+updateViewport();
 
 // ---------- DONE ----------
 function wireDone() {
