@@ -85,6 +85,14 @@ game can only prove skills up to its own rung; see docs/SCORING.md):
 - Not a game with an economy — points are minutes of iPad time, period.
 
 ## Decisions log
+- 2026-07-02 — Fixed: Hide & Spell could show the word while typing (owner
+  bug). A missed word re-queues a ladder rung down (stage 1), and
+  `presentWordItem` had keyed presentation off the item's stage — so the
+  requeued word came back as stage-1 "Copy It" (keepVisible), staying
+  visible mid-round. Presentation now keys off `state.mode` only (copy =
+  visible, words = hide-on-type), so every Hide & Spell word hides on the
+  first keystroke regardless of its rung. The requeue no longer carries a
+  stage. `staged.mjs` gained a direct regression check.
 - 2026-07-02 — Keyboard stays up all session (owner: the bounce/resize
   between words was distracting). The text input was never disabled
   (`state.locked` freezes typing instead), but tapping Check / Next / 🔊 /

@@ -58,6 +58,20 @@ await page.type('#typed', hs.visible[0].toLowerCase());
 await page.waitForTimeout(150);
 check('Hide & Spell: word GONE after first keystroke',
   await page.$eval('#prompt-word', el => el.classList.contains('gone')));
+// regression: a REQUEUED (missed) Hide & Spell word carries a dropped ladder
+// stage (1) — it must STILL hide on type. Presentation follows the game, not
+// the item's stage. (The "I could see the word while typing" bug.)
+const requeued = await page.evaluate(() => {
+  presentWordItem({ w: 'planet', stage: 1 }); // stage 1 = the requeue's drop
+  const visibleAtStart = !document.getElementById('prompt-word').classList.contains('gone');
+  const inp = document.getElementById('typed');
+  inp.value = 'p'; onType();
+  return { keepVisible: state.keepVisible, visibleAtStart,
+           goneOnType: document.getElementById('prompt-word').classList.contains('gone') };
+});
+check('Hide & Spell: a requeued stage-1 word still hides on type',
+  requeued.keepVisible === false && requeued.visibleAtStart && requeued.goneOnType,
+  JSON.stringify(requeued));
 await page.click('#quit');
 await page.waitForSelector('#home.active');
 

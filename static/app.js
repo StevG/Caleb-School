@@ -419,28 +419,27 @@ function loadNext() {
   }
 }
 
-// Words mode is a LADDER: each word is presented at its own stage.
-//   1 Copy it     — the word stays visible the whole time he types
-//   2 From memory — hides at the first keystroke (look-cover-write-check)
-//   3 From sound  — audio only, never shown (falls back to stage 2 if the
-//                   parent turned the speaker off)
+// Presentation follows the GAME, not the word's ladder rung. This is the
+// whole point of the game split — and it must hold for REQUEUED words too:
+// a missed Hide & Spell word gets re-queued a rung down (stage 1), and if
+// presentation keyed off that stage the word would come back *visible*
+// mid-round (the "I could see it while typing" bug). Keying off state.mode
+// instead makes every Hide & Spell word hide on the first keystroke, always.
+//   Copy It (mode "copy")   — the word stays visible the whole time he types
+//   Hide & Spell (mode ...) — hides at the first keystroke
+// (Listen & Spell is audio-only and handled separately in loadNext.)
 function presentWordItem(item) {
-  const audioOk = state.showSpeaker && ("speechSynthesis" in window);
-  const stage = Math.min(item.stage || 1, audioOk ? 3 : 2);
-  state.itemStage = stage;
-  if (stage >= 3) {
-    beginListenWord(item.w);
-    state.itemHeart = item.heart || null; // for the reveal after a miss
-    $("prompt-hint").textContent = "You know this one — listen 🔊 and type it!";
-  } else if (stage === 1) {
-    const hint = item.heart
-      ? "Heart word! The red part is the tricky bit ♥"
-      : state.mode === "copy"
-        ? "Copy it — it stays right here 👀"
-        : "New word! Copy it — it stays right here.";
-    beginWord(item.w, hint, false, true, item.heart);
+  const heartHint = "Heart word! The red part is the tricky bit ♥";
+  if (state.mode === "copy") {
+    state.itemStage = 1;
+    beginWord(item.w,
+      item.heart ? heartHint : "Copy it — it stays right here 👀",
+      false, true, item.heart);   // keepVisible: never hides
   } else {
-    beginWord(item.w, "Look at the word — it hides when you type!", false, false, item.heart);
+    state.itemStage = 2;
+    beginWord(item.w,
+      item.heart ? heartHint : "Look at the word — it hides when you type!",
+      false, false, item.heart);  // hides on the first keystroke
   }
 }
 
@@ -611,12 +610,12 @@ function doCheck() {
       ? "So close! Check the capital letter 🔠"
       : "Almost! Look again 👀";
     $("feedback").className = "feedback bad";
-    // re-queue this word once, later in the session, for extra practice
+    // re-queue this word once, later in the session, for extra practice.
+    // Presentation is mode-driven (presentWordItem), so no stage is needed —
+    // a requeued Hide & Spell word still hides on type like every other.
     if (!state.requeued && (state.mode === "words" || state.mode === "listen")) {
       state.requeued = true;
-      // re-present a rung down the ladder — the same drop the server records
       const back = { w: state.target, group: "",
-                     stage: Math.max(1, (state.itemStage || 2) - 1),
                      heart: state.itemHeart || undefined };
       const pos = Math.min(state.queue.length, 2 + Math.floor(Math.random() * 3));
       state.queue.splice(pos, 0, back);
