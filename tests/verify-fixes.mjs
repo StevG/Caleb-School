@@ -155,7 +155,8 @@ const t7 = await page.evaluate(async () => {
     (await r.json()).items.forEach(it => seen.add(it.w));
   }
   const cw = await (await fetch('/api/parent/report', { headers: { 'X-Parent-Pin': '1234' } })).json();
-  return { hasBecause: seen.has('because'), hasIceCream: seen.has('ice-cream'), custom: cw.custom_words };
+  const custom = (cw.lists || []).flatMap(l => l.words.map(w => w.word));
+  return { hasBecause: seen.has('because'), hasIceCream: seen.has('ice-cream'), custom };
 });
 check('T7 level-3 bank word "because" practiced as custom at level 2', t7.hasBecause, JSON.stringify(t7.custom));
 check('T7 hyphenated custom word kept typeable', t7.custom.includes('ice-cream'));

@@ -904,7 +904,11 @@ function renderReport(rep) {
     });
   }
 
-  renderCustom(rep.custom_status || []);
+  // word sources: the bank row + the custom lists
+  $("bank-enabled").checked = rep.profile.bank_enabled !== false;
+  $("bank-sub").textContent = "(up to " + gradeLabel(rep.profile.max_level || 3) + ")";
+  $("bank-count").textContent = (rep.bank_count || 0) + " words";
+  renderLists(rep.lists || []);
 
   $("set-name").value = rep.profile.name || "";
   $("set-level").value = String(rep.profile.max_level || 3);
@@ -913,71 +917,147 @@ function renderReport(rep) {
   $("settings-saved").textContent = "";
 }
 
-// items: [{word, stage(0=not tried,1-3=learning,4=mastered), seen, missed}]
+// ---------- Word lists (the parent picks what he practices) ----------
 const STAGE_TAGS = { 1: "copying", 2: "from memory", 3: "from sound" };
-function renderCustom(items) {
-  const wrap = $("custom-list");
-  const summary = $("custom-summary");
+
+function listsFail() {
+  $("custom-status").textContent = "Could not update — check your connection.";
+}
+
+async function listsCall(body) {
+  const r = await postJSON("/api/parent/lists",
+    { pin: state.parentPin, ...body });
+  renderLists(r.lists);
+  $("custom-status").textContent = "";
+  return r;
+}
+
+// lists: [{id, name, enabled, total, enabled_count, mastered,
+//          words: [{word, on, stage, seen, missed}]}]
+function renderLists(lists) {
+  const wrap = $("lists-wrap");
+  // keep lists the parent opened open across re-renders
+  const openIds = new Set(
+    [...wrap.querySelectorAll("details[open]")].map((d) => d.dataset.id));
   wrap.innerHTML = "";
-  if (!items || !items.length) {
-    wrap.innerHTML = '<span class="muted">No school words yet.</span>';
-    summary.textContent = "";
+  if (!lists || !lists.length) {
+    wrap.innerHTML =
+      '<div class="muted" style="padding:10px 2px">No school lists yet — add one below.</div>';
     return;
   }
-  const mastered = items.filter((i) => i.stage >= 4).length;
-  const learning = items.filter((i) => i.stage >= 1 && i.stage < 4).length;
-  summary.textContent = `★ ${mastered} of ${items.length} mastered` +
-    (learning ? ` · ${learning} in progress` : "") +
-    (mastered === items.length ? " — ready for the test! 🎉" : "");
-  items.forEach((it) => {
-    const chip = document.createElement("span");
-    chip.className = "word-chip" +
-      (it.stage >= 4 ? " st-mastered" : it.stage >= 1 ? " st-learning" : "");
-    let extra = "";
-    if (it.stage >= 4) extra = " ★";
-    else if (it.stage >= 1) extra = ` <span class="chip-stage">${STAGE_TAGS[it.stage]}</span>`;
-    if (it.missed > 0) extra += ` <span class="chip-miss">✗${it.missed}</span>`;
-    chip.innerHTML = `${esc(it.word)}${extra} <button aria-label="remove">✕</button>`;
-    chip.querySelector("button").addEventListener("click", async () => {
-      try {
-        const r = await postJSON("/api/parent/custom_words",
-          { pin: state.parentPin, action: "remove", word: it.word });
-        renderCustom(r.custom_status);
-        $("custom-status").textContent = "";
-      } catch (_) {
-        $("custom-status").textContent = "Could not remove — check your connection.";
-      }
+  lists.forEach((l) => {
+    const det = document.createElement("details");
+    det.className = "wlist";
+    det.dataset.id = l.id;
+    if (openIds.has(l.id)) det.open = true;
+
+    const sum = document.createElement("summary");
+    sum.innerHTML = `<span class="tri">▶</span>` +
+      `<input type="checkbox" ${l.enabled ? "checked" : ""} aria-label="use this list">` +
+      `<span class="list-name">${esc(l.name)}</span>` +
+      `<span class="list-count">${l.enabled_count}:${l.total}` +
+      (l.mastered ? ` <span class="mastered-n">★${l.mastered}</span>` : "") +
+      `</span>`;
+    const cb = sum.querySelector("input");
+    cb.addEventListener("click", (e) => e.stopPropagation());
+    cb.addEventListener("change", () => {
+      listsCall({ action: "toggle_list", list_id: l.id, enabled: cb.checked })
+        .catch(listsFail);
     });
-    wrap.appendChild(chip);
+    det.appendChild(sum);
+
+    const body = document.createElement("div");
+    body.className = "wlist-body";
+    const chips = document.createElement("div");
+    chips.className = "chips-wrap";
+    l.words.forEach((it) => {
+      const chip = document.createElement("span");
+      chip.className = "word-chip" +
+        (it.stage >= 4 ? " st-mastered" : it.stage >= 1 ? " st-learning" : "") +
+        (it.on ? "" : " off");
+      let extra = "";
+      if (it.stage >= 4) extra = " ★";
+      else if (it.stage >= 1) extra = ` <span class="chip-stage">${STAGE_TAGS[it.stage]}</span>`;
+      if (it.missed > 0) extra += ` <span class="chip-miss">✗${it.missed}</span>`;
+      chip.innerHTML = `<span class="chip-word">${esc(it.word)}</span>${extra} ` +
+        `<button aria-label="remove">✕</button>`;
+      // tap the chip = switch the word on/off; ✕ = remove it from the list
+      chip.addEventListener("click", () => {
+        listsCall({ action: "toggle_word", list_id: l.id,
+                    word: it.word, enabled: !it.on }).catch(listsFail);
+      });
+      chip.querySelector("button").addEventListener("click", (e) => {
+        e.stopPropagation();
+        listsCall({ action: "remove_word", list_id: l.id, word: it.word })
+          .catch(listsFail);
+      });
+      chips.appendChild(chip);
+    });
+    body.appendChild(chips);
+
+    const actions = document.createElement("div");
+    actions.className = "wlist-actions";
+    actions.innerHTML =
+      `<input type="text" placeholder="Add words to this list"
+         autocomplete="off" autocapitalize="none" spellcheck="false">` +
+      `<button class="mini-btn">Add</button>` +
+      `<button class="mini-btn danger">Delete</button>`;
+    const inp = actions.querySelector("input");
+    const [addB, delB] = actions.querySelectorAll("button");
+    addB.addEventListener("click", () => {
+      if (!inp.value.trim()) return;
+      listsCall({ action: "add_words", list_id: l.id, words: inp.value })
+        .catch(listsFail);
+    });
+    delB.addEventListener("click", () => {
+      if (!confirm(`Delete the list "${l.name}"?`)) return;
+      listsCall({ action: "delete", list_id: l.id }).catch(listsFail);
+    });
+    body.appendChild(actions);
+    det.appendChild(body);
+    wrap.appendChild(det);
   });
+}
+
+const ORDINAL = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th"];
+function gradeLabel(v) {
+  const g = Math.floor(v);
+  const half = v - g >= 0.5;
+  return ORDINAL[g - 1] + " grade" + (g === 9 ? "" : half ? " · later" : " · early");
 }
 
 function wireParent() {
   // grade levels 1-9 in half-grade steps ("3rd grade · early" = 3.0)
   const sel = $("set-level");
-  const ordinal = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th"];
   sel.innerHTML = "";
   for (let g = 1; g <= 9; g++) {
     [0, 0.5].forEach((half) => {
       if (g === 9 && half) return; // 9.0 is the top of the bank
       const o = document.createElement("option");
       o.value = String(g + half);
-      o.textContent = ordinal[g - 1] + " grade" + (half ? " · later" : " · early");
+      o.textContent = gradeLabel(g + half);
       sel.appendChild(o);
     });
   }
+
+  // the bank is a source like any list — one checkbox
+  $("bank-enabled").addEventListener("change", () => {
+    postJSON("/api/parent/settings",
+      { pin: state.parentPin, bank_enabled: $("bank-enabled").checked })
+      .then(() => { $("custom-status").textContent = ""; })
+      .catch(listsFail);
+  });
 
   $("custom-add").addEventListener("click", async () => {
     const val = $("custom-input").value.trim();
     if (!val) return;
     try {
-      const r = await postJSON("/api/parent/custom_words",
-        { pin: state.parentPin, action: "add", words: val });
+      await listsCall({ action: "create",
+                        name: $("list-name").value.trim(), words: val });
       $("custom-input").value = "";
-      renderCustom(r.custom_status);
-      $("custom-status").textContent = "";
+      $("list-name").value = "";
     } catch (_) {
-      $("custom-status").textContent = "Could not add — check your connection.";
+      listsFail();
     }
   });
 

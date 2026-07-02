@@ -96,6 +96,7 @@ def _default_state():
             "max_level": 3,
         },
         "words": {},          # word -> {seen, correct, missed, streak, last_ts}
+        "lists": [],          # [{id, name, enabled, words: [{w, on}]}]
         "modes": {},          # mode -> {seen, correct, missed, points}
         "days": {},           # "YYYY-MM-DD" -> {seen, correct, missed, points,
                               #                  modes: {mode: {...}}}
@@ -119,6 +120,16 @@ def load_state():
                 state[k] = v
         for k, v in base["profile"].items():
             state["profile"].setdefault(k, v)
+        state["profile"].setdefault("bank_enabled", True)
+        # migrate the old flat school list into the lists model
+        if state.get("custom_words") and not state["lists"]:
+            state["lists"].append({
+                "id": new_list_id(state),
+                "name": "School list",
+                "enabled": True,
+                "words": [{"w": clean_token(w), "on": True}
+                          for w in state["custom_words"] if clean_token(w)],
+            })
         return state
 
 
@@ -166,18 +177,45 @@ def word_stage(s):
     return s["stage"]
 
 
-def eligible_words(state):
-    """Pool words at or below the profile's max level, plus custom words.
+def new_list_id(state):
+    used = {l.get("id") for l in state.get("lists", [])}
+    n = 1
+    while f"l{n}" in used:
+        n += 1
+    return f"l{n}"
 
-    Custom (school-list) words are always included, even when the same word
-    exists in the built-in bank above the level cap — the parent asked for it.
-    """
+
+def enabled_list_words(state):
+    """Words from enabled lists, skipping words switched off individually."""
+    out = []
+    for lst in state.get("lists", []):
+        if not lst.get("enabled", True):
+            continue
+        for wd in lst.get("words", []):
+            if wd.get("on", True):
+                cw = clean_token(wd.get("w", ""))
+                if cw:
+                    out.append(cw)
+    return out
+
+
+def bank_words(state):
     max_level = float(state["profile"].get("max_level", 3))
-    pool = [item["w"] for item in WORDS if item["level"] <= max_level]
-    for w in state.get("custom_words", []):
-        cw = clean_token(w)
-        if cw:
-            pool.append(cw)
+    return [item["w"] for item in WORDS if item["level"] <= max_level]
+
+
+def eligible_words(state):
+    """The practice pool = the sources the parent has switched on:
+    the built-in bank (grade-capped) and/or any enabled custom lists.
+    List words count even above the grade cap — the parent asked for them.
+    If everything ends up switched off, fall back to the bank: the kid must
+    never tap Practice and get nothing."""
+    pool = []
+    if state["profile"].get("bank_enabled", True):
+        pool.extend(bank_words(state))
+    pool.extend(enabled_list_words(state))
+    if not pool:
+        pool = bank_words(state)
     return list(dict.fromkeys(pool))
 
 
@@ -185,7 +223,7 @@ def build_word_session(state, count):
     """Choose `count` words, favouring not-yet-mastered/missed words (spaced
     repetition) while mixing in fresh words so it never feels repetitive."""
     stats = state["words"]
-    custom = {clean_token(w) for w in state.get("custom_words", [])}
+    custom = set(enabled_list_words(state))  # school words get priority
     pool = eligible_words(state)
     pool_set = set(pool)
 
@@ -316,18 +354,37 @@ def record_answer(state, word, correct, aided=False, mode="words"):
     return (stage_up, s.get("stage"))
 
 
-def custom_word_status(state):
-    """Per-word ladder status for the parent's school list."""
+def lists_status(state):
+    """Every custom list with counts and per-word ladder status — what the
+    parent's Word lists card renders."""
     stats = state["words"]
     out = []
-    for w in state.get("custom_words", []):
-        cw = clean_token(w)
-        s = stats.get(cw)
+    for lst in state.get("lists", []):
+        words = []
+        mastered = 0
+        for wd in lst.get("words", []):
+            cw = clean_token(wd.get("w", ""))
+            if not cw:
+                continue
+            s = stats.get(cw)
+            stage = word_stage(s) if s and s.get("seen", 0) else 0
+            if stage >= STAGE_MASTERED:
+                mastered += 1
+            words.append({
+                "word": cw,
+                "on": bool(wd.get("on", True)),
+                "stage": stage,
+                "seen": s.get("seen", 0) if s else 0,
+                "missed": s.get("missed", 0) if s else 0,
+            })
         out.append({
-            "word": cw,
-            "stage": word_stage(s) if s and s.get("seen", 0) else 0,
-            "seen": s.get("seen", 0) if s else 0,
-            "missed": s.get("missed", 0) if s else 0,
+            "id": lst.get("id", ""),
+            "name": lst.get("name", "List"),
+            "enabled": bool(lst.get("enabled", True)),
+            "total": len(words),
+            "enabled_count": sum(1 for w in words if w["on"]),
+            "mastered": mastered,
+            "words": words,
         })
     return out
 
@@ -364,7 +421,7 @@ def parent_report(state):
         if word_stage(s) >= STAGE_MASTERED and s.get("mastered_ts", 0) >= week_ago:
             mastered_this_week += 1
 
-    custom_status = custom_word_status(state)
+    lists = lists_status(state)
 
     sessions = state.get("sessions", [])
     recent = list(reversed(sessions[-14:]))
@@ -405,7 +462,9 @@ def parent_report(state):
             "points": state["profile"].get("points", 0),
             "show_speaker": state["profile"].get("show_speaker", True),
             "max_level": state["profile"].get("max_level", 3),
+            "bank_enabled": state["profile"].get("bank_enabled", True),
         },
+        "bank_count": len(bank_words(state)),
         "summary": {
             "points": state["profile"].get("points", 0),
             "words_practiced": practiced,
@@ -417,13 +476,12 @@ def parent_report(state):
             "mastered_this_week": mastered_this_week,
         },
         "journey": journey,
-        "custom_status": custom_status,
+        "lists": lists,
         "most_missed": missed[:25],
         "by_mode": by_mode,
         "daily": daily,
         "last_practice_ts": state.get("last_answer_ts", 0),
         "recent_sessions": recent,
-        "custom_words": state.get("custom_words", []),
     }
 
 
@@ -493,6 +551,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._api_parent_settings(body)
         if path == "/api/parent/custom_words":
             return self._api_custom_words(body)
+        if path == "/api/parent/lists":
+            return self._api_lists(body)
         return self._send_json({"error": "not found"}, 404)
 
     # -- API handlers --
@@ -582,6 +642,8 @@ class Handler(BaseHTTPRequestHandler):
                 p["name"] = str(body["name"]).strip()[:24]
             if "show_speaker" in body:
                 p["show_speaker"] = bool(body["show_speaker"])
+            if "bank_enabled" in body:
+                p["bank_enabled"] = bool(body["bank_enabled"])
             if "max_level" in body:
                 try:
                     # grade levels 1.0-9.0, half-grade steps (e.g. 3.5)
@@ -602,31 +664,95 @@ class Handler(BaseHTTPRequestHandler):
         self._send_json({"ok": True, "pin_changed": pin_changed})
 
     def _api_custom_words(self, body):
+        """Legacy endpoint: operates on a default 'School list'. Kept so old
+        clients/tests keep working; the Word-lists UI uses /api/parent/lists."""
         with _lock:
             state = load_state()
             if not self._pin_ok(state, body):
                 return self._send_json({"error": "bad pin"}, 403)
             action = body.get("action", "add")
-            words = state.setdefault("custom_words", [])
             if action == "add":
                 incoming = body.get("words", [])
                 if isinstance(incoming, str):
                     incoming = incoming.replace(",", " ").split()
-                existing = set(words)
+                lst = next((l for l in state["lists"]
+                            if l.get("name") == "School list"), None)
+                if lst is None:
+                    lst = {"id": new_list_id(state), "name": "School list",
+                           "enabled": True, "words": []}
+                    state["lists"].append(lst)
+                have = {wd["w"] for wd in lst["words"]}
                 for raw in incoming:
-                    # keep only characters the practice input can type
                     cw = typeable(str(raw))
-                    if cw and cw not in existing:
-                        existing.add(cw)
-                        words.append(cw)
+                    if cw and cw not in have:
+                        have.add(cw)
+                        lst["words"].append({"w": cw, "on": True})
             elif action == "remove":
                 target = clean_token(str(body.get("word", "")))
-                state["custom_words"] = [
-                    w for w in words if clean_token(w) != target]
+                for lst in state["lists"]:
+                    lst["words"] = [wd for wd in lst["words"]
+                                    if wd["w"] != target]
             save_state(state)
-            current = state.get("custom_words", [])
-            status = custom_word_status(state)
-        self._send_json({"custom_words": current, "custom_status": status})
+            flat = [wd["w"] for l in state["lists"] for wd in l["words"]]
+            status = lists_status(state)
+        self._send_json({"custom_words": flat, "lists": status})
+
+    def _api_lists(self, body):
+        """Word-lists management: create/delete lists, toggle a whole list,
+        toggle or remove single words, append words to a list."""
+        with _lock:
+            state = load_state()
+            if not self._pin_ok(state, body):
+                return self._send_json({"error": "bad pin"}, 403)
+            action = str(body.get("action", ""))
+            lists = state["lists"]
+            lst = next((l for l in lists
+                        if l.get("id") == body.get("list_id")), None)
+
+            def parse_words(raw):
+                if isinstance(raw, str):
+                    raw = raw.replace(",", " ").split()
+                out = []
+                for r in raw or []:
+                    cw = typeable(str(r))
+                    if cw:
+                        out.append(cw)
+                return out
+
+            if action == "create":
+                name = str(body.get("name", "")).strip()[:40] or \
+                    f"List {len(lists) + 1}"
+                words = parse_words(body.get("words", []))
+                seen = set()
+                lists.append({
+                    "id": new_list_id(state), "name": name, "enabled": True,
+                    "words": [{"w": w, "on": True} for w in words
+                              if not (w in seen or seen.add(w))],
+                })
+            elif action == "delete" and lst is not None:
+                lists.remove(lst)
+            elif action == "toggle_list" and lst is not None:
+                lst["enabled"] = bool(body.get("enabled", True))
+            elif action == "toggle_word" and lst is not None:
+                target = clean_token(str(body.get("word", "")))
+                for wd in lst["words"]:
+                    if wd["w"] == target:
+                        wd["on"] = bool(body.get("enabled", True))
+            elif action == "add_words" and lst is not None:
+                have = {wd["w"] for wd in lst["words"]}
+                for w in parse_words(body.get("words", [])):
+                    if w not in have:
+                        have.add(w)
+                        lst["words"].append({"w": w, "on": True})
+            elif action == "remove_word" and lst is not None:
+                target = clean_token(str(body.get("word", "")))
+                lst["words"] = [wd for wd in lst["words"]
+                                if wd["w"] != target]
+            else:
+                return self._send_json({"error": "bad action"}, 400)
+            save_state(state)
+            status = lists_status(state)
+        self._send_json({"lists": status})
 
     def _hub_status(self):
         state = load_state()

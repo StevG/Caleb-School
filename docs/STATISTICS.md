@@ -11,7 +11,7 @@ view answers one question a parent of a struggling speller actually asks.
 | Accuracy tile | "How is he doing overall?" | `summary.accuracy` (unaided only) |
 | Last practiced bar | "Did he do it today?" | `last_practice_ts` |
 | Learning journey card | "Where is everything on the ladder?" | `journey` {copy, memory, sound, mastered} + `summary.mastered_this_week` |
-| School spelling list card | "Is he ready for Friday's test?" | `custom_status` [{word, stage, seen, missed}] — chips: grey = not tried, amber = learning (shows rung), green ★ = mastered, ✗N = miss count. Summary line: "★ X of Y mastered" |
+| Word lists card | "What is he practicing, and is he ready for Friday's test?" | `profile.bank_enabled` + `bank_count` (the bank row) and `lists` [{id, name, enabled, total, enabled_count, mastered, words:[{word, on, stage, seen, missed}]}]. Each list row: checkbox + `enabled:total` count + ★mastered. Chips inside: grey = not tried, amber = learning (shows rung), green ★ = mastered, ✗N = misses; dimmed/struck = switched off. Tap a chip to toggle it; ✕ removes it. |
 | Most-missed words | "What should we drill in the car?" | `most_missed` (sorted by misses; `stage` included) |
 | Day by day | "Is practice actually happening?" | `daily` — one row PER DAY, never merged (words, accuracy, stars) |
 | By practice type | "Which modes does he use / avoid?" | `by_mode` per words/listen/sentences/memory (tries, accuracy, sessions, stars) |
@@ -20,7 +20,10 @@ view answers one question a parent of a struggling speller actually asks.
 ## Data model (data/progress.json)
 
 ```
-profile:      name, points, pin, show_speaker, max_level (1.0-9.0 halves)
+profile:      name, points, pin, show_speaker, max_level (1.0-9.0 halves),
+              bank_enabled
+lists:        [{id, name, enabled, words: [{w, on}]}]  (custom word lists;
+              legacy flat custom_words migrates into one "School list")
 words:        word -> {seen, correct, missed, streak, last_ts,
                        stage (1-4), stage_streak, mastered_ts?}
 modes:        mode -> {seen, correct, missed, points}

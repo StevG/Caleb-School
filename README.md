@@ -41,9 +41,12 @@ words he misses most from their own phones.
   journey** view of where every word sits on the ladder — plus most-missed
   words, accuracy, **day-by-day history**, **per-practice-type stats**, and
   when he **last practiced** (each metric kept separate on purpose).
-- **School spelling list**: paste the weekly list (spaces, commas, or one per
-  line), then watch each word's chip go grey → amber (learning, with its
-  rung) → green ★, with a "★ 7 of 10 mastered — ready for the test!" summary.
+- **Word lists**: school words are their own toggleable lists, not mixed into
+  the big bank. Check/uncheck the built-in bank and any custom list (counts
+  show on : total, like 10:20); open a list to switch single words on or off
+  (all on by default). Chips go grey → amber (learning, with its rung) →
+  green ★ as he masters them. Turn the bank off during test week to drill
+  only the school list.
 - **Level** goes from 1st through 9th grade in half-grade steps, so the app
   grows with him.
 - Add his real weekly **school spelling list** — those words show up more often.

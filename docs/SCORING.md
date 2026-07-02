@@ -38,8 +38,14 @@ Rules (implemented in `server.record_answer`, constants at top of server.py):
 
 ## Session selection (spaced repetition)
 
+The pool comes from the sources the parent switched on in the Word lists
+card: the built-in bank (grade-capped, one checkbox) and/or enabled custom
+lists (each word individually toggleable). If everything is off, the bank is
+used as a fallback — the kid must never get an empty session.
+
 `build_word_session`: ~40% of a session is *review* — seen-but-unmastered
-words, most-missed first, parent's school words before bank words — the rest
+words, most-missed first, parent's school words before bank words (including
+brand-new school words, so a fresh list surfaces immediately) — the rest
 fresh words, topped up with least-recently-seen mastered words if the pool
 runs dry. Mastered words stop being pushed; they only reappear as filler.
 

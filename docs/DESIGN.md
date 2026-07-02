@@ -110,3 +110,9 @@ Four modes share that mechanic (owner-specified behavior — keep it exact):
   journey card, school-list card with per-word status chips + "X of Y
   mastered · ready for the test!" summary, textarea paste for lists.
   Docs split: SCORING.md + STATISTICS.md; tests committed to tests/.
+- 2026-07-02 — Word lists (owner-specified): school words are no longer
+  mixed invisibly into the bank. The parent picks sources — the bank (one
+  checkbox, grade-capped) and named custom lists, each with an
+  enabled:total count, each word toggleable (on by default). Everything
+  off falls back to the bank (no empty sessions). Legacy custom_words
+  migrates into a "School list".

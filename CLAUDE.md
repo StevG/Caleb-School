@@ -85,7 +85,8 @@ stay on ONE line (box size is computed per word).
 
 `GET /api/state` · `GET /api/session?mode=words|listen|sentences|memory&count=N` ·
 `POST /api/answer {word, correct, aided, mode}` · `POST /api/session_end` ·
-`POST /api/parent/login|settings|custom_words` (PIN in body) ·
+`POST /api/parent/login|settings|custom_words|lists` (PIN in body;
+`lists` actions: create/delete/toggle_list/toggle_word/add_words/remove_word) ·
 `GET /api/parent/report` (PIN in `X-Parent-Pin` header) · `GET /.hub/status`.
 
 "Aided" = a retype right after the answer was revealed: earns the point,

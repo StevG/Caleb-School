@@ -158,15 +158,26 @@
     </div>
 
     <div class="card">
-      <div class="card-head">School spelling list</div>
-      <p class="card-note">Paste this week's list — spaces, commas, or one word per line all work. These words show up more often until he's mastered them.</p>
-      <div class="add-row">
-        <textarea id="custom-input" rows="2" placeholder="because&#10;friend enough, Wednesday"
-               autocomplete="off" autocapitalize="none" spellcheck="false"></textarea>
-        <button id="custom-add" class="mini-btn">Add</button>
+      <div class="card-head">Word lists</div>
+      <p class="card-note">Check what he practices. Open a list to switch single words on or off — counts show on&#8202;:&#8202;total. School-list words show up more often until mastered.</p>
+
+      <label class="list-row bank-row">
+        <input type="checkbox" id="bank-enabled" checked>
+        <span class="list-name">Word bank <span class="list-sub" id="bank-sub"></span></span>
+        <span class="list-count" id="bank-count"></span>
+      </label>
+
+      <div id="lists-wrap"></div>
+
+      <div class="new-list">
+        <input id="list-name" type="text" placeholder="New list name (e.g. Week of Jul 7)"
+               autocomplete="off" spellcheck="false">
+        <div class="add-row">
+          <textarea id="custom-input" rows="2" placeholder="Paste the words — spaces, commas, or one per line"
+                 autocomplete="off" autocapitalize="none" spellcheck="false"></textarea>
+          <button id="custom-add" class="mini-btn">Add list</button>
+        </div>
       </div>
-      <div id="custom-summary" class="custom-summary"></div>
-      <div id="custom-list" class="chips-wrap"></div>
       <div id="custom-status" class="saved-note"></div>
     </div>
 

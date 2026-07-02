@@ -101,9 +101,9 @@ for (const d of ['1','2','3','4']) await page.click(`.pin-key:has-text("${d}")`)
 await page.waitForTimeout(500);
 const jRows = await page.$$eval('#journey-list li', els => els.map(e => e.textContent));
 check('dashboard: learning journey renders 4 rungs', jRows.length === 4, JSON.stringify(jRows));
-const summary = (await page.textContent('#custom-summary')).trim();
-check('dashboard: school list summary shows "X of Y mastered"', /of \d+ mastered/.test(summary), `"${summary}"`);
-const chips = await page.$$eval('#custom-list .word-chip', els => els.map(e => ({ cls: e.className, t: e.textContent })));
+const listRows = await page.$$eval('#lists-wrap details.wlist summary .list-count', els => els.map(e => e.textContent.trim()));
+check('dashboard: school list row shows on:total count', listRows.length >= 1 && /^\d+:\d+/.test(listRows[0]), JSON.stringify(listRows));
+const chips = await page.$$eval('#lists-wrap .word-chip', els => els.map(e => ({ cls: e.className, t: e.textContent })));
 check('dashboard: chips carry status classes', chips.some(c => c.cls.includes('st-learning') || c.cls.includes('st-mastered')), JSON.stringify(chips));
 const mast = (await page.textContent('#s-mastered')).trim();
 check('dashboard: mastered stat tile present', /^\d+$/.test(mast), mast);
