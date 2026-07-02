@@ -267,10 +267,13 @@ def enabled_list_words(state):
 
 
 def enabled_bands(state):
+    """Exactly what the parent checked — an empty selection stays empty
+    (predictable checkboxes; the parent may be mid-switch between grades).
+    The kid-never-gets-nothing guarantee lives in source_pool() instead."""
     raw = state["profile"].get("enabled_grades")
-    bands = {float(b) for b in raw if float(b) in BAND_COUNTS} if raw else set()
-    # nobody left a kid with zero words: empty selection = the default bands
-    return bands or set(default_bands(state["profile"].get("max_level", 3)))
+    if raw is None:  # never set: pre-bands data — the migration default
+        return set(default_bands(state["profile"].get("max_level", 3)))
+    return {float(b) for b in raw if float(b) in BAND_COUNTS}
 
 
 def bank_words(state):
@@ -323,18 +326,29 @@ def bank_status(state):
     }
 
 
+def sources_empty(state):
+    """True when the parent's current selection yields zero words — the
+    dashboard shows a warning and sessions use the starter fallback."""
+    if state["profile"].get("bank_enabled", True) and bank_words(state):
+        return False
+    return not enabled_list_words(state)
+
+
 def source_pool(state):
     """The words from the sources the parent has switched on: the built-in
     bank (grade-capped) and/or any enabled custom lists. List words count
     even above the grade cap — the parent asked for them. If everything ends
-    up switched off, fall back to the bank: the kid must never tap Practice
-    and get nothing."""
+    up switched off (even every grade band unchecked), fall back to the
+    starter bands: the kid must never tap Practice and get nothing."""
     pool = []
     if state["profile"].get("bank_enabled", True):
         pool.extend(bank_words(state))
     pool.extend(enabled_list_words(state))
     if not pool:
-        pool = bank_words(state)
+        starter = set(default_bands(state["profile"].get("max_level", 3)))
+        off = set(state.get("bank_off", []))
+        pool = [item["w"] for item in WORDS
+                if float(item["level"]) in starter and item["w"] not in off]
     return list(dict.fromkeys(pool))
 
 
@@ -687,6 +701,7 @@ def parent_report(state):
         },
         "bank_count": len(bank_words(state)),
         "hearts_in_pool": count_pool_hearts(state),
+        "sources_empty": sources_empty(state),
         "progress": source_progress(state),
         "bank": bank_status(state),
         "summary": {
@@ -966,7 +981,9 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send_json(
                         {"ok": False, "error": "PIN must be 4-8 digits"}, 400)
             save_doc(doc)
-        self._send_json({"ok": True, "pin_changed": pin_changed})
+            empty = sources_empty(state)
+        self._send_json({"ok": True, "pin_changed": pin_changed,
+                         "sources_empty": empty})
 
     def _api_custom_words(self, body):
         """Legacy endpoint: operates on a default 'School list'. Kept so old
@@ -1110,8 +1127,9 @@ class Handler(BaseHTTPRequestHandler):
             status = lists_status(state)
             bank = bank_status(state)
             hearts = count_pool_hearts(state)
+            empty = sources_empty(state)
         self._send_json({"lists": status, "bank": bank,
-                         "hearts_in_pool": hearts})
+                         "hearts_in_pool": hearts, "sources_empty": empty})
 
     def _hub_status(self):
         # one line per kid — the hub card should show the whole family

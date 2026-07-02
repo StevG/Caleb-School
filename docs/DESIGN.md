@@ -79,6 +79,12 @@ Four modes share that mechanic (owner-specified behavior — keep it exact):
 - Not a game with an economy — points are minutes of iPad time, period.
 
 ## Decisions log
+- 2026-07-02 — Checkboxes are predictable (owner bug report): unchecking
+  every grade band STICKS — no more silent snap-back to the up-to-3rd-grade
+  defaults. An empty selection shows a calm amber heads-up in the Word
+  lists card ("that's fine while you set things up…") and sessions quietly
+  fall back to the starter bands so the kid still gets words. The
+  `sources_empty` flag rides on report/lists/settings responses.
 - 2026-07-02 — Results by list (owner-specified, "the spelling-test view"):
   a dashboard card showing, per school list (and per practiced grade band,
   folded), mastery bar, unaided accuracy, day-by-day trend chips (from new

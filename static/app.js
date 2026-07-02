@@ -1036,6 +1036,7 @@ function renderReport(rep) {
   renderBank(rep.bank);
   $("hearts-only").checked = rep.profile.hearts_only === true;
   updateHeartsNote(rep.hearts_in_pool);
+  updateNoWordsNote(rep.sources_empty);
 
   $("set-name").value = rep.profile.name || "";
   $("set-speaker").checked = rep.profile.show_speaker !== false;
@@ -1124,6 +1125,14 @@ function heartMark() {
   return ' <span class="wr-heart" title="heart word">♥</span>';
 }
 
+// The "everything is unchecked" heads-up: unchecking every band/list is
+// allowed and sticks (predictable checkboxes) — this just says what happens.
+function updateNoWordsNote(empty) {
+  if (typeof empty === "boolean") {
+    $("no-words-note").classList.toggle("hidden", !empty);
+  }
+}
+
 // "Heart words only" narrows practice to the heart words inside whatever
 // sources are checked below. The note shows how many words that gives.
 let heartsInPool = null;
@@ -1164,7 +1173,10 @@ function renderBank(bank) {
     postJSON("/api/parent/settings",
       { pin: state.parentPin, child: state.parentChild,
         bank_enabled: master.checked })
-      .then(() => { $("custom-status").textContent = ""; })
+      .then((r) => {
+        updateNoWordsNote(r.sources_empty);
+        $("custom-status").textContent = "";
+      })
       .catch(listsFail);
   });
   det.appendChild(sum);
@@ -1248,6 +1260,7 @@ async function listsCall(body) {
   renderLists(r.lists);
   if (r.bank) renderBank(r.bank);
   updateHeartsNote(r.hearts_in_pool);
+  updateNoWordsNote(r.sources_empty);
   $("custom-status").textContent = "";
   return r;
 }

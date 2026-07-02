@@ -78,6 +78,41 @@ await page.evaluate(() => {
 await page.click('#bank-wrap details.band .word-row input'); // restore
 await page.waitForTimeout(300);
 
+// uncheck EVERY band -> the empty selection STICKS (no snap-back to the
+// defaults) and a heads-up note appears; sessions fall back to starter words
+for (let i = 0; i < 20; i++) {
+  const cb = await page.$('#bank-wrap details.band summary input:checked');
+  if (!cb) break;
+  await cb.click();
+  await page.waitForTimeout(300);
+}
+const allOff = await page.evaluate(async () => {
+  const boxes = [...document.querySelectorAll('#bank-wrap details.band summary input')];
+  const rep = await (await fetch('/api/parent/report', { headers: { 'X-Parent-Pin': '1234' } })).json();
+  const sess = await (await fetch('/api/session?mode=words&count=8')).json();
+  return { uiChecked: boxes.filter(b => b.checked).length,
+           saved: rep.bank.bands.filter(b => b.enabled).length,
+           count: document.querySelector('#bank-count').textContent.trim(),
+           noteShown: !document.querySelector('#no-words-note').classList.contains('hidden'),
+           sessionItems: sess.items.length };
+});
+check('unchecking every band sticks (no snap-back to defaults)',
+  allOff.uiChecked === 0 && allOff.saved === 0 && allOff.count.startsWith('0:'),
+  JSON.stringify(allOff));
+check('all unchecked -> heads-up note shows', allOff.noteShown);
+check('all unchecked -> kid still gets a session (starter fallback)',
+  allOff.sessionItems === 8, String(allOff.sessionItems));
+// re-check one band -> note hides again
+await page.click('#bank-wrap details.band summary input');
+await page.waitForTimeout(400);
+const noteGone = await page.$eval('#no-words-note', el => el.classList.contains('hidden'));
+check('re-checking a band hides the note', noteGone);
+// restore the default bands for the rest of the suite
+await page.evaluate(() => fetch('/api/parent/settings', { method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ pin: '1234', enabled_grades: [1, 1.5, 2, 2.5, 3] }) }));
+await page.waitForTimeout(300);
+
 // create a list through the UI
 await page.fill('#list-name', 'Week of Jul 7');
 await page.fill('#custom-input', 'because\nfriend enough, tomorrow');
