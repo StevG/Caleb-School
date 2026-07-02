@@ -79,6 +79,13 @@ Four modes share that mechanic (owner-specified behavior — keep it exact):
 - Not a game with an economy — points are minutes of iPad time, period.
 
 ## Decisions log
+- 2026-07-02 — Switched-off sources look switched off (owner report): when
+  a grade band, custom list, or the whole Word bank is unchecked, its
+  contents grey out (`.src-off`) — but the word checkmarks stay visible in
+  grey. They were always REMEMBERED server-side (band toggles never touch
+  `bank_off`); now the UI says so: re-checking the section re-activates
+  exactly the selection you had. Checkmarks are still editable while grey,
+  so a parent can pre-select words before switching a section on.
 - 2026-07-02 — Word-row ordering (owner-specified): every word checklist
   (bank bands and custom lists) shows the heart words A–Z first, then all
   remaining words A–Z — the hard ones a parent scans for sit on top.

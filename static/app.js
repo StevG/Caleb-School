@@ -1387,7 +1387,10 @@ function renderBank(bank) {
     [...wrap.querySelectorAll("details.band[open]")].map((d) => d.dataset.level));
   wrap.innerHTML = "";
   const det = document.createElement("details");
-  det.className = "wlist";
+  // "src-off" greys the contents when the source is switched off — the
+  // checkmarks inside are REMEMBERED (grey, not lost) and come back live
+  // when the source is re-enabled
+  det.className = "wlist" + (bank.enabled ? "" : " src-off");
   if (wasOpen) det.open = true;
 
   const sum = document.createElement("summary");
@@ -1399,6 +1402,7 @@ function renderBank(bank) {
   const master = sum.querySelector("input");
   master.addEventListener("click", (e) => e.stopPropagation());
   master.addEventListener("change", () => {
+    det.classList.toggle("src-off", !master.checked);
     postJSON("/api/parent/settings",
       { pin: state.parentPin, child: state.parentChild,
         bank_enabled: master.checked })
@@ -1414,7 +1418,9 @@ function renderBank(bank) {
   body.className = "wlist-body bank-body";
   bank.bands.forEach((band) => {
     const bd = document.createElement("details");
-    bd.className = "band";
+    // an unchecked band keeps its word checkmarks, shown grey: re-checking
+    // the band re-activates exactly the words that were checked before
+    bd.className = "band" + (band.enabled ? "" : " src-off");
     bd.dataset.level = String(band.level);
     if (openBands.has(String(band.level))) bd.open = true;
 
@@ -1427,6 +1433,7 @@ function renderBank(bank) {
     const bcb = bsum.querySelector("input");
     bcb.addEventListener("click", (e) => e.stopPropagation());
     bcb.addEventListener("change", () => {
+      bd.classList.toggle("src-off", !bcb.checked); // grey instantly
       listsCall({ action: "bank_toggle_band", level: band.level,
                   enabled: bcb.checked }).catch(listsFail);
     });
@@ -1510,7 +1517,8 @@ function renderLists(lists) {
   }
   lists.forEach((l) => {
     const det = document.createElement("details");
-    det.className = "wlist";
+    // same rule as the bank: a switched-off list keeps its checkmarks grey
+    det.className = "wlist" + (l.enabled ? "" : " src-off");
     det.dataset.id = l.id;
     if (openIds.has(l.id)) det.open = true;
 
@@ -1524,6 +1532,7 @@ function renderLists(lists) {
     const cb = sum.querySelector("input");
     cb.addEventListener("click", (e) => e.stopPropagation());
     cb.addEventListener("change", () => {
+      det.classList.toggle("src-off", !cb.checked); // grey instantly
       listsCall({ action: "toggle_list", list_id: l.id, enabled: cb.checked })
         .catch(listsFail);
     });

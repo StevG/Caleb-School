@@ -79,6 +79,46 @@ await page.evaluate(() => {
 await page.click('#bank-wrap details.band .word-row input'); // restore
 await page.waitForTimeout(300);
 
+// unchecking a band greys its words but REMEMBERS the checkmarks: turn one
+// word off, disable the band (grey state), re-enable -> same selection back
+await page.evaluate(() => {
+  document.querySelector('#bank-wrap details.wlist').open = true;
+  document.querySelector('#bank-wrap details.band').open = true;
+});
+await page.click('#bank-wrap details.band .word-row input'); // 1 word off
+await page.waitForTimeout(400);
+const snapBefore = await page.evaluate(() =>
+  [...document.querySelector('#bank-wrap details.band')
+    .querySelectorAll('.word-row input')].map(e => e.checked).join(''));
+await page.click('#bank-wrap details.band summary input'); // band OFF
+await page.waitForTimeout(400);
+const offState = await page.evaluate(() => {
+  const band = document.querySelector('#bank-wrap details.band');
+  return { grey: band.classList.contains('src-off'),
+           snap: [...band.querySelectorAll('.word-row input')].map(e => e.checked).join('') };
+});
+check('band off: section greys, word checkmarks stay put',
+  offState.grey && offState.snap === snapBefore,
+  `grey=${offState.grey} same=${offState.snap === snapBefore}`);
+await page.click('#bank-wrap details.band summary input'); // band back ON
+await page.waitForTimeout(400);
+const onState = await page.evaluate(() => {
+  const band = document.querySelector('#bank-wrap details.band');
+  return { grey: band.classList.contains('src-off'),
+           snap: [...band.querySelectorAll('.word-row input')].map(e => e.checked).join(''),
+           count: band.querySelector('summary .list-count').textContent.trim() };
+});
+check('band back on: grey lifts, the previous selection is active again',
+  !onState.grey && onState.snap === snapBefore &&
+  onState.count.startsWith(`${band1Size - 1}:${band1Size}`),
+  `count=${onState.count}`);
+await page.evaluate(() => {
+  document.querySelector('#bank-wrap details.wlist').open = true;
+  document.querySelector('#bank-wrap details.band').open = true;
+});
+await page.click('#bank-wrap details.band .word-row input'); // restore word
+await page.waitForTimeout(400);
+
 // word rows are ordered: heart words A-Z first, then the rest A-Z
 const order = await page.evaluate(async () => {
   const rep = await (await fetch('/api/parent/report', { headers: { 'X-Parent-Pin': '1234' } })).json();
@@ -167,6 +207,8 @@ check('pool: bank off -> only the 3 enabled list words', pool.words.length === 3
 // toggle the whole list off via its checkbox -> fallback pool (bank) kicks in
 await page.click('#lists-wrap details.wlist summary input[type=checkbox]');
 await page.waitForTimeout(400);
+check('list off: section greys, checkmarks remembered',
+  await page.$eval('#lists-wrap details.wlist', el => el.classList.contains('src-off')));
 const fallback = await page.evaluate(async () => {
   const r = await fetch('/api/session?mode=words&count=8');
   return (await r.json()).items.length;
