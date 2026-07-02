@@ -457,6 +457,9 @@ def bank_status(state):
             if w in wordbank.HEART_WORDS:
                 entry["heart"] = True
             words.append(entry)
+        # heart words first (the hard ones a parent scans for), then the
+        # rest — each section alphabetical
+        words.sort(key=lambda e: (0 if e.get("heart") else 1, e["word"]))
         if b in on_bands:
             total_on += n_on
         bands.append({
@@ -813,6 +816,8 @@ def lists_status(state):
             if cw in wordbank.HEART_WORDS:
                 entry["heart"] = True
             words.append(entry)
+        # same ordering rule as the bank: hearts A-Z, then the rest A-Z
+        words.sort(key=lambda e: (0 if e.get("heart") else 1, e["word"]))
         out.append({
             "id": lst.get("id", ""),
             "name": lst.get("name", "List"),

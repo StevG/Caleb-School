@@ -79,6 +79,10 @@ Four modes share that mechanic (owner-specified behavior — keep it exact):
 - Not a game with an economy — points are minutes of iPad time, period.
 
 ## Decisions log
+- 2026-07-02 — Word-row ordering (owner-specified): every word checklist
+  (bank bands and custom lists) shows the heart words A–Z first, then all
+  remaining words A–Z — the hard ones a parent scans for sit on top.
+  Ordered server-side in bank_status()/lists_status().
 - 2026-07-02 — Assignments + notifications (owner-specified). Parents hand
   out "missions": any of the four modes, optionally pinned to a word list,
   to one child or every child. Missions sit at the top of the kid's home

@@ -56,7 +56,8 @@ await page.evaluate(() => {
   document.querySelector('#bank-wrap details.wlist').open = true;
   document.querySelector('#bank-wrap details.band').open = true;
 });
-const bankWord = (await page.textContent('#bank-wrap details.band .word-row .wr-word')).trim();
+const bankWord = (await page.textContent('#bank-wrap details.band .word-row .wr-word'))
+  .replace('♥', '').trim(); // heart words sort first and carry the ♥ glyph
 await page.click('#bank-wrap details.band .word-row input');
 await page.waitForTimeout(400);
 const bandCount = (await page.$$eval('#bank-wrap details.band summary .list-count',
@@ -77,6 +78,19 @@ await page.evaluate(() => {
 });
 await page.click('#bank-wrap details.band .word-row input'); // restore
 await page.waitForTimeout(300);
+
+// word rows are ordered: heart words A-Z first, then the rest A-Z
+const order = await page.evaluate(async () => {
+  const rep = await (await fetch('/api/parent/report', { headers: { 'X-Parent-Pin': '1234' } })).json();
+  const rows = rep.bank.bands[0].words;
+  const hearts = rows.filter(w => w.heart).map(w => w.word);
+  const rest = rows.filter(w => !w.heart).map(w => w.word);
+  const sorted = (a) => JSON.stringify(a) === JSON.stringify([...a].sort());
+  const split = rows.findIndex(w => !w.heart) === hearts.length;
+  return { hearts: hearts.length, split, alpha: sorted(hearts) && sorted(rest) };
+});
+check('band rows: hearts A-Z on top, then the rest A-Z',
+  order.hearts > 0 && order.split && order.alpha, JSON.stringify(order));
 
 // uncheck EVERY band -> the empty selection STICKS (no snap-back to the
 // defaults) and a heads-up note appears; sessions fall back to starter words
