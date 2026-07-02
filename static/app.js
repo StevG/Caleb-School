@@ -28,6 +28,11 @@ const state = {
   showSpeaker: true,
   points: 0,
   parentPin: "",
+  // multiple kids: this DEVICE remembers who practices on it; the parent
+  // dashboard has its own independent selection (parentChild)
+  childId: "",
+  children: [],      // roster from the server: [{id, name, points}]
+  parentChild: "",   // the child the dashboard is showing/editing
   // session
   queue: [],      // items still to do (words mode: {w,group}; sentences: token views)
   total: 0,       // queue items (words, or whole sentences)
@@ -55,6 +60,53 @@ const state = {
 };
 
 // ---------- boot ----------
+function storedChild() {
+  try { return localStorage.getItem("spelling-child") || ""; }
+  catch (_) { return ""; }
+}
+function storeChild(id) {
+  try { localStorage.setItem("spelling-child", id); } catch (_) {}
+}
+
+function refreshState() {
+  return api("/api/state?child=" + encodeURIComponent(state.childId))
+    .then((s) => {
+      state.childId = s.child;    // the server resolves stale/deleted ids
+      storeChild(s.child);
+      state.children = s.children || [];
+      state.points = s.points || 0;
+      state.showSpeaker = s.show_speaker !== false;
+      $("kid-name").textContent = s.name || "Caleb";
+      $("home-points").textContent = state.points;
+      renderWhoRow();
+      // help the second parent get in the first time (hidden once changed)
+      $("gate-hint").classList.toggle("hidden", !s.pin_is_default);
+    });
+}
+
+// the "Who's spelling?" chips — only when there is more than one kid
+function renderWhoRow() {
+  const row = $("who-row");
+  row.innerHTML = "";
+  if (!state.children || state.children.length < 2) {
+    row.classList.add("hidden");
+    return;
+  }
+  row.classList.remove("hidden");
+  state.children.forEach((c) => {
+    const b = document.createElement("button");
+    b.className = "who-chip" + (c.id === state.childId ? " active" : "");
+    b.textContent = c.name;
+    b.addEventListener("click", () => {
+      if (c.id === state.childId) return;
+      state.childId = c.id;
+      storeChild(c.id);
+      refreshState().catch(() => {});
+    });
+    row.appendChild(b);
+  });
+}
+
 function boot() {
   // Wire everything first — buttons must work even if the network is slow.
   wireHome();
@@ -63,14 +115,8 @@ function boot() {
   wireGate();
   wireParent();
   initUpdates();
-  api("/api/state").then((s) => {
-    state.points = s.points || 0;
-    state.showSpeaker = s.show_speaker !== false;
-    $("kid-name").textContent = s.name || "Caleb";
-    $("home-points").textContent = state.points;
-    // help the second parent get in the first time (hidden once changed)
-    $("gate-hint").classList.toggle("hidden", !s.pin_is_default);
-  }).catch(() => {});
+  state.childId = storedChild();
+  refreshState().catch(() => {});
 }
 
 // ---------- keeping the installed app fresh ----------
@@ -183,7 +229,8 @@ async function startSession() {
     : state.mode === "sentences" ? 6 : state.goal;
   let items = [];
   try {
-    const data = await api(`/api/session?mode=${state.mode}&count=${count}`);
+    const data = await api(`/api/session?mode=${state.mode}&count=${count}` +
+      `&child=${encodeURIComponent(state.childId)}`);
     items = data.items || [];
   } catch (_) {}
   if (!items.length) { alert("Could not load words. Try again."); return; }
@@ -633,7 +680,7 @@ function updatePointsUI() {
 
 function postAnswer(word, correct, aided) {
   postJSON("/api/answer",
-    { word, correct, aided: !!aided, mode: state.mode })
+    { word, correct, aided: !!aided, mode: state.mode, child: state.childId })
     .then((r) => {
       // the server's count is the truth — adopt it so devices never drift
       if (typeof r.points === "number") {
@@ -660,6 +707,7 @@ function finishSession() {
     count: state.wordsDone,
     correct: state.correctCount,
     points: state.earned,
+    child: state.childId,
   }).catch(() => {});
   $("earned").textContent = state.earned;
   $("done-total").textContent = state.points;
@@ -817,9 +865,12 @@ function flashPinError() {
 async function openParent() {
   show("parent");
   try {
-    const rep = await api("/api/parent/report", {
-      headers: { "X-Parent-Pin": state.parentPin },
-    });
+    const who = state.parentChild || state.childId;
+    const rep = await api(
+      "/api/parent/report?child=" + encodeURIComponent(who),
+      { headers: { "X-Parent-Pin": state.parentPin } });
+    state.parentChild = rep.child;
+    state.children = rep.children || state.children;
     renderReport(rep);
   } catch (_) {
     alert("Could not load the report.");
@@ -827,7 +878,43 @@ async function openParent() {
   }
 }
 
+// one tab per kid at the top of the dashboard — everything below (stats,
+// word lists, settings) belongs to the selected child only
+function renderChildTabs(children, current) {
+  const row = $("child-tabs");
+  row.innerHTML = "";
+  (children || []).forEach((c) => {
+    const b = document.createElement("button");
+    b.className = "child-tab" + (c.id === current ? " active" : "");
+    b.innerHTML = `${esc(c.name)} <span class="ct-pts">${c.points}⭐</span>`;
+    b.addEventListener("click", () => {
+      if (c.id === state.parentChild) return;
+      state.parentChild = c.id;
+      openParent();
+    });
+    row.appendChild(b);
+  });
+  const add = document.createElement("button");
+  add.className = "child-tab add";
+  add.textContent = "+ Add child";
+  add.addEventListener("click", async () => {
+    const name = (prompt("Child's name?") || "").trim();
+    if (!name) return;
+    try {
+      const r = await postJSON("/api/parent/children",
+        { pin: state.parentPin, action: "add", name });
+      state.parentChild = r.child;   // jump straight to the new kid
+      await openParent();
+      refreshState().catch(() => {}); // home picker learns about them too
+    } catch (_) {
+      alert("Could not add the child — check your connection.");
+    }
+  });
+  row.appendChild(add);
+}
+
 function renderReport(rep) {
+  renderChildTabs(rep.children, rep.child);
   $("s-points").textContent = rep.summary.points;
   $("s-accuracy").textContent = rep.summary.accuracy + "%";
   $("s-words").textContent = rep.summary.words_practiced;
@@ -953,6 +1040,10 @@ function renderReport(rep) {
   $("set-speaker").checked = rep.profile.show_speaker !== false;
   $("set-pin").value = "";
   $("settings-saved").textContent = "";
+  // a child can be removed only while a sibling remains
+  const rc = $("remove-child");
+  rc.classList.toggle("hidden", (rep.children || []).length < 2);
+  rc.textContent = `Remove ${rep.profile.name || "this child"}…`;
 }
 
 // ---------- Word lists (the parent picks what he practices) ----------
@@ -1001,7 +1092,8 @@ function renderBank(bank) {
   master.addEventListener("click", (e) => e.stopPropagation());
   master.addEventListener("change", () => {
     postJSON("/api/parent/settings",
-      { pin: state.parentPin, bank_enabled: master.checked })
+      { pin: state.parentPin, child: state.parentChild,
+        bank_enabled: master.checked })
       .then(() => { $("custom-status").textContent = ""; })
       .catch(listsFail);
   });
@@ -1082,7 +1174,7 @@ function listsFail() {
 
 async function listsCall(body) {
   const r = await postJSON("/api/parent/lists",
-    { pin: state.parentPin, ...body });
+    { pin: state.parentPin, child: state.parentChild, ...body });
   renderLists(r.lists);
   if (r.bank) renderBank(r.bank);
   updateHeartsNote(r.hearts_in_pool);
@@ -1192,7 +1284,8 @@ function wireParent() {
   $("hearts-only").addEventListener("change", () => {
     updateHeartsNote();
     postJSON("/api/parent/settings",
-      { pin: state.parentPin, hearts_only: $("hearts-only").checked })
+      { pin: state.parentPin, child: state.parentChild,
+        hearts_only: $("hearts-only").checked })
       .then(() => { $("custom-status").textContent = ""; })
       .catch(listsFail);
   });
@@ -1213,6 +1306,7 @@ function wireParent() {
   $("save-settings").addEventListener("click", async () => {
     const body = {
       pin: state.parentPin,
+      child: state.parentChild,
       name: $("set-name").value,
       show_speaker: $("set-speaker").checked,
     };
@@ -1231,11 +1325,30 @@ function wireParent() {
         state.parentPin = newPin;
         $("set-pin").value = "";
       }
-      state.showSpeaker = body.show_speaker;
-      $("kid-name").textContent = body.name || "Caleb";
       $("settings-saved").textContent = "Saved ✓";
+      // a rename shows up in the tabs and (if it's this device's kid) at home
+      refreshState().catch(() => {});
+      const tab = [...document.querySelectorAll("#child-tabs .child-tab")]
+        .find((t) => t.classList.contains("active"));
+      if (tab && body.name.trim()) {
+        tab.firstChild.textContent = body.name.trim() + " ";
+      }
     } catch (_) {
       $("settings-saved").textContent = "Could not save.";
+    }
+  });
+
+  $("remove-child").addEventListener("click", async () => {
+    const name = $("set-name").value || "this child";
+    if (!confirm(`Remove ${name} and ALL their progress? This can't be undone.`)) return;
+    try {
+      const r = await postJSON("/api/parent/children",
+        { pin: state.parentPin, action: "delete", child: state.parentChild });
+      state.parentChild = r.child;
+      await openParent();
+      refreshState().catch(() => {});
+    } catch (_) {
+      alert("Could not remove the child.");
     }
   });
 }

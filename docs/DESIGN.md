@@ -79,6 +79,15 @@ Four modes share that mechanic (owner-specified behavior — keep it exact):
 - Not a game with an economy — points are minutes of iPad time, period.
 
 ## Decisions log
+- 2026-07-02 — Multiple children (owner-specified): the family doc is
+  `{pin, children:[...]}` — ONE parent PIN, each child carrying their entire
+  world (progress, word lists, bank switches, hearts-only, speaker, points).
+  The home screen grows a "who's spelling?" chip row only when there are 2+
+  kids (each device remembers its pick); the dashboard gets child tabs at
+  the top — every card below belongs to the selected child only. Children
+  can be added (+ tab), renamed (settings name field), and removed (danger
+  button, confirm, never the last one). A pre-multi-child progress.json
+  migrates automatically into child #1.
 - 2026-07-01 — Web app/PWA on HomeHub over native iOS (owner approved):
   no App Store friction, instant deploys, reuses Cloudflare Access login.
 - 2026-07-01 — Server-side storage (command app, not static) so the parent

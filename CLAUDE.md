@@ -83,9 +83,16 @@ stay on ONE line (box size is computed per word).
 
 ## API sketch
 
+Multi-child: `data/progress.json` is `{pin, children:[...]}` — one parent
+PIN, everything else (progress, lists, settings) per child. Every endpoint
+takes a child id (`?child=` / `"child"` body field; falls back to the first
+child); `/api/state` + `/api/parent/report` return the roster; `POST
+/api/parent/children {action: add|rename|delete}` manages the kids. Legacy
+single-kid files migrate automatically.
+
 `GET /api/state` · `GET /api/session?mode=words|listen|sentences|memory&count=N` ·
 `POST /api/answer {word, correct, aided, mode}` · `POST /api/session_end` ·
-`POST /api/parent/login|settings|custom_words|lists` (PIN in body;
+`POST /api/parent/login|settings|custom_words|lists|children` (PIN in body;
 `lists` actions: create/delete/toggle_list/toggle_word/add_words/remove_word/
 bank_toggle_band/bank_toggle_word/bank_copy; settings accepts
 `enabled_grades` list — legacy `max_level` maps onto it — plus

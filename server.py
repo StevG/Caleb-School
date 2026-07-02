@@ -99,12 +99,14 @@ MIME = {
 VALID_MODES = ("words", "listen", "sentences", "memory")
 
 
-def _default_state():
+def _default_child(name="Caleb"):
+    """One kid's entire world — progress, sources, settings. Every helper in
+    this file (sessions, ladder, report, lists) operates on ONE of these."""
     return {
+        "id": "c1",
         "profile": {
-            "name": "Caleb",
+            "name": name,
             "points": 0,
-            "pin": DEFAULT_PIN,
             "show_speaker": True,
             "max_level": 3,
         },
@@ -114,50 +116,97 @@ def _default_state():
         "modes": {},          # mode -> {seen, correct, missed, points}
         "days": {},           # "YYYY-MM-DD" -> {seen, correct, missed, points,
                               #                  modes: {mode: {...}}}
-        "last_answer_ts": 0,  # when Caleb last answered anything
+        "last_answer_ts": 0,  # when the kid last answered anything
         "custom_words": [],   # parent-added words
         "sessions": [],       # list of {ts, mode, count, correct, points}
     }
 
 
-def load_state():
+def _fill_child(child):
+    """Fill in any keys added since the file was written + run migrations."""
+    base = _default_child()
+    for k, v in base.items():
+        if k not in child:
+            child[k] = v
+    for k, v in base["profile"].items():
+        child["profile"].setdefault(k, v)
+    child["profile"].setdefault("bank_enabled", True)
+    child["profile"].setdefault("hearts_only", False)
+    # migrate the old single "max level" cap into per-band selection
+    if "enabled_grades" not in child["profile"]:
+        child["profile"]["enabled_grades"] = default_bands(
+            child["profile"].get("max_level", 3))
+    # migrate the old flat school list into the lists model
+    if child.get("custom_words") and not child["lists"]:
+        child["lists"].append({
+            "id": new_list_id(child),
+            "name": "School list",
+            "enabled": True,
+            "words": [{"w": clean_token(w), "on": True}
+                      for w in child["custom_words"] if clean_token(w)],
+        })
+    return child
+
+
+def load_doc():
+    """The whole family: {"pin": parent PIN, "children": [child, ...]}.
+    A pre-multi-child progress.json (one kid's dict at the top level)
+    migrates in place: it becomes child #1 and its PIN moves up to the doc.
+    There is always at least one child."""
     with _lock:
         try:
             with open(DATA_FILE, "r", encoding="utf-8") as f:
-                state = json.load(f)
+                doc = json.load(f)
         except (FileNotFoundError, ValueError):
-            state = _default_state()
-        # Fill in any keys added since the file was written.
-        base = _default_state()
-        for k, v in base.items():
-            if k not in state:
-                state[k] = v
-        for k, v in base["profile"].items():
-            state["profile"].setdefault(k, v)
-        state["profile"].setdefault("bank_enabled", True)
-        # migrate the old single "max level" cap into per-band selection
-        if "enabled_grades" not in state["profile"]:
-            state["profile"]["enabled_grades"] = default_bands(
-                state["profile"].get("max_level", 3))
-        # migrate the old flat school list into the lists model
-        if state.get("custom_words") and not state["lists"]:
-            state["lists"].append({
-                "id": new_list_id(state),
-                "name": "School list",
-                "enabled": True,
-                "words": [{"w": clean_token(w), "on": True}
-                          for w in state["custom_words"] if clean_token(w)],
-            })
-        return state
+            doc = None
+        if not isinstance(doc, dict):
+            doc = {"pin": DEFAULT_PIN, "children": [_default_child()]}
+        elif "children" not in doc:
+            legacy = doc
+            pin = str(legacy.get("profile", {}).pop("pin", DEFAULT_PIN))
+            legacy["id"] = "c1"
+            doc = {"pin": pin, "children": [legacy]}
+        doc.setdefault("pin", DEFAULT_PIN)
+        kids = [k for k in doc.get("children", []) if isinstance(k, dict)]
+        doc["children"] = kids or [_default_child()]
+        for i, kid in enumerate(doc["children"]):
+            kid.setdefault("id", f"c{i + 1}")
+            _fill_child(kid)
+        return doc
 
 
-def save_state(state):
+def save_doc(doc):
     with _lock:
         os.makedirs(DATA_DIR, exist_ok=True)
         tmp = DATA_FILE + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(state, f, indent=2)
+            json.dump(doc, f, indent=2)
         os.replace(tmp, DATA_FILE)
+
+
+def get_child(doc, cid):
+    """The child a request is about; falls back to the first child so a
+    stale/missing id (deleted kid, old client) never breaks anything."""
+    for kid in doc["children"]:
+        if kid.get("id") == str(cid or ""):
+            return kid
+    return doc["children"][0]
+
+
+def new_child_id(doc):
+    have = {kid.get("id") for kid in doc["children"]}
+    n = 1
+    while f"c{n}" in have:
+        n += 1
+    return f"c{n}"
+
+
+def children_roster(doc):
+    """What pickers render: every kid's id, name, points."""
+    return [{"id": kid["id"],
+             "name": kid["profile"].get("name", "Kid"),
+             "points": kid["profile"].get("points", 0)}
+            for kid in doc["children"]]
 
 
 # --- word helpers ----------------------------------------------------------
@@ -622,9 +671,9 @@ class Handler(BaseHTTPRequestHandler):
             return {}
         return body if isinstance(body, dict) else {}
 
-    def _pin_ok(self, state, body):
+    def _pin_ok(self, doc, body):
         supplied = str(body.get("pin", "") or self.headers.get("X-Parent-Pin", ""))
-        return supplied == str(state["profile"].get("pin", DEFAULT_PIN))
+        return supplied == str(doc.get("pin", DEFAULT_PIN))
 
     # -- routing --
     def do_GET(self):
@@ -637,11 +686,11 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/sw.js":
             return self._serve_sw()
         if path == "/api/state":
-            return self._api_state()
+            return self._api_state(parse_qs(parsed.query))
         if path == "/api/session":
             return self._api_session(parse_qs(parsed.query))
         if path == "/api/parent/report":
-            return self._api_parent_report()
+            return self._api_parent_report(parse_qs(parsed.query))
         return self._serve_static(path)
 
     def do_POST(self):
@@ -659,18 +708,29 @@ class Handler(BaseHTTPRequestHandler):
             return self._api_custom_words(body)
         if path == "/api/parent/lists":
             return self._api_lists(body)
+        if path == "/api/parent/children":
+            return self._api_children(body)
         return self._send_json({"error": "not found"}, 404)
 
+    # Which kid a request is about: the client remembers its pick per device
+    # (localStorage) and sends it as ?child= / a "child" body field. Unknown
+    # or missing ids resolve to the first child, so nothing ever 404s.
+    def _query_child(self, query):
+        return (query.get("child", [""])[0] or "").strip()
+
     # -- API handlers --
-    def _api_state(self):
-        state = load_state()
+    def _api_state(self, query):
+        doc = load_doc()
+        state = get_child(doc, self._query_child(query))
         p = state["profile"]
         self._send_json({
+            "child": state["id"],
+            "children": children_roster(doc),
             "name": p.get("name", "Caleb"),
             "points": p.get("points", 0),
             "show_speaker": p.get("show_speaker", True),
             # lets the gate show a first-run hint until the PIN is changed
-            "pin_is_default": p.get("pin", DEFAULT_PIN) == DEFAULT_PIN,
+            "pin_is_default": doc.get("pin", DEFAULT_PIN) == DEFAULT_PIN,
         })
 
     def _api_session(self, query):
@@ -680,21 +740,23 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             count = 10
         count = max(1, min(count, 30))
-        state = load_state()
+        doc = load_doc()
+        state = get_child(doc, self._query_child(query))
         if mode in ("sentences", "memory"):
             items = build_sentence_session(state, max(1, min(count, 12)))
         else:
             items = build_word_session(state, count)
-        self._send_json({"mode": mode, "items": items})
+        self._send_json({"mode": mode, "child": state["id"], "items": items})
 
     def _api_answer(self, body):
         with _lock:
-            state = load_state()
+            doc = load_doc()
+            state = get_child(doc, body.get("child"))
             stage_up, new_stage = record_answer(
                 state, body.get("word", ""),
                 bool(body.get("correct")), bool(body.get("aided")),
                 str(body.get("mode", "words")))
-            save_state(state)
+            save_doc(doc)
             points = state["profile"].get("points", 0)
         self._send_json({"points": points,
                          "stage_up": stage_up, "stage": new_stage})
@@ -707,7 +769,8 @@ class Handler(BaseHTTPRequestHandler):
                 return 0
 
         with _lock:
-            state = load_state()
+            doc = load_doc()
+            state = get_child(doc, body.get("child"))
             state.setdefault("sessions", []).append({
                 "ts": int(time.time()),
                 "mode": str(body.get("mode", "words"))[:20],
@@ -716,14 +779,14 @@ class Handler(BaseHTTPRequestHandler):
                 "points": as_int(body.get("points", 0)),
             })
             state["sessions"] = state["sessions"][-200:]
-            save_state(state)
+            save_doc(doc)
             points = state["profile"].get("points", 0)
         self._send_json({"points": points})
 
     def _api_parent_login(self, body):
-        state = load_state()
+        doc = load_doc()
         supplied = str(body.get("pin", ""))
-        actual = str(state["profile"].get("pin", DEFAULT_PIN))
+        actual = str(doc.get("pin", DEFAULT_PIN))
         # "final" tells the gate this entry can't become right by typing more
         # digits, so it knows when to show "wrong" vs. wait (PINs are 4-8).
         self._send_json({
@@ -731,18 +794,60 @@ class Handler(BaseHTTPRequestHandler):
             "final": len(supplied) >= len(actual),
         })
 
-    def _api_parent_report(self):
+    def _api_parent_report(self, query):
         # Report endpoint is GET; PIN passed via header so it can be linked.
-        state = load_state()
-        if not self._pin_ok(state, {}):
+        doc = load_doc()
+        if not self._pin_ok(doc, {}):
             return self._send_json({"error": "bad pin"}, 403)
-        self._send_json(parent_report(state))
+        state = get_child(doc, self._query_child(query))
+        report = parent_report(state)
+        report["child"] = state["id"]
+        report["children"] = children_roster(doc)
+        self._send_json(report)
+
+    def _api_children(self, body):
+        """Manage the kids themselves: add, rename, delete (never the last
+        one — the app always has someone to practice)."""
+        with _lock:
+            doc = load_doc()
+            if not self._pin_ok(doc, body):
+                return self._send_json({"error": "bad pin"}, 403)
+            action = str(body.get("action", ""))
+            if action == "add":
+                name = str(body.get("name", "")).strip()[:24] or \
+                    f"Kid {len(doc['children']) + 1}"
+                kid = _default_child(name)
+                kid["id"] = new_child_id(doc)
+                doc["children"].append(kid)
+                new_id = kid["id"]
+            elif action == "rename":
+                kid = get_child(doc, body.get("child"))
+                name = str(body.get("name", "")).strip()[:24]
+                if name:
+                    kid["profile"]["name"] = name
+                new_id = kid["id"]
+            elif action == "delete":
+                if len(doc["children"]) <= 1:
+                    return self._send_json(
+                        {"error": "there must be at least one child"}, 400)
+                target = str(body.get("child", ""))
+                if not any(k["id"] == target for k in doc["children"]):
+                    return self._send_json({"error": "no such child"}, 400)
+                doc["children"] = [k for k in doc["children"]
+                                   if k["id"] != target]
+                new_id = doc["children"][0]["id"]
+            else:
+                return self._send_json({"error": "bad action"}, 400)
+            save_doc(doc)
+            out = {"children": children_roster(doc), "child": new_id}
+        self._send_json(out)
 
     def _api_parent_settings(self, body):
         with _lock:
-            state = load_state()
-            if not self._pin_ok(state, body):
+            doc = load_doc()
+            if not self._pin_ok(doc, body):
                 return self._send_json({"error": "bad pin"}, 403)
+            state = get_child(doc, body.get("child"))
             p = state["profile"]
             if "name" in body and str(body["name"]).strip():
                 p["name"] = str(body["name"]).strip()[:24]
@@ -770,25 +875,27 @@ class Handler(BaseHTTPRequestHandler):
                     p["max_level"] = max(bands) if bands else 3.0
                 except (ValueError, TypeError):
                     pass
+            # the PIN is the PARENTS' pin — one per family, not per child
             new_pin = str(body.get("new_pin", "")).strip()
             pin_changed = False
             if new_pin:
                 if new_pin.isdigit() and 4 <= len(new_pin) <= 8:
-                    p["pin"] = new_pin
+                    doc["pin"] = new_pin
                     pin_changed = True
                 else:
                     return self._send_json(
                         {"ok": False, "error": "PIN must be 4-8 digits"}, 400)
-            save_state(state)
+            save_doc(doc)
         self._send_json({"ok": True, "pin_changed": pin_changed})
 
     def _api_custom_words(self, body):
         """Legacy endpoint: operates on a default 'School list'. Kept so old
         clients/tests keep working; the Word-lists UI uses /api/parent/lists."""
         with _lock:
-            state = load_state()
-            if not self._pin_ok(state, body):
+            doc = load_doc()
+            if not self._pin_ok(doc, body):
                 return self._send_json({"error": "bad pin"}, 403)
+            state = get_child(doc, body.get("child"))
             action = body.get("action", "add")
             if action == "add":
                 incoming = body.get("words", [])
@@ -811,7 +918,7 @@ class Handler(BaseHTTPRequestHandler):
                 for lst in state["lists"]:
                     lst["words"] = [wd for wd in lst["words"]
                                     if wd["w"] != target]
-            save_state(state)
+            save_doc(doc)
             flat = [wd["w"] for l in state["lists"] for wd in l["words"]]
             status = lists_status(state)
         self._send_json({"custom_words": flat, "lists": status})
@@ -820,9 +927,10 @@ class Handler(BaseHTTPRequestHandler):
         """Word-lists management: create/delete lists, toggle a whole list,
         toggle or remove single words, append words to a list."""
         with _lock:
-            state = load_state()
-            if not self._pin_ok(state, body):
+            doc = load_doc()
+            if not self._pin_ok(doc, body):
                 return self._send_json({"error": "bad pin"}, 403)
+            state = get_child(doc, body.get("child"))
             action = str(body.get("action", ""))
             lists = state["lists"]
             lst = next((l for l in lists
@@ -912,7 +1020,7 @@ class Handler(BaseHTTPRequestHandler):
                         lst["words"].append({"w": w, "on": True})
             else:
                 return self._send_json({"error": "bad action"}, 400)
-            save_state(state)
+            save_doc(doc)
             status = lists_status(state)
             bank = bank_status(state)
             hearts = count_pool_hearts(state)
@@ -920,34 +1028,35 @@ class Handler(BaseHTTPRequestHandler):
                          "hearts_in_pool": hearts})
 
     def _hub_status(self):
-        state = load_state()
-        practiced = words_practiced(state["words"])
-        points = state["profile"].get("points", 0)
-        name = state["profile"].get("name", "Caleb")
-        sessions = state.get("sessions", [])
+        # one line per kid — the hub card should show the whole family
+        doc = load_doc()
+        summaries = []
+        fields = []
+        last_ts_all = 0
+        for kid in doc["children"]:
+            name = kid["profile"].get("name", "Kid")
+            points = kid["profile"].get("points", 0)
+            mastered = sum(1 for s in kid["words"].values()
+                           if s.get("seen", 0) and
+                           word_stage(s) >= STAGE_MASTERED)
+            summaries.append(f"{name}: {points} ⭐ · {mastered} mastered")
+            fields.append({"label": name,
+                           "value": f"{points} ⭐ · {mastered} mastered · "
+                                    f"{words_practiced(kid['words'])} practiced"})
+            sessions = kid.get("sessions", [])
+            last_ts_all = max(last_ts_all, kid.get("last_answer_ts", 0) or (
+                sessions[-1].get("ts", 0) if sessions else 0))
         last = "never"
-        last_ts = state.get("last_answer_ts", 0) or (
-            sessions[-1].get("ts", 0) if sessions else 0)
-        if last_ts:
-            ago = int(time.time()) - last_ts
+        if last_ts_all:
+            ago = int(time.time()) - last_ts_all
             if ago < 3600:
                 last = f"{max(1, ago // 60)} min ago"
             elif ago < 86400:
                 last = f"{ago // 3600} hr ago"
             else:
                 last = f"{ago // 86400} day(s) ago"
-        mastered = sum(1 for s in state["words"].values()
-                       if s.get("seen", 0) and word_stage(s) >= STAGE_MASTERED)
-        self._send_json({
-            "summary": f"{name}: {points} ⭐ · {mastered} words mastered",
-            "fields": [
-                {"label": "Points", "value": str(points)},
-                {"label": "Words mastered", "value": str(mastered)},
-                {"label": "Words practiced", "value": str(practiced)},
-                {"label": "Sessions", "value": str(len(sessions))},
-                {"label": "Last practice", "value": last},
-            ],
-        })
+        fields.append({"label": "Last practice", "value": last})
+        self._send_json({"summary": " · ".join(summaries), "fields": fields})
 
     def _serve_sw(self):
         """Serve the service worker with the current version stamped in, so

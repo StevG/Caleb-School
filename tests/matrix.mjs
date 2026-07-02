@@ -76,6 +76,9 @@ for (const [label, w, h] of VIEWPORTS) {
     return window.openParent();
   });
   await page.waitForTimeout(400);
+  // the child tabs sit above the stats, so on short viewports the grid can
+  // start below the fold — the parent body scrolls; bring it into view first
+  await page.$eval('.stat-grid', el => el.scrollIntoView({ block: 'nearest' }));
   check(`${label} parent: opens, header + stats in bounds`,
     await page.$eval('#parent', el => el.classList.contains('active'))
     && await inBounds('.parent-title') && await inBounds('.stat-grid'));

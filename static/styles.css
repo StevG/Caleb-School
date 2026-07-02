@@ -65,6 +65,16 @@ body.has-update .screen{padding-top:calc(env(safe-area-inset-top) + 46px)}
 .points-big .star{font-size:44px}
 .tagline{color:var(--muted);font-size:19px;margin:6px 0 22px}
 
+/* who's spelling? — kid picker, shown only with 2+ children */
+.who-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;
+  margin:10px 0 2px;max-width:420px}
+.who-chip{padding:10px 22px;border-radius:22px;border:3px solid var(--line);
+  background:#fff;color:var(--muted);font-size:19px;font-weight:800;
+  cursor:pointer;transition:transform .08s ease}
+.who-chip:active{transform:scale(.95)}
+.who-chip.active{border-color:var(--blue);color:var(--blue-d);
+  background:linear-gradient(135deg,#eaf4fd,#d7ebfb)}
+
 .mode-cards{display:flex;flex-direction:column;gap:14px;width:100%;max-width:420px}
 .mode-card{
   display:flex;align-items:center;gap:18px;padding:20px 24px;border:none;
@@ -195,6 +205,17 @@ body.has-update .screen{padding-top:calc(env(safe-area-inset-top) + 46px)}
 .parent-body{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:6px 16px 40px;
   display:flex;flex-direction:column;gap:16px;width:100%;max-width:672px;margin:0 auto}
 
+/* child tabs — everything on the dashboard belongs to the selected kid */
+.child-tabs{display:flex;gap:8px;flex-wrap:nowrap;overflow-x:auto;flex:none;
+  -webkit-overflow-scrolling:touch;margin:2px 0 12px;padding-bottom:2px}
+.child-tab{white-space:nowrap;flex:none}
+.child-tab{padding:8px 14px;border-radius:12px;border:2px solid var(--line);
+  background:#fff;color:var(--muted);font-size:15px;font-weight:700;
+  cursor:pointer}
+.child-tab.active{border-color:var(--blue);color:var(--blue-d);background:#eaf4fd}
+.child-tab.add{border-style:dashed;font-weight:600}
+.ct-pts{font-weight:600;font-size:13px;opacity:.8}
+
 .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .stat{background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:16px;text-align:center}
 .stat.wide{padding:12px 16px}
@@ -222,6 +243,7 @@ body.has-update .screen{padding-top:calc(env(safe-area-inset-top) + 46px)}
 .add-row textarea{flex:1;font-family:inherit;resize:vertical;min-height:48px}
 .mini-btn{background:var(--blue);color:#fff;border:none;border-radius:12px;padding:0 18px;font-size:16px;font-weight:700;cursor:pointer}
 .mini-btn.wide{width:100%;padding:14px;margin-top:6px}
+.mini-btn.danger{background:#fdeeea;color:var(--red)}
 /* Word lists: one row per source, checkbox + name + on:total count */
 .list-row{display:flex;align-items:center;gap:12px;padding:12px 2px;
   border-bottom:1px solid var(--line);font-size:16px;cursor:pointer}

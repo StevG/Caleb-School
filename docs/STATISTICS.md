@@ -20,8 +20,18 @@ view answers one question a parent of a struggling speller actually asks.
 
 ## Data model (data/progress.json)
 
+The file is a family document: `{"pin": <parent PIN>, "children": [child,
+...]}`. Everything below describes ONE child (`children[i]`); every stat,
+list, and setting is per child. All endpoints take a `child` id (`?child=`
+on GETs, a `"child"` body field on POSTs) and fall back to the first child.
+`/api/state` and `/api/parent/report` return the roster (`children:
+[{id, name, points}]`) plus the resolved `child` id;
+`POST /api/parent/children` manages add/rename/delete (never the last one).
+A pre-multi-child file (one child at top level, pin inside profile)
+migrates automatically on first load.
+
 ```
-profile:      name, points, pin, show_speaker, bank_enabled, hearts_only,
+profile:      name, points, show_speaker, bank_enabled, hearts_only,
               enabled_grades [1.0..9.0 halves] (max_level kept in sync =
               max(enabled_grades); legacy max_level input maps to bands)
 lists:        [{id, name, enabled, words: [{w, on}]}]  (custom word lists;
