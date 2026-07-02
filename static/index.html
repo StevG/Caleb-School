@@ -36,39 +36,60 @@
       <div id="mission-list"></div>
     </div>
 
-    <div class="mode-cards">
-      <p class="section-head">Words 🔤</p>
-      <button class="mode-card copy" data-mode="copy">
-        <span class="mc-emoji">👀</span>
-        <span class="mc-title">Copy It<small>the word stays put</small></span>
-      </button>
-      <button class="mode-card words" data-mode="words">
-        <span class="mc-emoji">🙈</span>
-        <span class="mc-title">Hide &amp; Spell<small>it hides when you type!</small></span>
-      </button>
-      <button class="mode-card listen" data-mode="listen">
-        <span class="mc-emoji">🔊</span>
-        <span class="mc-title">Listen &amp; Spell<small>no peeking — just sound</small></span>
-      </button>
-      <p class="section-head">Sentences 📝</p>
-      <button class="mode-card sentences" data-mode="sentences">
-        <span class="mc-emoji">✏️</span>
-        <span class="mc-title">Fill In<small>type the missing word</small></span>
-      </button>
-      <button class="mode-card memory" data-mode="memory">
-        <span class="mc-emoji">🧠</span>
-        <span class="mc-title">Remember It<small>read it, then type it all</small></span>
-      </button>
-    </div>
-
-    <div id="goal-row" class="goal-row hidden">
-      <p class="goal-label">How many words?</p>
-      <div class="goal-chips">
-        <button class="chip" data-goal="10">10</button>
-        <button class="chip" data-goal="15">15</button>
-        <button class="chip" data-goal="20">20</button>
+    <div class="home-nav">
+      <!-- STEP 1: pick a section -->
+      <div class="home-panel" data-panel="sections">
+        <button class="section-card sec-words" data-section="words">
+          <span class="mc-emoji">🔤</span>
+          <span class="mc-title">Words<small>spell words 3 ways</small></span>
+          <span class="sec-go">▶</span>
+        </button>
+        <button class="section-card sec-sent" data-section="sentences">
+          <span class="mc-emoji">📝</span>
+          <span class="mc-title">Sentences<small>fill in &amp; remember</small></span>
+          <span class="sec-go">▶</span>
+        </button>
       </div>
-      <button id="goal-back" class="goal-back">⬅ All games</button>
+
+      <!-- STEP 2: pick a game in that section -->
+      <div class="home-panel hidden" data-panel="games">
+        <button class="back-link" data-back="sections">⬅ Back</button>
+        <div class="game-set" data-set="words">
+          <button class="mode-card copy" data-mode="copy">
+            <span class="mc-emoji">👀</span>
+            <span class="mc-title">Copy It<small>the word stays put</small></span>
+          </button>
+          <button class="mode-card words" data-mode="words">
+            <span class="mc-emoji">🙈</span>
+            <span class="mc-title">Hide &amp; Spell<small>it hides when you type!</small></span>
+          </button>
+          <button class="mode-card listen" data-mode="listen">
+            <span class="mc-emoji">🔊</span>
+            <span class="mc-title">Listen &amp; Spell<small>no peeking — just sound</small></span>
+          </button>
+        </div>
+        <div class="game-set hidden" data-set="sentences">
+          <button class="mode-card sentences" data-mode="sentences">
+            <span class="mc-emoji">✏️</span>
+            <span class="mc-title">Fill In<small>type the missing word</small></span>
+          </button>
+          <button class="mode-card memory" data-mode="memory">
+            <span class="mc-emoji">🧠</span>
+            <span class="mc-title">Remember It<small>read it, then type it all</small></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- STEP 3: how many words (word games only) -->
+      <div id="goal-row" class="home-panel hidden" data-panel="goal">
+        <button class="back-link" data-back="games">⬅ Back</button>
+        <p class="goal-label">How many words?</p>
+        <div class="goal-chips">
+          <button class="chip" data-goal="10">10</button>
+          <button class="chip" data-goal="15">15</button>
+          <button class="chip" data-goal="20">20</button>
+        </div>
+      </div>
     </div>
 
     <div id="install-hint" class="soft-hint hidden">

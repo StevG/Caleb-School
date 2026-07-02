@@ -275,25 +275,46 @@ function doUpdate() {
 }
 
 // ---------- HOME ----------
+// The home is a three-step drill-down so only a few big targets show at once
+// (no scrolling): pick a SECTION (Words / Sentences) -> pick a GAME in it ->
+// (word games) pick how many. Back steps up one level; each step slides in.
+function showPanel(name) {
+  document.querySelectorAll(".home-panel").forEach((p) => {
+    const on = p.dataset.panel === name;
+    p.classList.toggle("hidden", !on);
+    if (on) { p.classList.remove("slide-in"); void p.offsetWidth; p.classList.add("slide-in"); }
+  });
+}
+
 function wireHome() {
+  // STEP 1: a section reveals only its own games
+  document.querySelectorAll(".section-card").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const sec = btn.dataset.section;
+      document.querySelectorAll(".game-set").forEach((g) =>
+        g.classList.toggle("hidden", g.dataset.set !== sec));
+      showPanel("games");
+    });
+  });
+  // STEP 2: a game either asks how many (word games) or starts (sentences)
   document.querySelectorAll(".mode-card").forEach((btn) => {
     btn.addEventListener("click", () => {
       state.mode = btn.dataset.mode;
       state.assignment = null; // free play, not a mission
-      if (["copy", "words", "listen"].includes(state.mode)) {
-        chooseMode(btn); // ask how many — right under the tapped card
-      } else {
-        startSession(); // sentence modes jump straight in
-      }
+      if (["copy", "words", "listen"].includes(state.mode)) showPanel("goal");
+      else startSession();
     });
   });
+  // STEP 3: pick a count -> go
   document.querySelectorAll(".chip").forEach((c) => {
     c.addEventListener("click", () => {
       state.goal = parseInt(c.dataset.goal, 10);
       startSession();
     });
   });
-  $("goal-back").addEventListener("click", resetHomeMenu);
+  // every "⬅ Back" steps up to the panel named on it
+  document.querySelectorAll(".back-link").forEach((b) =>
+    b.addEventListener("click", () => showPanel(b.dataset.back)));
   $("gear").addEventListener("click", openGate);
 
   $("install-hint-x").addEventListener("click", () => {
@@ -313,44 +334,9 @@ function wireHome() {
   });
 }
 
-// Tap a word game -> the other games glide away (staggered) and the
-// how-many chips pop in directly under the chosen card, so the question
-// clearly belongs to the game he just picked. "⬅ All games" undoes it.
-function chooseMode(card) {
-  if (card.classList.contains("chosen")) return; // second tap: already asking
-  document.querySelector(".mode-cards").classList.add("choosing");
-  card.classList.add("chosen");
-  const others = [...document.querySelectorAll(
-    ".mode-card:not(.chosen), .mode-cards .section-head")];
-  others.forEach((c, i) => {
-    c.style.transitionDelay = `${i * 45}ms`;
-    c.classList.add("leaving");
-  });
-  setTimeout(() => {
-    // faded out — now drop them from the layout so the chips close up
-    others.forEach((c) => c.classList.add("off"));
-    const row = $("goal-row");
-    card.insertAdjacentElement("afterend", row);
-    row.classList.remove("hidden");
-    row.classList.add("pop-in");
-  }, 280);
-}
-
+// Back to step 1 (the section picker) — used when leaving a session.
 function resetHomeMenu() {
-  const row = $("goal-row");
-  row.classList.add("hidden");
-  row.classList.remove("pop-in");
-  const wrap = document.querySelector(".mode-cards");
-  if (wrap) wrap.classList.remove("choosing");
-  const cards = [...document.querySelectorAll(
-    ".mode-card, .mode-cards .section-head")];
-  cards.forEach((c) => c.classList.remove("chosen", "off"));
-  // let display:none lift before un-fading, so the return animates
-  requestAnimationFrame(() => cards.forEach((c, i) => {
-    c.style.transitionDelay = `${i * 40}ms`;
-    c.classList.remove("leaving");
-    setTimeout(() => { c.style.transitionDelay = ""; }, 500);
-  }));
+  showPanel("sections");
 }
 
 // ---------- SESSION ----------

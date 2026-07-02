@@ -20,7 +20,7 @@ async function typeWord(w) {
 await page.goto(BASE, { waitUntil: 'networkidle' });
 
 // ============ TEST 1: full sentence completion incl. punctuated last word ============
-await page.click('.mode-card.sentences');
+await page.click('.section-card.sec-sent'); await page.click('.mode-card.sentences');
 await page.waitForSelector('#play.active');
 await page.waitForTimeout(250);
 let completedSentence = false;
@@ -43,7 +43,7 @@ check('T1 whole sentence completable (incl. last punctuated word)', completedSen
 await page.waitForTimeout(900); // let it load next sentence
 await page.click('#quit');
 await page.waitForSelector('#home.active');
-await page.click('.mode-card.words');
+await page.click('.section-card.sec-words'); await page.click('.mode-card.words');
 await page.click('.chip[data-goal="10"]');
 await page.waitForSelector('#play.active');
 await page.waitForTimeout(250);
@@ -76,7 +76,7 @@ check('T3 aided retry: word still shows missed, not mastered', !!stats && stats.
 // ============ TEST 4: finish session by tapping Next fast on last word; single session record ============
 await page.click('#quit');
 await page.waitForSelector('#home.active');
-await page.click('.mode-card.words');
+await page.click('.section-card.sec-words'); await page.click('.mode-card.words');
 await page.click('.chip[data-goal="10"]');
 await page.waitForSelector('#play.active');
 await page.waitForTimeout(250);

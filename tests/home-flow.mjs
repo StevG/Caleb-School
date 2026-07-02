@@ -1,5 +1,6 @@
-// Home menu flow: tapping a word game slides the other games away and puts
-// the how-many chips directly under the chosen card; "⬅ All games" undoes it.
+// Home drill-down: pick a SECTION (Words / Sentences) -> pick a GAME ->
+// (word games) pick how many. Only a few big targets show per step, so the
+// home never needs scrolling. Back steps up one level.
 import pw from '/opt/node22/lib/node_modules/playwright/index.js';
 const { chromium } = pw;
 const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
@@ -9,87 +10,88 @@ page.on('pageerror', e => errors.push(e.message));
 const results = [];
 const check = (n, ok, x='') => results.push(`${ok?'PASS':'FAIL'}  ${n}${x?' — '+x:''}`);
 
+const panel = () => page.evaluate(() =>
+  [...document.querySelectorAll('.home-panel')].filter(p => !p.classList.contains('hidden')).map(p => p.dataset.panel));
+const fits = () => page.evaluate(() => {
+  const h = document.querySelector('.home-inner');
+  return h.scrollHeight <= h.clientHeight + 1;
+});
+
 await page.goto('http://127.0.0.1:9911', { waitUntil: 'networkidle' });
 
-// baseline: 4 cards, no chips
-const base = await page.evaluate(() => ({
-  cards: [...document.querySelectorAll('.mode-card')].filter(c => c.offsetParent).length,
-  chips: !document.getElementById('goal-row').classList.contains('hidden') }));
-check('start: all 5 games shown, no chips', base.cards === 5 && !base.chips, JSON.stringify(base));
+// STEP 1: only the two section cards, and everything fits without scrolling
+const start = await page.evaluate(() => ({
+  sections: [...document.querySelectorAll('.section-card')].filter(c => c.offsetParent).map(c => c.dataset.section),
+  games: [...document.querySelectorAll('.mode-card')].filter(c => c.offsetParent).length }));
+check('start: two section cards, no games yet', JSON.stringify(start.sections) === '["words","sentences"]' && start.games === 0, JSON.stringify(start));
+check('start: home fits without scrolling', await fits());
+check('start: on the sections panel', JSON.stringify(await panel()) === '["sections"]');
 
-// tap Spell Words -> others leave, chips arrive right under the words card
-await page.click('.mode-card.words');
-await page.waitForTimeout(500);
-const chosen = await page.evaluate(() => {
-  const words = document.querySelector('.mode-card.words');
-  const visible = [...document.querySelectorAll('.mode-card')].filter(c => c.offsetParent);
-  return { visible: visible.length, onlyWords: visible[0] === words,
-           chipsNext: words.nextElementSibling?.id === 'goal-row',
-           chipsShown: !document.getElementById('goal-row').classList.contains('hidden'),
-           backShown: !!document.getElementById('goal-back').offsetParent,
-           stillHome: document.getElementById('home').classList.contains('active') };
-});
-check('tap Spell Words: only that card remains', chosen.visible === 1 && chosen.onlyWords, JSON.stringify(chosen));
-check('chips sit DIRECTLY under the chosen card', chosen.chipsNext && chosen.chipsShown);
-check('back button offered, nothing started yet', chosen.backShown && chosen.stillHome);
+// STEP 2: Words -> only the three word games (no sentence games), still fits
+await page.click('.section-card.sec-words');
+await page.waitForTimeout(300);
+const wordGames = await page.evaluate(() => ({
+  panel: document.querySelector('.home-panel:not(.hidden)').dataset.panel,
+  games: [...document.querySelectorAll('.mode-card')].filter(c => c.offsetParent).map(c => c.dataset.mode),
+  back: !!document.querySelector('.home-panel:not(.hidden) .back-link') }));
+check('Words -> the three word games only', JSON.stringify(wordGames.games) === '["copy","words","listen"]', JSON.stringify(wordGames.games));
+check('Words -> games panel with a Back button', wordGames.panel === 'games' && wordGames.back);
+check('Words -> fits without scrolling', await fits());
 
-// back -> the full menu returns, nothing started
-await page.click('#goal-back');
-await page.waitForTimeout(500);
-const backed = await page.evaluate(() => ({
-  cards: [...document.querySelectorAll('.mode-card')].filter(c => c.offsetParent).length,
-  chips: !document.getElementById('goal-row').classList.contains('hidden'),
-  home: document.getElementById('home').classList.contains('active') }));
-check('⬅ All games restores the full menu', backed.cards === 5 && !backed.chips && backed.home, JSON.stringify(backed));
+// STEP 3: a word game -> the count chips
+await page.click('.mode-card.copy');
+await page.waitForTimeout(300);
+const goal = await page.evaluate(() => ({
+  panel: document.querySelector('.home-panel:not(.hidden)').dataset.panel,
+  chips: [...document.querySelectorAll('.chip')].filter(c => c.offsetParent).length,
+  started: document.getElementById('play').classList.contains('active') }));
+check('word game -> the 3 count chips, not started yet', goal.panel === 'goal' && goal.chips === 3 && !goal.started, JSON.stringify(goal));
 
-// switch to Listen & Spell instead -> chips under THAT card now
-await page.click('.mode-card.listen');
-await page.waitForTimeout(500);
-const listen = await page.evaluate(() =>
-  document.querySelector('.mode-card.listen').nextElementSibling?.id === 'goal-row');
-check('chips follow whichever card was tapped', listen);
+// Back steps up one level at a time
+await page.click('.back-link[data-back="games"]');
+await page.waitForTimeout(200);
+check('Back from count -> games panel', JSON.stringify(await panel()) === '["games"]');
+await page.click('.back-link[data-back="sections"]');
+await page.waitForTimeout(200);
+check('Back from games -> sections panel', JSON.stringify(await panel()) === '["sections"]');
 
-// picking a count starts the session
-await page.click('.chip[data-goal="10"]');
-await page.waitForSelector('#play.active');
-check('picking a count starts the game', true);
-
-// quitting puts the whole menu back
-await page.click('#quit');
-await page.waitForSelector('#home.active');
-await page.waitForTimeout(500);
-const restored = await page.evaluate(() => ({
-  cards: [...document.querySelectorAll('.mode-card')].filter(c => c.offsetParent).length,
-  chips: !document.getElementById('goal-row').classList.contains('hidden') }));
-check('after quitting, home shows all 5 games again', restored.cards === 5 && !restored.chips, JSON.stringify(restored));
-
-// sentence modes still start with a single tap (no chips step)
+// Sentences -> only the two sentence games; a sentence game starts straight away
+await page.click('.section-card.sec-sent');
+await page.waitForTimeout(300);
+const sentGames = await page.$$eval('.mode-card', els => els.filter(c => c.offsetParent).map(c => c.dataset.mode));
+check('Sentences -> the two sentence games only', JSON.stringify(sentGames) === '["sentences","memory"]', JSON.stringify(sentGames));
+check('Sentences -> fits without scrolling', await fits());
 await page.click('.mode-card.sentences');
 await page.waitForSelector('#play.active');
-check('Spell Sentences still starts straight away', true);
+check('sentence game starts on one tap (no count step)', true);
+
+// quitting returns to step 1
+await page.click('#quit');
+await page.waitForSelector('#home.active');
+await page.waitForTimeout(300);
+check('quitting returns to the sections panel', JSON.stringify(await panel()) === '["sections"]');
+
+// picking a count actually starts a word game
+await page.click('.section-card.sec-words');
+await page.click('.mode-card.words');
+await page.click('.chip[data-goal="10"]');
+await page.waitForSelector('#play.active');
+check('word game: picking a count starts it', true);
 await page.click('#quit');
 await page.waitForSelector('#home.active');
 
-// the ⚙️ gear must stay tappable even when the home content scrolls — iOS
-// otherwise lets the momentum-scroll layer under it swallow the tap
-const short = await browser.newContext({ viewport: { width: 390, height: 430 } });
-const sp = await short.newPage();
-await sp.goto('http://127.0.0.1:9911', { waitUntil: 'networkidle' });
-const gearOK = await sp.evaluate(() => {
+// the ⚙️ gear is on top and opens the grown-ups gate (regression: it once got
+// swallowed by the scroll layer under it on iOS)
+const gearOK = await page.evaluate(() => {
   const g = document.getElementById('gear');
   const r = g.getBoundingClientRect();
   const top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
-  const scrolls = document.querySelector('.home-inner');
-  return { onTop: top === g, scrolls: scrolls.scrollHeight > scrolls.clientHeight + 1,
-           tapH: Math.round(r.height) };
+  return { onTop: top === g, tapH: Math.round(r.height) };
 });
-check('gear: on top and >=44px tall even while home scrolls',
-  gearOK.onTop && gearOK.scrolls && gearOK.tapH >= 44, JSON.stringify(gearOK));
-await sp.click('#gear');
-await sp.waitForTimeout(200);
-check('gear opens the grown-ups gate from a scrolling home',
-  await sp.$eval('#gate', el => el.classList.contains('active')));
-await short.close();
+check('gear: on top and >=44px tall', gearOK.onTop && gearOK.tapH >= 44, JSON.stringify(gearOK));
+await page.click('#gear');
+await page.waitForTimeout(200);
+check('gear opens the grown-ups gate', await page.$eval('#gate', el => el.classList.contains('active')));
 
 console.log(results.join('\n'));
 console.log('\nJS ERRORS:', errors.length ? errors : 'none');

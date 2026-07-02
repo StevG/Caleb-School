@@ -11,7 +11,7 @@ const check = (n, ok, x='') => results.push(`${ok?'PASS':'FAIL'}  ${n}${x?' — 
 await page.goto('http://127.0.0.1:9911', { waitUntil: 'networkidle' });
 
 // ---------- 1. ACTIVE BOX CURSOR ----------
-await page.click('.mode-card.words');
+await page.click('.section-card.sec-words'); await page.click('.mode-card.words');
 await page.click('.chip[data-goal="10"]');
 await page.waitForSelector('#play.active');
 await page.waitForTimeout(250);
@@ -34,7 +34,7 @@ await page.click('#quit');
 
 // ---------- 2. CAPITALS IN SENTENCES ----------
 await page.waitForSelector('#home.active');
-await page.click('.mode-card.sentences');
+await page.click('.section-card.sec-sent'); await page.click('.mode-card.sentences');
 await page.waitForSelector('#play.active');
 await page.waitForTimeout(300);
 const disp = (await page.textContent('#prompt-word')).trim();
@@ -79,7 +79,7 @@ await page.evaluate(() => {
 });
 const listenCard = await page.$('.mode-card.listen');
 check('listen: mode card exists on home', !!listenCard);
-await page.click('.mode-card.listen');
+await page.click('.section-card.sec-words'); await page.click('.mode-card.listen');
 // the picker glides in under the tapped card (~300ms animation)
 await page.waitForSelector('#goal-row:not(.hidden)', { timeout: 3000 });
 const goalVisible = await page.$eval('#goal-row', el => !el.classList.contains('hidden'));

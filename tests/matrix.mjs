@@ -27,13 +27,16 @@ for (const [label, w, h] of VIEWPORTS) {
 
   await page.goto('http://127.0.0.1:9911', { waitUntil: 'networkidle' });
 
-  // HOME (5 game cards in two sections — the home column scrolls on short
-  // viewports, so bring the last card into view before checking it)
-  check(`${label} home: header + points visible`, await inBounds('.points-big') && await inBounds('#gear'));
-  await page.$eval('.mode-card.memory', el => el.scrollIntoView({ block: 'nearest' }));
-  check(`${label} home: all game cards reachable`, await inBounds('.mode-card.memory'));
+  // HOME step 1: the two section cards + points in bounds (no scrolling now)
+  check(`${label} home: section cards + points visible`,
+    await inBounds('.points-big') && await inBounds('#gear') &&
+    await inBounds('.sec-words') && await inBounds('.sec-sent'));
   await page.screenshot({ path: `${OUT}/m-${label}-home.png` });
-  await page.$eval('.mode-card.words', el => el.scrollIntoView({ block: 'nearest' }));
+  // step 2: the word games all fit
+  await page.click('.sec-words');
+  await page.waitForTimeout(300);
+  check(`${label} home: word games in bounds`,
+    await inBounds('.mode-card.copy') && await inBounds('.mode-card.listen'));
 
   // PLAY
   await page.click('.mode-card.words');
@@ -124,6 +127,7 @@ const p2 = await ctx2.newPage();
 const errs2 = [];
 p2.on('pageerror', e => errs2.push(e.message));
 await p2.goto('http://127.0.0.1:9911', { waitUntil: 'networkidle' });
+await p2.click('.sec-words');
 await p2.click('.mode-card.words');
 await p2.click('.chip[data-goal="10"]');
 await p2.waitForSelector('#play.active');

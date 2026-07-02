@@ -70,6 +70,7 @@ check('double-tap: only the last utterance plays', JSON.stringify(doubletap) ===
 const listen = await page.evaluate(async () => {
   window.__log = [];
   window.__stub.speaking = false;
+  document.querySelector('.section-card.sec-words').click();
   document.querySelector('.mode-card.listen').click();
   await new Promise(r => setTimeout(r, 100));
   document.querySelector('.chip[data-goal="10"]').click();
@@ -86,7 +87,7 @@ check('listen session: the first word is auto-spoken after the unlock',
 await page.evaluate(() => { window.quitToHome = true; });
 await page.click('#quit');
 await page.waitForSelector('#home.active');
-await page.click('.mode-card.memory');
+await page.click('.section-card.sec-sent'); await page.click('.mode-card.memory');
 await page.waitForSelector('#play.active');
 await page.waitForTimeout(500);
 const memory = await page.evaluate(async () => {

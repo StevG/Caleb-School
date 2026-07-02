@@ -13,7 +13,7 @@ const lineText = () => page.$$eval('#sentence-line span', els => els.map(e => ({
 await page.goto('http://127.0.0.1:9911', { waitUntil: 'networkidle' });
 
 // ================= FILL-IN SENTENCES =================
-await page.click('.mode-card.sentences');
+await page.click('.section-card.sec-sent'); await page.click('.mode-card.sentences');
 await page.waitForSelector('#play.active');
 await page.waitForTimeout(300);
 let spans = await lineText();
@@ -56,7 +56,7 @@ check('fill-in: sentence completable word by word', sentenceDone);
 await page.waitForTimeout(900);
 await page.click('#quit');
 await page.waitForSelector('#home.active');
-await page.click('.mode-card.memory');
+await page.click('.section-card.sec-sent'); await page.click('.mode-card.memory');
 await page.waitForSelector('#play.active');
 await page.waitForTimeout(300);
 

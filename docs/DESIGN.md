@@ -85,6 +85,15 @@ game can only prove skills up to its own rung; see docs/SCORING.md):
 - Not a game with an economy — points are minutes of iPad time, period.
 
 ## Decisions log
+- 2026-07-02 — Home is a three-step drill-down (owner: five cards no longer
+  fit without scrolling). Step 1: two big section cards, **Words 🔤** /
+  **Sentences 📝**. Step 2: that section's games (Words → Copy It / Hide &
+  Spell / Listen & Spell; Sentences → Fill In / Remember It) with a "⬅ Back".
+  Step 3 (word games only): the 10/15/20 count. Each step shows only a few
+  big targets so nothing scrolls; panels slide in; Back steps up one level;
+  sentence games start on one tap. Implemented as `.home-panel`s toggled by
+  `showPanel()` (replaced the old glide-away `chooseMode`). This supersedes
+  the earlier "Home menu flow" and "Home split into sections" entries below.
 - 2026-07-02 — Home split into Words/Sentences sections with five explicit
   games (owner-specified): Copy It 👀 / Hide & Spell 🙈 / Listen & Spell 🔊
   and Fill In ✏️ / Remember It 🧠. The adaptive per-word stage mix inside

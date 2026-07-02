@@ -108,26 +108,34 @@ body.has-update .screen{padding-top:calc(env(safe-area-inset-top) + 46px)}
   border-radius:16px;padding:10px 18px;font-size:15px;font-weight:700;
   color:var(--muted);cursor:pointer}
 
-.mode-cards{display:flex;flex-direction:column;gap:11px;width:100%;max-width:420px}
-.section-head{margin:6px 0 0;font-size:15px;font-weight:800;color:var(--muted);
-  text-transform:uppercase;letter-spacing:.06em;text-align:left;
-  transition:opacity .28s ease}
-.section-head.leaving{opacity:0;pointer-events:none}
-.section-head.off{display:none}
+/* home drill-down: one panel of big targets at a time (no scrolling) */
+.home-nav{width:100%;max-width:420px}
+.home-panel{display:flex;flex-direction:column;gap:12px;width:100%}
+.home-panel.slide-in{animation:panel-in .26s ease}
+@keyframes panel-in{from{opacity:0;transform:translateX(24px)}}
+
+/* STEP 1 — the two section cards, big and bold */
+.section-card{
+  display:flex;align-items:center;gap:18px;padding:26px 24px;border:none;
+  border-radius:var(--radius);box-shadow:var(--shadow);cursor:pointer;
+  font-size:26px;font-weight:800;color:var(--ink);text-align:left;
+  transition:transform .08s ease;
+}
+.section-card:active{transform:scale(.97)}
+.sec-words{background:linear-gradient(135deg,#eaf4fd,#d7ebfb)}
+.sec-sent{background:linear-gradient(135deg,#e9f8ec,#d6f0da)}
+.sec-go{margin-left:auto;color:var(--muted);font-size:18px}
+
+/* STEP 2 — the game cards inside a section */
+.game-set{display:flex;flex-direction:column;gap:12px}
 .mode-card{
-  display:flex;align-items:center;gap:16px;padding:14px 22px;border:none;
+  display:flex;align-items:center;gap:16px;padding:16px 22px;border:none;
   border-radius:var(--radius);background:var(--card);box-shadow:var(--shadow);
   font-size:22px;font-weight:800;color:var(--ink);cursor:pointer;
   transition:transform .08s ease;text-align:left;
 }
 .mc-title small{display:block;font-size:13px;font-weight:600;color:var(--muted)}
 .mode-card:active{transform:scale(.97)}
-/* picking a word game: the others glide away, the pick pops */
-.mode-card.leaving{transition:opacity .28s ease,transform .28s ease;
-  opacity:0;transform:translateX(-42px) scale(.94);pointer-events:none}
-.mode-card.off{display:none}
-.mode-card.chosen{animation:chosen-pop .35s ease}
-@keyframes chosen-pop{40%{transform:scale(1.05)}}
 .mode-card.copy{background:linear-gradient(135deg,#fdfbe7,#f7f0c8)}
 .mode-card.words{background:linear-gradient(135deg,#eaf4fd,#d7ebfb)}
 .mode-card.listen{background:linear-gradient(135deg,#fdf3e7,#fae5cd)}
@@ -135,21 +143,19 @@ body.has-update .screen{padding-top:calc(env(safe-area-inset-top) + 46px)}
 .mode-card.memory{background:linear-gradient(135deg,#f7effb,#ecdff5)}
 .mc-emoji{font-size:34px}
 
-.goal-row{width:100%;max-width:420px}
-.goal-label{color:var(--muted);font-size:17px;margin:0 0 10px}
+/* the "⬅ Back" step-up link atop steps 2 & 3 */
+.back-link{align-self:flex-start;background:none;border:none;color:var(--muted);
+  font-size:16px;font-weight:700;cursor:pointer;padding:6px 4px;margin-bottom:2px}
+.back-link:active{color:var(--blue-d)}
+
+/* STEP 3 — how many words */
+.goal-label{color:var(--muted);font-size:19px;margin:2px 0 4px;font-weight:700}
 .goal-chips{display:flex;gap:12px;justify-content:center}
 .chip{
-  flex:1;padding:18px 0;border-radius:18px;border:3px solid var(--blue);
+  flex:1;padding:22px 0;border-radius:18px;border:3px solid var(--blue);
   background:#fff;color:var(--blue-d);font-size:26px;font-weight:900;cursor:pointer;
 }
 .chip:active{background:var(--blue);color:#fff}
-/* the chips arrive under the chosen card: slide down, then pop in 1-2-3 */
-.goal-row.pop-in{animation:goal-in .3s ease}
-@keyframes goal-in{from{opacity:0;transform:translateY(-14px)}}
-.goal-row.pop-in .chip{animation:chip-in .32s ease backwards}
-.goal-row.pop-in .chip:nth-child(2){animation-delay:.07s}
-.goal-row.pop-in .chip:nth-child(3){animation-delay:.14s}
-@keyframes chip-in{from{opacity:0;transform:translateY(10px) scale(.85)}}
 .goal-back{display:block;margin:14px auto 0;background:none;border:none;
   color:var(--muted);font-size:16px;font-weight:700;cursor:pointer;padding:8px 14px}
 .goal-back:active{color:var(--blue-d)}
@@ -450,13 +456,16 @@ body.compact .points-big{font-size:38px;margin-top:0}
 body.compact .points-big .star{font-size:30px}
 body.compact .tagline{font-size:16px;margin:2px 0 12px}
 body.compact .home-inner{gap:4px;padding:16px}
-body.compact .mode-cards{flex-direction:row;flex-wrap:wrap;gap:10px;max-width:620px}
-body.compact .section-head{flex:1 1 100%;margin:2px 0 0}
+/* landscape: lay a panel's cards out in a row so they never need scrolling */
+body.compact .home-nav{max-width:620px}
+body.compact .home-panel[data-panel="sections"],
+body.compact .game-set{flex-direction:row;flex-wrap:wrap;gap:10px}
+body.compact .section-card{flex:1 1 42%;padding:16px;font-size:20px}
 body.compact .mode-card{flex:1 1 42%;padding:12px 14px;font-size:18px;gap:10px}
 body.compact .mc-emoji{font-size:24px}
-body.compact .goal-row{max-width:620px}
+body.compact .back-link{flex:1 1 100%;margin:0}
 body.compact .goal-label{margin:0 0 6px;font-size:15px}
-body.compact .chip{padding:10px 0;font-size:20px}
+body.compact .chip{padding:14px 0;font-size:20px}
 body.compact .play-top{padding:10px 18px 4px}
 body.compact .play-body{gap:6px;padding:4px 22px}
 body.compact .prompt-wrap{min-height:48px}

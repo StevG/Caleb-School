@@ -16,7 +16,7 @@ await page.goto('http://127.0.0.1:9911', { waitUntil: 'networkidle' });
 await page.evaluate(() => { window.__spoken = []; window.speechSynthesis.speak = (u) => window.__spoken.push(u.text); });
 
 // ---------- Copy It: always visible, climbs 1 -> 2 only ----------
-await page.click('.mode-card.copy');
+await page.click('.section-card.sec-words'); await page.click('.mode-card.copy');
 await page.click('.chip[data-goal="10"]');
 await page.waitForSelector('#play.active');
 await page.waitForTimeout(300);
@@ -45,7 +45,7 @@ await page.evaluate(async () => {
   const post = (u, b) => fetch(u, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
   await post('/api/parent/custom_words', { pin: '1234', action: 'add', words: 'planet rocket' });
 });
-await page.click('.mode-card.words');
+await page.click('.section-card.sec-words'); await page.click('.mode-card.words');
 await page.click('.chip[data-goal="10"]');
 await page.waitForSelector('#play.active');
 await page.waitForTimeout(300);
