@@ -25,11 +25,19 @@ const expectIdx = t1.length > 2 ? 2 : -1; // 2-letter word: no next box
 check('active box: advances with typing', activeIdx === expectIdx, `idx=${activeIdx} word="${t1}"`);
 await page.screenshot({ path: `${OUT}/f1-activebox.png` });
 // finish this word correctly (words mode: lowercase ok)
+await page.focus('#typed');
 await page.fill('#typed', t1.toLowerCase());
 await page.dispatchEvent('#typed', 'input');
 await page.click('#check');
 await page.waitForTimeout(300);
 check('words mode: still case-insensitive', await page.$eval('#boxes', el => el.classList.contains('correct')));
+// the text input must KEEP focus across Check + the next word, so the iOS
+// keyboard never closes/reopens (no bounce). Tapping Check must not blur it.
+check('keyboard: input stays focused right after Check',
+  await page.evaluate(() => document.activeElement.id) === 'typed');
+await page.waitForTimeout(1000); // auto-advance to the next word
+check('keyboard: input still focused on the next word',
+  await page.evaluate(() => document.activeElement.id) === 'typed');
 await page.click('#quit');
 
 // ---------- 2. CAPITALS IN SENTENCES ----------

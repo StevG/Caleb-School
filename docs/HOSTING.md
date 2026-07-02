@@ -25,7 +25,7 @@ HomeHub exports and disables self-update anyway.)
 | `HOST` | `127.0.0.1` | `0.0.0.0` exposes the server on the LAN so phones/iPads can reach it. | Pi only. **Never** on HomeHub (it must stay loopback behind the tunnel). |
 | `PORT` | `8013` | Listen port. | Both (HomeHub injects it). |
 | `AUTO_UPDATE` | off | `1`/`true` → self-update from git (see below). | Pi only. Off/absent on HomeHub. |
-| `AUTO_UPDATE_INTERVAL` | `90` | Seconds between update checks (min 15). | Pi only. |
+| `AUTO_UPDATE_INTERVAL` | `15` | Seconds between update checks (min 15). | Pi only. |
 | `AUTO_UPDATE_BRANCH` | current branch | Branch to track. | Pi only. |
 
 ## Self-update on the Pi (the HomeHub-like part)
@@ -52,7 +52,8 @@ HOST=0.0.0.0 PORT=8013 AUTO_UPDATE=1 python3 server.py
 ```
 
 Leave that running (or background it with `nohup … &`). From then on, pushing
-to `main` updates the Pi within ~90 s with no SSH.
+to `main` updates the Pi within ~15 s with no SSH (the client polls
+`/api/version` every 15 s too, so the "Update" bar appears right after).
 
 ### Optional: run as a service so it survives reboots
 

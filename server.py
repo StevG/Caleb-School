@@ -1623,9 +1623,9 @@ def start_auto_updater(httpd):
         cur = _git("rev-parse", "--abbrev-ref", "HEAD", timeout=10)
         branch = cur.stdout.strip() if cur.returncode == 0 else "main"
     try:
-        interval = max(15, int(os.environ.get("AUTO_UPDATE_INTERVAL", "90")))
+        interval = max(15, int(os.environ.get("AUTO_UPDATE_INTERVAL", "15")))
     except ValueError:
-        interval = 90
+        interval = 15
     t = threading.Thread(target=_auto_update_loop,
                          args=(httpd, interval, branch), daemon=True)
     t.start()

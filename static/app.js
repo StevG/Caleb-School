@@ -243,7 +243,8 @@ function initUpdates() {
     });
   }
 
-  // re-check whenever the app comes back to the foreground, plus a slow tick
+  // re-check whenever the app comes back to the foreground, plus a fast tick
+  // so a fresh deploy shows the "Update" bar within ~15s of the server restart
   const recheck = () => {
     if (document.hidden) return;
     if (swReg) swReg.update().catch(() => {});
@@ -253,7 +254,7 @@ function initUpdates() {
   };
   document.addEventListener("visibilitychange", recheck);
   window.addEventListener("focus", recheck);
-  setInterval(recheck, 60000);
+  setInterval(recheck, 15000);
 }
 
 function doUpdate() {
@@ -868,6 +869,15 @@ function wirePlay() {
   $("next").addEventListener("click", advance);
   $("quit").addEventListener("click", () => { goHome(); });
   $("speaker").addEventListener("click", speakCurrent);
+
+  // Keep the keyboard from bouncing between words. Tapping Check / Next / 🔊
+  // (or the letter boxes) would normally move focus off the text field, which
+  // closes the iOS keyboard — it then reopens on the next word and the screen
+  // resizes each time. Preventing the default on pointer-down keeps focus in
+  // #typed (the click still fires), so the keyboard stays up all session.
+  ["check", "next", "speaker", "boxes"].forEach((id) => {
+    $(id).addEventListener("mousedown", (e) => e.preventDefault());
+  });
 }
 
 // ---------- speech (iOS-safe) ----------

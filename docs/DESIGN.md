@@ -85,6 +85,17 @@ game can only prove skills up to its own rung; see docs/SCORING.md):
 - Not a game with an economy — points are minutes of iPad time, period.
 
 ## Decisions log
+- 2026-07-02 — Keyboard stays up all session (owner: the bounce/resize
+  between words was distracting). The text input was never disabled
+  (`state.locked` freezes typing instead), but tapping Check / Next / 🔊 /
+  the boxes moved focus off it, closing the iOS keyboard — which then
+  reopened on the next word and resized the screen. Those controls now
+  `preventDefault` on mousedown so focus stays in `#typed` (the click still
+  fires); the keyboard never closes between words. Memory mode still lowers
+  it for the read phase on purpose.
+- 2026-07-02 — Faster refresh (owner): Pi `AUTO_UPDATE_INTERVAL` default
+  90 s → 15 s and the client `/api/version` poll 60 s → 15 s, so a push to
+  `main` reaches the phone's "Update" bar in ~15 s instead of ~90 s.
 - 2026-07-02 — Home is a three-step drill-down (owner: five cards no longer
   fit without scrolling). Step 1: two big section cards, **Words 🔤** /
   **Sentences 📝**. Step 2: that section's games (Words → Copy It / Hide &
