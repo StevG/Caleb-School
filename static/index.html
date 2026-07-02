@@ -31,6 +31,11 @@
     <div class="points-big"><span id="home-points">0</span> <span class="star">⭐</span></div>
     <p class="tagline">Let's practice spelling!</p>
 
+    <div id="missions" class="missions hidden">
+      <p class="missions-head">Your missions 📋</p>
+      <div id="mission-list"></div>
+    </div>
+
     <div class="mode-cards">
       <button class="mode-card words" data-mode="words">
         <span class="mc-emoji">🔤</span>
@@ -59,6 +64,13 @@
       </div>
       <button id="goal-back" class="goal-back">⬅ All games</button>
     </div>
+
+    <div id="install-hint" class="soft-hint hidden">
+      Put me on your Home Screen! Tap <b>Share&nbsp;⬆️</b> then
+      <b>"Add to Home Screen"</b> — then I can send you mission alerts.
+      <button id="install-hint-x" aria-label="dismiss">✕</button>
+    </div>
+    <button id="bell-btn" class="bell-btn hidden">🔔 Turn on mission alerts</button>
   </div>
 </section>
 
@@ -156,6 +168,24 @@
     </div>
 
     <div class="card">
+      <div class="card-head">Assignments</div>
+      <p class="card-note">Hand out a test: pick a game (and a list for word games) — it lands on the child's home screen as a mission and you'll get a notification when it's done.</p>
+      <div class="assign-form">
+        <select id="assign-mode" aria-label="game">
+          <option value="words">Spell Words</option>
+          <option value="listen">Listen &amp; Spell</option>
+          <option value="sentences">Spell Sentences</option>
+          <option value="memory">Memory Sentences</option>
+        </select>
+        <select id="assign-list" aria-label="word list"></select>
+        <label class="assign-all"><input type="checkbox" id="assign-all"> every child</label>
+        <button id="assign-create" class="mini-btn">Assign</button>
+      </div>
+      <div id="assign-open"></div>
+      <div id="assign-done"></div>
+    </div>
+
+    <div class="card">
       <div class="card-head">Results by list</div>
       <p class="card-note">The spelling-test view: each list's mastery, accuracy, day-by-day practice results, and the words that keep going wrong.</p>
       <div id="progress-lists"></div>
@@ -217,6 +247,9 @@
         <input id="set-speaker" type="checkbox"></label>
       <label class="setting"><span>Change parent PIN (4–8 digits, all children)</span>
         <input id="set-pin" type="text" inputmode="numeric" placeholder="leave blank to keep"></label>
+      <div class="setting notif-row"><span>Notifications when work is done</span>
+        <button id="notif-btn" class="mini-btn">🔔 Turn on</button></div>
+      <div id="notif-note" class="saved-note"></div>
       <button id="save-settings" class="mini-btn wide">Save settings</button>
       <div id="settings-saved" class="saved-note"></div>
       <button id="reset-stars" class="mini-btn danger wide">Reset stars to 0…</button>

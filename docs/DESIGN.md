@@ -79,6 +79,21 @@ Four modes share that mechanic (owner-specified behavior — keep it exact):
 - Not a game with an economy — points are minutes of iPad time, period.
 
 ## Decisions log
+- 2026-07-02 — Assignments + notifications (owner-specified). Parents hand
+  out "missions": any of the four modes, optionally pinned to a word list,
+  to one child or every child. Missions sit at the top of the kid's home
+  screen as green tappable cards; a list-pinned word test is every enabled
+  word once, shuffled, always hidden-on-type (no copy crutch) — a real
+  spelling test whose answers still feed the normal stats. Finishing
+  stores the score on the parent's Assignments card and pushes
+  "Caleb finished a mission ⭐ 9/10" to parent devices; assigning pushes
+  "New mission! 📋" to the kid's devices. Web Push is pure-stdlib VAPID
+  (P-256 ECDSA in server.py) with EMPTY pushes — the service worker pulls
+  the message from /api/push/pull (payload crypto avoided on purpose).
+  iOS only pushes to Home-Screen apps, so the kid side shows a dismissible
+  "Share ⬆️ → Add to Home Screen" hint in the browser and a "🔔 Turn on
+  mission alerts" button once installed; parents have the same button in
+  Settings. Notifications are conveniences, never the system of record.
 - 2026-07-02 — Home menu flow (owner-specified): tapping Spell Words /
   Listen & Spell no longer pops the count chips at the bottom of the
   screen, disconnected from the card. The OTHER game cards glide away

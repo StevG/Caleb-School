@@ -16,6 +16,8 @@ const postJSON = (url, body) => api(url, {
 // keep the capitals (he must type them); word modes compare lowercase.
 const cleanChars = (s) => s.replace(/[^a-zA-Z'-]/g, "");
 const toTarget = (s) => cleanChars(s).toLowerCase();
+const MODE_LABELS = { words: "Spell Words", listen: "Listen & Spell",
+                      sentences: "Spell Sentences", memory: "Memory Sentences" };
 function show(screenId) {
   document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
   $(screenId).classList.add("active");
@@ -33,6 +35,7 @@ const state = {
   childId: "",
   children: [],      // roster from the server: [{id, name, points}]
   parentChild: "",   // the child the dashboard is showing/editing
+  assignment: null,  // mission id when the current session IS a mission
   // session
   queue: [],      // items still to do (words mode: {w,group}; sentences: token views)
   total: 0,       // queue items (words, or whole sentences)
@@ -79,9 +82,81 @@ function refreshState() {
       $("kid-name").textContent = s.name || "Caleb";
       $("home-points").textContent = state.points;
       renderWhoRow();
+      renderMissions(s.missions || []);
+      updateHomeHints();
       // help the second parent get in the first time (hidden once changed)
       $("gate-hint").classList.toggle("hidden", !s.pin_is_default);
     });
+}
+
+// ---------- missions (parent-assigned tests) ----------
+function renderMissions(missions) {
+  const list = $("mission-list");
+  list.innerHTML = "";
+  $("missions").classList.toggle("hidden", !missions.length);
+  missions.forEach((m) => {
+    const isSentences = m.mode === "sentences" || m.mode === "memory";
+    const b = document.createElement("button");
+    b.className = "mission-card";
+    b.innerHTML =
+      `<span class="mi-emoji">📋</span>` +
+      `<span class="mi-text">${esc(MODE_LABELS[m.mode] || m.mode)}` +
+      `<small>${isSentences ? esc(m.name)
+        : `${esc(m.name)} · ${m.count} words`}</small></span>` +
+      `<span class="mi-go">GO!</span>`;
+    b.addEventListener("click", () => {
+      state.mode = m.mode;
+      state.assignment = m.id;
+      startSession();
+    });
+    list.appendChild(b);
+  });
+}
+
+// ---------- notifications (kid side) ----------
+const isStandalone = () =>
+  window.matchMedia("(display-mode: standalone)").matches ||
+  window.navigator.standalone === true;
+const pushSupported = () =>
+  "serviceWorker" in navigator && "PushManager" in window &&
+  "Notification" in window;
+const lsGet = (k) => { try { return localStorage.getItem(k); } catch (_) { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (_) {} };
+
+function updateHomeHints() {
+  // Not installed yet (iOS only pushes to Home-Screen apps): teach the
+  // share-then-add move once; dismissible. Installed: offer the bell.
+  const iosBrowser = /iPhone|iPad|iPod/.test(navigator.userAgent) && !isStandalone();
+  $("install-hint").classList.toggle("hidden",
+    !iosBrowser || !!lsGet("install-hint-x"));
+  $("bell-btn").classList.toggle("hidden",
+    !isStandalone() || !pushSupported() || !!lsGet("push-child") ||
+    Notification.permission === "denied");
+}
+
+function urlB64ToU8(s) {
+  const pad = "=".repeat((4 - (s.length % 4)) % 4);
+  const raw = atob((s + pad).replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+}
+
+async function enablePush(role) {
+  if (!pushSupported()) return { ok: false, why: "unsupported" };
+  const perm = await Notification.requestPermission(); // must ride a tap
+  if (perm !== "granted") return { ok: false, why: "denied" };
+  const reg = await navigator.serviceWorker.ready;
+  const key = (await api("/api/push/key")).key;
+  let sub = await reg.pushManager.getSubscription();
+  if (!sub) {
+    sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true, applicationServerKey: urlB64ToU8(key) });
+  }
+  const body = { role, subscription: sub.toJSON(),
+                 child: role === "child" ? state.childId : state.parentChild };
+  if (role === "parent") body.pin = state.parentPin;
+  await postJSON("/api/push/subscribe", body);
+  lsSet("push-" + role, "1");
+  return { ok: true };
 }
 
 // the "Who's spelling?" chips — only when there is more than one kid
@@ -203,6 +278,7 @@ function wireHome() {
   document.querySelectorAll(".mode-card").forEach((btn) => {
     btn.addEventListener("click", () => {
       state.mode = btn.dataset.mode;
+      state.assignment = null; // free play, not a mission
       if (state.mode === "words" || state.mode === "listen") {
         chooseMode(btn); // ask how many — right under the tapped card
       } else {
@@ -218,6 +294,22 @@ function wireHome() {
   });
   $("goal-back").addEventListener("click", resetHomeMenu);
   $("gear").addEventListener("click", openGate);
+
+  $("install-hint-x").addEventListener("click", () => {
+    lsSet("install-hint-x", "1");
+    $("install-hint").classList.add("hidden");
+  });
+  $("bell-btn").addEventListener("click", async () => {
+    try {
+      const r = await enablePush("child");
+      if (r.ok) {
+        $("bell-btn").textContent = "🔔 Alerts are on!";
+        setTimeout(() => $("bell-btn").classList.add("hidden"), 1500);
+      } else {
+        $("bell-btn").classList.add("hidden"); // denied: don't nag the kid
+      }
+    } catch (_) { $("bell-btn").classList.add("hidden"); }
+  });
 }
 
 // Tap a word game -> the other games glide away (staggered) and the
@@ -270,7 +362,10 @@ async function startSession() {
   let items = [];
   try {
     const data = await api(`/api/session?mode=${state.mode}&count=${count}` +
-      `&child=${encodeURIComponent(state.childId)}`);
+      `&child=${encodeURIComponent(state.childId)}` +
+      (state.assignment ? `&assignment=${encodeURIComponent(state.assignment)}` : ""));
+    // the mission may have been finished on another device — play it plain
+    if (state.assignment && !data.assignment) state.assignment = null;
     items = data.items || [];
   } catch (_) {}
   if (!items.length) { alert("Could not load words. Try again."); return; }
@@ -742,19 +837,26 @@ function finishSession() {
   state.finished = true;
   $("check").classList.add("hidden");
   $("next").classList.add("hidden");
+  const wasMission = state.assignment;
   postJSON("/api/session_end", {
     mode: state.mode,
     count: state.wordsDone,
     correct: state.correctCount,
     points: state.earned,
     child: state.childId,
+    assignment: state.assignment || undefined,
+  }).then((r) => {
+    if (r.assignment_done) refreshState().catch(() => {}); // mission card gone
   }).catch(() => {});
+  state.assignment = null;
   $("earned").textContent = state.earned;
   $("done-total").textContent = state.points;
   const lu = $("level-ups");
-  lu.textContent = state.levelUps
-    ? `⬆️ ${state.levelUps} word${state.levelUps === 1 ? "" : "s"} leveled up!`
-    : "";
+  lu.textContent = wasMission
+    ? "📋✅ Mission complete!"
+    : state.levelUps
+      ? `⬆️ ${state.levelUps} word${state.levelUps === 1 ? "" : "s"} leveled up!`
+      : "";
   show("done");
 }
 
@@ -875,6 +977,8 @@ function wireDone() {
 function goHome() {
   $("home-points").textContent = state.points;
   resetHomeMenu(); // full menu again, chips tucked away
+  state.assignment = null; // quitting a mission leaves it on the list
+  refreshState().catch(() => {});
   state.sentence = null;
   state.memorizing = false;
   currentUtterance = null;
@@ -1106,6 +1210,7 @@ function renderReport(rep) {
 
   // word sources: the custom lists first (the bank's copy-target dropdown
   // needs them cached), then the bank with its grade bands
+  renderAssignments(rep);
   renderProgress(rep.progress);
   renderLists(rep.lists || []);
   renderBank(rep.bank);
@@ -1117,10 +1222,59 @@ function renderReport(rep) {
   $("set-speaker").checked = rep.profile.show_speaker !== false;
   $("set-pin").value = "";
   $("settings-saved").textContent = "";
+  if (lsGet("push-parent")) $("notif-btn").textContent = "🔔 On for this device ✓";
   // a child can be removed only while a sibling remains
   const rc = $("remove-child");
   rc.classList.toggle("hidden", (rep.children || []).length < 2);
   rc.textContent = `Remove ${rep.profile.name || "this child"}…`;
+}
+
+// ---------- Assignments (parent hands out missions) ----------
+function renderAssignments(rep) {
+  const sel = $("assign-list");
+  sel.innerHTML = '<option value="">his checked words</option>' +
+    (rep.lists || []).map((l) =>
+      `<option value="${esc(l.id)}">${esc(l.name)}</option>`).join("");
+  const a = rep.assignments || { todo: [], done: [] };
+  const open = $("assign-open");
+  open.innerHTML = a.todo.length ? "" :
+    '<div class="muted" style="padding:6px 2px">Nothing assigned right now.</div>';
+  a.todo.forEach((t) => {
+    const row = document.createElement("div");
+    row.className = "assign-row";
+    row.innerHTML =
+      `<span class="ar-what">📋 ${esc(MODE_LABELS[t.mode] || t.mode)} — ` +
+      `${esc(t.name)}</span><span class="ar-meta">waiting</span>` +
+      `<button class="wr-x" aria-label="cancel">✕</button>`;
+    row.querySelector(".wr-x").addEventListener("click", () =>
+      assignCall({ action: "delete", assignment_id: t.id }));
+    open.appendChild(row);
+  });
+  const doneWrap = $("assign-done");
+  doneWrap.innerHTML = "";
+  a.done.forEach((t) => {
+    const r = t.result || { correct: 0, count: 0 };
+    const row = document.createElement("div");
+    row.className = "assign-row done";
+    row.innerHTML =
+      `<span class="ar-what">✅ ${esc(MODE_LABELS[t.mode] || t.mode)} — ` +
+      `${esc(t.name)}</span>` +
+      `<span class="ar-meta"><b>${r.correct}/${r.count}</b> · ${fmtAgo(t.done_ts)}</span>` +
+      `<button class="wr-x" aria-label="clear">✕</button>`;
+    row.querySelector(".wr-x").addEventListener("click", () =>
+      assignCall({ action: "delete", assignment_id: t.id }));
+    doneWrap.appendChild(row);
+  });
+}
+
+async function assignCall(body) {
+  try {
+    await postJSON("/api/parent/assign",
+      { pin: state.parentPin, child: state.parentChild, ...body });
+    await openParent(); // assignments, tiles, everything refreshes
+  } catch (_) {
+    $("custom-status").textContent = "Could not update the assignment.";
+  }
 }
 
 // ---------- Results by list (the spelling-test view) ----------
@@ -1439,6 +1593,37 @@ function gradeLabel(v) {
 }
 
 function wireParent() {
+  $("assign-mode").addEventListener("change", () => {
+    // sentence tests come from the sentence bank, not a word list
+    const m = $("assign-mode").value;
+    $("assign-list").disabled = m === "sentences" || m === "memory";
+  });
+  $("assign-create").addEventListener("click", () => {
+    assignCall({ action: "create",
+                 mode: $("assign-mode").value,
+                 list_id: $("assign-list").value || undefined,
+                 all_children: $("assign-all").checked || undefined });
+  });
+
+  $("notif-btn").addEventListener("click", async () => {
+    const note = $("notif-note");
+    if (!isStandalone() && /iPhone|iPad|iPod/.test(navigator.userAgent)) {
+      note.textContent = "First add the app to your Home Screen: Share ⬆️ → \"Add to Home Screen\" — then tap this again.";
+      return;
+    }
+    try {
+      const r = await enablePush("parent");
+      note.textContent = r.ok
+        ? "This device gets a ping when a mission is finished ✓"
+        : r.why === "denied"
+          ? "Notifications are blocked — allow them in Settings for this app."
+          : "This browser can't do notifications — try the installed app.";
+      if (r.ok) $("notif-btn").textContent = "🔔 On for this device ✓";
+    } catch (_) {
+      note.textContent = "Could not turn notifications on — try again.";
+    }
+  });
+
   $("hearts-only").addEventListener("change", () => {
     updateHeartsNote();
     postJSON("/api/parent/settings",

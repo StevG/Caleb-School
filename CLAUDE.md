@@ -98,7 +98,14 @@ reset_list/bank_toggle_band/bank_toggle_word/bank_copy; settings accepts
 `reset_points`/`reset_progress` (targeted per-child resets) plus
 `enabled_grades` list — legacy `max_level` maps onto it — plus
 `hearts_only` to narrow word/listen practice to heart words) ·
-`GET /api/parent/report` (PIN in `X-Parent-Pin` header) · `GET /.hub/status`.
+`GET /api/parent/report` (PIN in `X-Parent-Pin` header) ·
+`POST /api/parent/assign {action: create|delete, mode, list_id?,
+all_children?}` (missions: parent-assigned tests; kid sees them in
+`/api/state.missions`, plays via `/api/session?assignment=`, completion via
+`session_end {assignment}`) · Web Push: `GET /api/push/key`, `POST
+/api/push/subscribe|pull` — pure-stdlib VAPID (P-256 in server.py), EMPTY
+tickle pushes + SW pull (no payload crypto); key + subs in gitignored
+`data/push.json` · `GET /.hub/status`.
 
 "Aided" = a retype right after the answer was revealed: earns the point,
 does **not** count toward accuracy or the learning ladder. Words-mode words

@@ -13,16 +13,19 @@ HomeHub contract:
 Run locally:   PORT=9999 python3 server.py   then open http://127.0.0.1:9999
 """
 
+import base64
 import hashlib
 import json
 import os
 import random
+import secrets
 import subprocess
 import sys
 import threading
 import time
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, urlsplit
 
 import wordbank
 
@@ -30,6 +33,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(HERE, "static")
 DATA_DIR = os.path.join(HERE, "data")
 DATA_FILE = os.path.join(DATA_DIR, "progress.json")
+PUSH_FILE = os.path.join(DATA_DIR, "push.json")
 
 DEFAULT_PIN = "1234"
 
@@ -119,6 +123,9 @@ def _default_child(name="Caleb"):
         "last_answer_ts": 0,  # when the kid last answered anything
         "custom_words": [],   # parent-added words
         "sessions": [],       # list of {ts, mode, count, correct, points}
+        "assignments": [],    # parent-assigned tests ("missions") — see
+                              # _api_assign: {id, mode, list_id, name, count,
+                              #               ts, status, result?, done_ts?}
     }
 
 
@@ -207,6 +214,147 @@ def children_roster(doc):
              "name": kid["profile"].get("name", "Kid"),
              "points": kid["profile"].get("points", 0)}
             for kid in doc["children"]]
+
+
+# --- Web Push (pure stdlib) --------------------------------------------------
+# Push services demand VAPID: an ES256-signed JWT proving who's sending. The
+# stdlib has no elliptic-curve crypto, so the P-256 math lives here (~50
+# lines — sign-only, no secrets travel through it). Payload ENCRYPTION
+# (aes128gcm) is deliberately avoided: we send empty "tickle" pushes and the
+# service worker pulls the actual message from /api/push/pull. Notifications
+# here are conveniences, never the system of record.
+
+_EC_P = 0xffffffff00000001000000000000000000000000ffffffffffffffffffffffff
+_EC_N = 0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551
+_EC_G = (0x6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296,
+         0x4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5)
+
+
+def _ec_add(a, b):
+    if a is None:
+        return b
+    if b is None:
+        return a
+    if a[0] == b[0] and (a[1] + b[1]) % _EC_P == 0:
+        return None  # point at infinity
+    if a == b:
+        # P-256 is y^2 = x^3 - 3x + b, so the tangent slope carries the -3
+        lam = (3 * a[0] * a[0] - 3) * pow(2 * a[1], -1, _EC_P) % _EC_P
+    else:
+        lam = (b[1] - a[1]) * pow(b[0] - a[0], -1, _EC_P) % _EC_P
+    x = (lam * lam - a[0] - b[0]) % _EC_P
+    return (x, (lam * (a[0] - x) - a[1]) % _EC_P)
+
+
+def _ec_mul(k, pt):
+    out = None
+    while k:
+        if k & 1:
+            out = _ec_add(out, pt)
+        pt = _ec_add(pt, pt)
+        k >>= 1
+    return out
+
+
+def _ecdsa_sign(d, message):
+    z = int.from_bytes(hashlib.sha256(message).digest(), "big")
+    while True:
+        k = secrets.randbelow(_EC_N - 1) + 1
+        r = _ec_mul(k, _EC_G)[0] % _EC_N
+        if not r:
+            continue
+        s = pow(k, -1, _EC_N) * (z + r * d) % _EC_N
+        if s:
+            return r.to_bytes(32, "big") + s.to_bytes(32, "big")
+
+
+def _b64url(raw):
+    return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+
+
+def load_push():
+    with _lock:
+        try:
+            with open(PUSH_FILE, "r", encoding="utf-8") as f:
+                store = json.load(f)
+        except (FileNotFoundError, ValueError):
+            store = {}
+        fresh_key = "vapid_d" not in store
+        if fresh_key:
+            store["vapid_d"] = secrets.randbelow(_EC_N - 1) + 1
+        store.setdefault("subs", [])   # [{role, child, endpoint}]
+        store.setdefault("queue", {})  # endpoint -> [{title, body, ts}]
+        if fresh_key:
+            save_push(store)  # the key must survive restarts — subscriptions
+        return store          # made against it die if it changes
+
+
+def save_push(store):
+    with _lock:
+        os.makedirs(DATA_DIR, exist_ok=True)
+        tmp = PUSH_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(store, f)
+        os.replace(tmp, PUSH_FILE)
+
+
+def vapid_public_key(store):
+    x, y = _ec_mul(store["vapid_d"], _EC_G)
+    return _b64url(b"\x04" + x.to_bytes(32, "big") + y.to_bytes(32, "big"))
+
+
+def vapid_headers(store, endpoint):
+    bits = urlsplit(endpoint)
+    claims = {"aud": f"{bits.scheme}://{bits.netloc}",
+              "exp": int(time.time()) + 12 * 3600,
+              "sub": "mailto:spelling@localhost"}
+    head = _b64url(json.dumps({"typ": "JWT", "alg": "ES256"}).encode())
+    body = _b64url(json.dumps(claims).encode())
+    signing = f"{head}.{body}".encode()
+    jwt = f"{head}.{body}.{_b64url(_ecdsa_sign(store['vapid_d'], signing))}"
+    return {"Authorization": f"vapid t={jwt}, k={vapid_public_key(store)}",
+            "TTL": "86400"}
+
+
+def _push_deliver(endpoint, headers):
+    """One empty 'tickle' POST to a push service. Runs on a worker thread —
+    never on a request thread, never with the lock held."""
+    try:
+        req = urllib.request.Request(endpoint, data=b"", method="POST",
+                                     headers=headers)
+        urllib.request.urlopen(req, timeout=10)
+        return True
+    except urllib.error.HTTPError as e:
+        if e.code in (404, 410):  # the device unsubscribed — forget it
+            with _lock:
+                store = load_push()
+                store["subs"] = [s for s in store["subs"]
+                                 if s["endpoint"] != endpoint]
+                store["queue"].pop(endpoint, None)
+                save_push(store)
+        return False
+    except Exception:
+        return False  # best-effort: a missed ping must never break practice
+
+
+def notify(role, child_id, title, body):
+    """Queue a message for every matching device and tickle each one.
+    role 'child': that kid's devices. role 'parent': every parent device."""
+    with _lock:
+        store = load_push()
+        targets = [s for s in store["subs"] if s["role"] == role and
+                   (role == "parent" or s.get("child") == child_id)]
+        for s in targets:
+            q = store["queue"].setdefault(s["endpoint"], [])
+            q.append({"title": title, "body": body, "ts": int(time.time())})
+            del q[:-5]  # a device that's been away only needs the recent few
+        if targets:
+            save_push(store)
+        jobs = [(s["endpoint"], vapid_headers(store, s["endpoint"]))
+                for s in targets]
+    for endpoint, headers in jobs:
+        threading.Thread(target=_push_deliver, args=(endpoint, headers),
+                         daemon=True).start()
 
 
 # --- word helpers ----------------------------------------------------------
@@ -441,6 +589,60 @@ def build_sentence_session(state, count):
             tokens.append(t)
         items.append({"s": s["s"], "tokens": tokens})
     return items
+
+
+# --- Assignments ("missions") ------------------------------------------------
+# The parent hands a child a specific test: one of the four modes, optionally
+# pinned to a word list. It sits on the kid's home screen until finished;
+# finishing stores the score and pings the parents' devices.
+
+MODE_LABELS = {"words": "Spell Words", "listen": "Listen & Spell",
+               "sentences": "Spell Sentences", "memory": "Memory Sentences"}
+
+
+def find_assignment(state, aid):
+    for a in state.get("assignments", []):
+        if a.get("id") == aid:
+            return a
+    return None
+
+
+def assignments_status(state):
+    todo = [a for a in state.get("assignments", []) if a["status"] == "todo"]
+    done = [a for a in state.get("assignments", []) if a["status"] == "done"]
+    done.sort(key=lambda a: a.get("done_ts", 0), reverse=True)
+    return {"todo": todo, "done": done[:8]}
+
+
+def build_assignment_session(state, a):
+    """The session for one mission. A list-pinned words/listen test is every
+    enabled word of that list, once, shuffled — a real spelling test. The
+    ladder is ignored on purpose: test words always hide on the first
+    keystroke (no copy crutch), and answers still feed the normal stats."""
+    mode = a["mode"]
+    if mode in ("sentences", "memory"):
+        return build_sentence_session(state, a.get("count", 6))
+    stats = state["words"]
+    lst = next((l for l in state.get("lists", [])
+                if l.get("id") == a.get("list_id")), None)
+    if lst:
+        words = [wd["w"] for wd in lst["words"] if wd.get("on", True)]
+    else:
+        words = eligible_words(state)
+        random.shuffle(words)
+        words = words[:a.get("count", 10)]
+    words = words[:25]  # a test, not a marathon
+    random.shuffle(words)
+    out = []
+    for w in words:
+        item = {"w": w, "group": WORD_GROUP.get(w, "My words"),
+                "stage": STAGE_MEMORY if mode == "words"
+                else word_stage(stats.get(w))}
+        heart = wordbank.HEART_WORDS.get(w)
+        if heart:
+            item["heart"] = heart
+        out.append(item)
+    return out
 
 
 def record_answer(state, word, correct, aided=False, mode="words"):
@@ -702,6 +904,7 @@ def parent_report(state):
         "bank_count": len(bank_words(state)),
         "hearts_in_pool": count_pool_hearts(state),
         "sources_empty": sources_empty(state),
+        "assignments": assignments_status(state),
         "progress": source_progress(state),
         "bank": bank_status(state),
         "summary": {
@@ -771,6 +974,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._serve_sw()
         if path == "/api/state":
             return self._api_state(parse_qs(parsed.query))
+        if path == "/api/push/key":
+            return self._send_json({"key": vapid_public_key(load_push())})
         if path == "/api/session":
             return self._api_session(parse_qs(parsed.query))
         if path == "/api/parent/report":
@@ -794,6 +999,12 @@ class Handler(BaseHTTPRequestHandler):
             return self._api_lists(body)
         if path == "/api/parent/children":
             return self._api_children(body)
+        if path == "/api/parent/assign":
+            return self._api_assign(body)
+        if path == "/api/push/subscribe":
+            return self._api_push_subscribe(body)
+        if path == "/api/push/pull":
+            return self._api_push_pull(body)
         return self._send_json({"error": "not found"}, 404)
 
     # Which kid a request is about: the client remembers its pick per device
@@ -813,6 +1024,12 @@ class Handler(BaseHTTPRequestHandler):
             "name": p.get("name", "Caleb"),
             "points": p.get("points", 0),
             "show_speaker": p.get("show_speaker", True),
+            # open missions land on the kid's home screen
+            "missions": [{"id": a["id"], "mode": a["mode"],
+                          "name": a.get("name", ""),
+                          "count": a.get("count", 10)}
+                         for a in state.get("assignments", [])
+                         if a["status"] == "todo"],
             # lets the gate show a first-run hint until the PIN is changed
             "pin_is_default": doc.get("pin", DEFAULT_PIN) == DEFAULT_PIN,
         })
@@ -826,6 +1043,16 @@ class Handler(BaseHTTPRequestHandler):
         count = max(1, min(count, 30))
         doc = load_doc()
         state = get_child(doc, self._query_child(query))
+        aid = (query.get("assignment", [""])[0] or "").strip()
+        if aid:
+            a = find_assignment(state, aid)
+            if a and a["status"] == "todo":
+                return self._send_json({
+                    "mode": a["mode"], "child": state["id"],
+                    "assignment": a["id"],
+                    "items": build_assignment_session(state, a)})
+            # stale mission (finished/removed on another device): plain
+            # session — the client's next state refresh clears its card
         if mode in ("sentences", "memory"):
             items = build_sentence_session(state, max(1, min(count, 12)))
         else:
@@ -852,6 +1079,7 @@ class Handler(BaseHTTPRequestHandler):
             except (ValueError, TypeError):
                 return 0
 
+        finished = None
         with _lock:
             doc = load_doc()
             state = get_child(doc, body.get("child"))
@@ -863,9 +1091,24 @@ class Handler(BaseHTTPRequestHandler):
                 "points": as_int(body.get("points", 0)),
             })
             state["sessions"] = state["sessions"][-200:]
+            aid = str(body.get("assignment", "") or "")
+            a = find_assignment(state, aid) if aid else None
+            if a and a["status"] == "todo":
+                a["status"] = "done"
+                a["done_ts"] = int(time.time())
+                a["result"] = {"count": as_int(body.get("count", 0)),
+                               "correct": as_int(body.get("correct", 0))}
+                finished = (state["id"], state["profile"].get("name", "Kid"),
+                            a)
             save_doc(doc)
             points = state["profile"].get("points", 0)
-        self._send_json({"points": points})
+        if finished:
+            cid, kid_name, a = finished
+            r = a["result"]
+            notify("parent", cid, f"{kid_name} finished a mission! ⭐",
+                   f"{MODE_LABELS.get(a['mode'], a['mode'])} — "
+                   f"{a.get('name', '')}: {r['correct']}/{r['count']} right")
+        self._send_json({"points": points, "assignment_done": bool(finished)})
 
     def _api_parent_login(self, body):
         doc = load_doc()
@@ -925,6 +1168,97 @@ class Handler(BaseHTTPRequestHandler):
             save_doc(doc)
             out = {"children": children_roster(doc), "child": new_id}
         self._send_json(out)
+
+    def _api_assign(self, body):
+        """Create or remove a mission. Create targets the selected child, or
+        every child with all_children — the same test for the whole family."""
+        notices = []
+        with _lock:
+            doc = load_doc()
+            if not self._pin_ok(doc, body):
+                return self._send_json({"error": "bad pin"}, 403)
+            state = get_child(doc, body.get("child"))
+            action = str(body.get("action", "create"))
+            if action == "delete":
+                aid = str(body.get("assignment_id", ""))
+                state["assignments"] = [a for a in state["assignments"]
+                                        if a.get("id") != aid]
+            elif action == "create":
+                mode = str(body.get("mode", "words"))
+                if mode not in VALID_MODES:
+                    return self._send_json({"error": "bad mode"}, 400)
+                list_id = str(body.get("list_id", "") or "")
+                targets = doc["children"] if body.get("all_children") \
+                    else [state]
+                for kid in targets:
+                    lst = next((l for l in kid.get("lists", [])
+                                if l.get("id") == list_id), None)
+                    if mode in ("sentences", "memory"):
+                        count = 3 if mode == "memory" else 6
+                        name = f"{count} sentences"
+                    elif lst:
+                        count = min(25, sum(1 for wd in lst["words"]
+                                            if wd.get("on", True)))
+                        name = lst.get("name", "List")
+                    else:
+                        try:
+                            count = max(5, min(25, int(body.get("count", 10))))
+                        except (ValueError, TypeError):
+                            count = 10
+                        name = "Practice words"
+                    n = 1
+                    have = {a.get("id") for a in kid["assignments"]}
+                    while f"a{n}" in have:
+                        n += 1
+                    kid["assignments"].append({
+                        "id": f"a{n}", "mode": mode,
+                        "list_id": lst.get("id") if lst else "",
+                        "name": name, "count": count,
+                        "ts": int(time.time()), "status": "todo",
+                    })
+                    notices.append((kid["id"],
+                                    f"{MODE_LABELS[mode]} — {name}"))
+            else:
+                return self._send_json({"error": "bad action"}, 400)
+            save_doc(doc)
+            out = assignments_status(state)
+        for cid, what in notices:
+            notify("child", cid, "New mission! 📋", what)
+        self._send_json({"assignments": out})
+
+    def _api_push_subscribe(self, body):
+        """Register this device for pings. Parent devices prove the PIN;
+        a kid device just names its child."""
+        role = str(body.get("role", ""))
+        sub = body.get("subscription") or {}
+        endpoint = str(sub.get("endpoint", "") or body.get("endpoint", ""))
+        if role not in ("parent", "child") or not endpoint.startswith("http"):
+            return self._send_json({"error": "bad subscription"}, 400)
+        with _lock:
+            doc = load_doc()
+            if role == "parent" and not self._pin_ok(doc, body):
+                return self._send_json({"error": "bad pin"}, 403)
+            child = get_child(doc, body.get("child"))["id"]
+            store = load_push()
+            store["subs"] = [s for s in store["subs"]
+                             if s["endpoint"] != endpoint]
+            if not body.get("unsubscribe"):
+                store["subs"].append({"role": role, "child": child,
+                                      "endpoint": endpoint})
+            save_push(store)
+        self._send_json({"ok": True})
+
+    def _api_push_pull(self, body):
+        """The service worker's half of a payload-free push: the tickle wakes
+        it, this hands over what to show. Knowing the endpoint URL is the
+        capability — it's unguessable and only that device ever has it."""
+        endpoint = str(body.get("endpoint", ""))
+        with _lock:
+            store = load_push()
+            messages = store["queue"].pop(endpoint, [])
+            if messages:
+                save_push(store)
+        self._send_json({"messages": messages})
 
     def _api_parent_settings(self, body):
         with _lock:

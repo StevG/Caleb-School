@@ -19,6 +19,7 @@ from main).
 | `progress.mjs` | Results by list: per-list/band mastery + accuracy + daily trend + trouble words, per-list "start over", settings resets (stars / progress), reset scoping per child |
 | `audio.mjs` | Speech: iOS-safe speak path (cancel→settle→speak, resume, last-tap-wins), session-start audio unlock, speaker pulse, memory-mode whole-sentence dictation in both phases, quit cancels |
 | `home-flow.mjs` | Home menu: tapping a word game slides the others away + chips appear under the chosen card, ⬅ All games restores, quit restores, sentence modes still one-tap |
+| `assign.mjs` | Assignments + push: assign via the dashboard (list picker, every-child), mission card on kid home, list-words-only test session, completion score + done row, VAPID tickles to a local push sink + `/api/push/pull` messages, cancel |
 
 ## Running
 

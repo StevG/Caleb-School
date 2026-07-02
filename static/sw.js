@@ -33,6 +33,45 @@ self.addEventListener("activate", (e) => {
   );
 });
 
+// Pushes arrive EMPTY on purpose (payload encryption needs crypto the
+// stdlib server doesn't have) — the tickle wakes us, we pull the actual
+// message(s) from the server using our own subscription endpoint as the key.
+self.addEventListener("push", (e) => {
+  e.waitUntil((async () => {
+    let messages = [];
+    try {
+      const sub = await self.registration.pushManager.getSubscription();
+      if (sub) {
+        const r = await fetch("/api/push/pull", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ endpoint: sub.endpoint }),
+        });
+        messages = (await r.json()).messages || [];
+      }
+    } catch (_) { /* offline or racing — show the generic note below */ }
+    if (!messages.length) {
+      messages = [{ title: "Spelling Practice", body: "Something new is waiting! ✨" }];
+    }
+    // iOS requires every push to show a notification — never skip this
+    await Promise.all(messages.map((m) =>
+      self.registration.showNotification(m.title || "Spelling Practice", {
+        body: m.body || "",
+        icon: "/icon-192.png",
+        badge: "/icon-192.png",
+      })));
+  })());
+});
+
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  e.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    if (wins.length) return wins[0].focus();
+    return self.clients.openWindow("/");
+  })());
+});
+
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
   // Never cache API traffic — progress and the version check must be live.
