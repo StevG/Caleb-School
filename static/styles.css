@@ -142,6 +142,7 @@ body{
 .done-emoji{font-size:80px}
 .done-title{font-size:38px;font-weight:900}
 .done-points{font-size:26px;font-weight:800;margin-top:4px}
+.done-levelups{color:var(--blue-d);font-size:19px;font-weight:800;min-height:24px}
 .done-total{color:var(--muted);font-size:19px}
 .done-actions{display:flex;flex-direction:column;gap:14px;width:100%;max-width:420px;margin-top:24px}
 
@@ -179,6 +180,7 @@ body{
 .stat{background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:16px;text-align:center}
 .stat.wide{padding:12px 16px}
 .stat-num{font-size:30px;font-weight:900}
+.stat-num.good{color:var(--green-d)}
 .stat-num.small{font-size:19px}
 .stat-lbl{color:var(--muted);font-size:14px;margin-top:2px}
 
@@ -195,15 +197,28 @@ body{
 .miss-count{background:#fdeeea;color:var(--red);border-radius:10px;padding:2px 10px;font-weight:700;font-size:14px}
 .muted{color:var(--muted)}
 
-.add-row{display:flex;gap:8px}
-.add-row input,.setting input,.setting select{
+.add-row{display:flex;gap:8px;align-items:stretch}
+.add-row textarea,.setting input,.setting select{
   font-size:16px;padding:12px;border-radius:12px;border:2px solid var(--line);background:#fff;color:var(--ink)}
-.add-row input{flex:1}
+.add-row textarea{flex:1;font-family:inherit;resize:vertical;min-height:48px}
 .mini-btn{background:var(--blue);color:#fff;border:none;border-radius:12px;padding:0 18px;font-size:16px;font-weight:700;cursor:pointer}
 .mini-btn.wide{width:100%;padding:14px;margin-top:6px}
-.chips-wrap{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-.word-chip{background:#eef4fa;border-radius:14px;padding:8px 12px;font-size:15px;display:flex;align-items:center;gap:8px}
+.custom-summary{margin-top:12px;font-size:15px;font-weight:700;min-height:0}
+.chips-wrap{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.word-chip{background:#f1ede3;border-radius:14px;padding:8px 12px;font-size:15px;display:flex;align-items:center;gap:8px}
+.word-chip.st-learning{background:#fff4d6}
+.word-chip.st-mastered{background:#e2f5e6;color:var(--green-d);font-weight:700}
+.word-chip .chip-stage{font-size:12px;color:var(--muted)}
+.word-chip .chip-miss{font-size:12px;color:var(--red);font-weight:700}
 .word-chip button{background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:0;line-height:1}
+
+.journey-list{list-style:none;margin:0;padding:0}
+.journey-list li{display:flex;align-items:center;gap:10px;padding:7px 0;font-size:15px}
+.journey-bar{flex:1;height:12px;background:#f1ede3;border-radius:8px;overflow:hidden}
+.journey-fill{height:100%;border-radius:8px;background:var(--blue)}
+.journey-list .j-label{width:130px;flex:none}
+.journey-list .j-count{width:34px;flex:none;text-align:right;font-weight:800}
+.j-week{color:var(--green-d);font-weight:700}
 
 .modes-list{list-style:none;margin:0;padding:0}
 .modes-list li{display:flex;justify-content:space-between;align-items:center;

@@ -1,6 +1,6 @@
 // Minimal service worker: caches the app shell so it opens fast and works
 // offline, but always tries the network first for API calls and fresh files.
-const CACHE = "spelling-v2";
+const CACHE = "spelling-v3";
 const SHELL = [
   "/",
   "/index.html",

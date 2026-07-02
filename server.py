@@ -28,8 +28,16 @@ STATIC_DIR = os.path.join(HERE, "static")
 DATA_DIR = os.path.join(HERE, "data")
 DATA_FILE = os.path.join(DATA_DIR, "progress.json")
 
-MASTERED_STREAK = 2          # correct-in-a-row before a word is "learned"
 DEFAULT_PIN = "1234"
+
+# --- The learning ladder ----------------------------------------------------
+# Every word climbs: 1 Copy it (word stays visible while typing) ->
+# 2 From memory (hides at the first keystroke) -> 3 From sound (audio only)
+# -> 4 Mastered. Unaided corrects advance it; any miss drops it one stage.
+# Aided retypes (after the answer was revealed) never advance anything.
+STAGE_COPY, STAGE_MEMORY, STAGE_SOUND, STAGE_MASTERED = 1, 2, 3, 4
+STAGE_UP = {STAGE_COPY: 1, STAGE_MEMORY: 2, STAGE_SOUND: 2}
+STAGE_NAMES = {1: "copy", 2: "memory", 3: "sound", 4: "mastered"}
 
 WORDS, SENTENCES = wordbank.build_pool()
 WORD_GROUP = {item["w"]: item["group"] for item in WORDS}
@@ -114,6 +122,25 @@ def words_practiced(stats):
     return sum(1 for s in stats.values() if s["seen"] > 0)
 
 
+def word_stage(s):
+    """Current ladder stage for a word's stats dict (None -> brand new).
+
+    Migrates legacy records (written before stages existed): a word with a
+    2+ streak was already "learned" under the old rule -> mastered; anything
+    else that was being practiced sits at "from memory" (the old mechanic).
+    """
+    if not s:
+        return STAGE_COPY
+    if "stage" not in s:
+        if s.get("streak", 0) >= 2:
+            s["stage"] = STAGE_MASTERED
+            s["stage_streak"] = 0
+        else:
+            s["stage"] = STAGE_MEMORY if s.get("seen", 0) else STAGE_COPY
+            s["stage_streak"] = s.get("streak", 0)
+    return s["stage"]
+
+
 def eligible_words(state):
     """Pool words at or below the profile's max level, plus custom words.
 
@@ -138,8 +165,7 @@ def build_word_session(state, count):
     pool_set = set(pool)
 
     def is_mastered(w):
-        s = stats.get(w)
-        return bool(s) and s.get("streak", 0) >= MASTERED_STREAK
+        return bool(stats.get(w)) and word_stage(stats[w]) >= STAGE_MASTERED
 
     # Review = seen but not yet mastered (missed words bubble to the top).
     review = [w for w in pool if w in stats and not is_mastered(w)]
@@ -169,7 +195,8 @@ def build_word_session(state, count):
                 chosen.append(w)
     chosen = chosen[:count]
     random.shuffle(chosen)
-    return [{"w": w, "group": WORD_GROUP.get(w, "My words")} for w in chosen]
+    return [{"w": w, "group": WORD_GROUP.get(w, "My words"),
+             "stage": word_stage(stats.get(w))} for w in chosen]
 
 
 def build_sentence_session(state, count):
@@ -189,13 +216,15 @@ def record_answer(state, word, correct, aided=False, mode="words"):
 
     An *aided* correct is a retype right after the spelling was revealed —
     it still earns a point (the kid fixed it), but it must not count toward
-    accuracy or the mastery streak, or two copy-types would mark a missed
-    word "learned". Per-mode counters mirror the same rules so the parent
-    report can break results down by practice type.
+    accuracy or the ladder, or two copy-types would mark a missed word
+    "learned". Per-mode counters mirror the same rules so the parent report
+    can break results down by practice type.
+
+    Returns (stage_up, new_stage) so the kid can be congratulated live.
     """
     w = clean_token(word)
     if not w:
-        return
+        return (False, None)
     mode = mode if mode in VALID_MODES else "words"
     state["last_answer_ts"] = int(time.time())
     m = state.setdefault("modes", {}).setdefault(
@@ -215,9 +244,12 @@ def record_answer(state, word, correct, aided=False, mode="words"):
         m["points"] += 1
         d["points"] += 1
         dm["points"] += 1
-        return
+        return (False, None)
     s = state["words"].setdefault(
-        w, {"seen": 0, "correct": 0, "missed": 0, "streak": 0, "last_ts": 0})
+        w, {"seen": 0, "correct": 0, "missed": 0, "streak": 0, "last_ts": 0,
+            "stage": STAGE_COPY, "stage_streak": 0})
+    stage = word_stage(s)  # also migrates legacy records in place
+    stage_up = False
     s["seen"] += 1
     s["last_ts"] = int(time.time())
     m["seen"] += 1
@@ -233,11 +265,40 @@ def record_answer(state, word, correct, aided=False, mode="words"):
         d["points"] += 1
         dm["correct"] += 1
         dm["points"] += 1
+        # climb the ladder
+        if stage < STAGE_MASTERED:
+            s["stage_streak"] = s.get("stage_streak", 0) + 1
+            if s["stage_streak"] >= STAGE_UP[stage]:
+                s["stage"] = stage + 1
+                s["stage_streak"] = 0
+                stage_up = True
+                if s["stage"] == STAGE_MASTERED:
+                    s["mastered_ts"] = int(time.time())
     else:
         s["missed"] += 1
         s["streak"] = 0
         m["missed"] += 1
         d["missed"] += 1
+        # slide one rung down and rebuild from there
+        s["stage"] = max(STAGE_COPY, stage - 1)
+        s["stage_streak"] = 0
+    return (stage_up, s.get("stage"))
+
+
+def custom_word_status(state):
+    """Per-word ladder status for the parent's school list."""
+    stats = state["words"]
+    out = []
+    for w in state.get("custom_words", []):
+        cw = clean_token(w)
+        s = stats.get(cw)
+        out.append({
+            "word": cw,
+            "stage": word_stage(s) if s and s.get("seen", 0) else 0,
+            "seen": s.get("seen", 0) if s else 0,
+            "missed": s.get("missed", 0) if s else 0,
+        })
+    return out
 
 
 # --- parent report ---------------------------------------------------------
@@ -254,11 +315,25 @@ def parent_report(state):
             "word": w,
             "missed": s["missed"],
             "seen": s["seen"],
-            "mastered": s.get("streak", 0) >= MASTERED_STREAK,
+            "stage": word_stage(s),
+            "mastered": word_stage(s) >= STAGE_MASTERED,
         }
         for w, s in stats.items() if s["missed"] > 0
     ]
     missed.sort(key=lambda x: (-x["missed"], x["word"]))
+
+    # the learning journey: where every practiced word sits on the ladder
+    journey = {"copy": 0, "memory": 0, "sound": 0, "mastered": 0}
+    week_ago = int(time.time()) - 7 * 86400
+    mastered_this_week = 0
+    for s in stats.values():
+        if s.get("seen", 0) <= 0:
+            continue
+        journey[STAGE_NAMES[word_stage(s)]] += 1
+        if word_stage(s) >= STAGE_MASTERED and s.get("mastered_ts", 0) >= week_ago:
+            mastered_this_week += 1
+
+    custom_status = custom_word_status(state)
 
     sessions = state.get("sessions", [])
     recent = list(reversed(sessions[-14:]))
@@ -306,7 +381,12 @@ def parent_report(state):
             "total_attempts": total_seen,
             "accuracy": accuracy,
             "sessions": len(sessions),
+            "mastered": journey["mastered"],
+            "learning": journey["copy"] + journey["memory"] + journey["sound"],
+            "mastered_this_week": mastered_this_week,
         },
+        "journey": journey,
+        "custom_status": custom_status,
         "most_missed": missed[:25],
         "by_mode": by_mode,
         "daily": daily,
@@ -409,12 +489,14 @@ class Handler(BaseHTTPRequestHandler):
     def _api_answer(self, body):
         with _lock:
             state = load_state()
-            record_answer(state, body.get("word", ""),
-                          bool(body.get("correct")), bool(body.get("aided")),
-                          str(body.get("mode", "words")))
+            stage_up, new_stage = record_answer(
+                state, body.get("word", ""),
+                bool(body.get("correct")), bool(body.get("aided")),
+                str(body.get("mode", "words")))
             save_state(state)
             points = state["profile"].get("points", 0)
-        self._send_json({"points": points})
+        self._send_json({"points": points,
+                         "stage_up": stage_up, "stage": new_stage})
 
     def _api_session_end(self, body):
         def as_int(v):
@@ -508,7 +590,8 @@ class Handler(BaseHTTPRequestHandler):
                     w for w in words if clean_token(w) != target]
             save_state(state)
             current = state.get("custom_words", [])
-        self._send_json({"custom_words": current})
+            status = custom_word_status(state)
+        self._send_json({"custom_words": current, "custom_status": status})
 
     def _hub_status(self):
         state = load_state()
@@ -527,10 +610,13 @@ class Handler(BaseHTTPRequestHandler):
                 last = f"{ago // 3600} hr ago"
             else:
                 last = f"{ago // 86400} day(s) ago"
+        mastered = sum(1 for s in state["words"].values()
+                       if s.get("seen", 0) and word_stage(s) >= STAGE_MASTERED)
         self._send_json({
-            "summary": f"{name}: {points} points · {practiced} words practiced",
+            "summary": f"{name}: {points} ⭐ · {mastered} words mastered",
             "fields": [
                 {"label": "Points", "value": str(points)},
+                {"label": "Words mastered", "value": str(mastered)},
                 {"label": "Words practiced", "value": str(practiced)},
                 {"label": "Sessions", "value": str(len(sessions))},
                 {"label": "Last practice", "value": last},

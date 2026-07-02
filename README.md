@@ -13,6 +13,10 @@ words he misses most from their own phones.
 **For the kid**
 - Four big buttons: **Spell Words**, **Listen & Spell** (hear the word — it's
   never shown — and type it), **Spell Sentences**, **Memory Sentences**.
+- **Every word climbs a ladder**: first he copies it (it stays visible),
+  then spells it from memory (hides as he types), then from sound alone —
+  then it's mastered ★. Climbs earn a "⬆️ Level up!"; misses drop a rung and
+  rebuild. Stars reward effort; the ladder measures real learning.
 - Sentence modes check **capital letters** too ("The" typed as "the" gets a
   friendly "check the capital letter" nudge). The letter box waiting for the
   next letter gently pulses so he always knows where he is.
@@ -33,10 +37,13 @@ words he misses most from their own phones.
   earned this session — perfect for "go earn 10 points".
 
 **For parents** (tap ⚙️ → PIN, default `1234`)
-- Most-missed words, accuracy, words practiced, sessions, total points —
-  plus **day-by-day history** (each day its own row), **per-practice-type
-  stats** (words / listen / sentences / memory kept separate), and when he
-  **last practiced**.
+- Progress first: **words mastered**, still learning, and a **Learning
+  journey** view of where every word sits on the ladder — plus most-missed
+  words, accuracy, **day-by-day history**, **per-practice-type stats**, and
+  when he **last practiced** (each metric kept separate on purpose).
+- **School spelling list**: paste the weekly list (spaces, commas, or one per
+  line), then watch each word's chip go grey → amber (learning, with its
+  rung) → green ★, with a "★ 7 of 10 mastered — ready for the test!" summary.
 - **Level** goes from 1st through 9th grade in half-grade steps, so the app
   grows with him.
 - Add his real weekly **school spelling list** — those words show up more often.

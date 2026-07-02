@@ -6,9 +6,14 @@ Currently one app: **Spelling Practice**. Math is planned next (`docs/ROADMAP.md
 Read these before changing anything significant:
 - **`docs/DESIGN.md`** — the app's identity: who it's for, how it must feel,
   UI rules, decisions log. Keep it current when a change alters the character.
+- **`docs/SCORING.md`** — stars vs. the learning ladder (stage rules,
+  aided semantics, migration). The pedagogy contract; don't break it.
+- **`docs/STATISTICS.md`** — every dashboard element ↔ API field ↔ data
+  model, plus the checklist for adding a new statistic.
 - **`docs/RESEARCH.md`** — the curriculum research behind the word bank and
   practice method (sources cited). Don't re-research what's already there.
 - **`docs/ROADMAP.md`** — agreed future work and extension points.
+- **`tests/README.md`** — the Playwright suites; run them before pushing.
 
 ## What this app is
 
@@ -47,7 +52,8 @@ them casually.
 | `wordbank.py` | Graded word/sentence bank. Edit lists here to change content. |
 | `static/` | Front end: `index.html`, `styles.css`, `app.js`, PWA bits, icons. |
 | `generate_icons.py` | Regenerates icons (pixel-art dino-in-rocket). Edit `SPRITE`, run it. |
-| `docs/` | Design identity, research, roadmap. |
+| `docs/` | Design identity, scoring/ladder, statistics, research, roadmap. |
+| `tests/` | Playwright browser suites — run before pushing (see tests/README.md). |
 
 ## Working on it
 
@@ -73,6 +79,9 @@ stay on ONE line (box size is computed per word).
 `GET /api/parent/report` (PIN in `X-Parent-Pin` header) · `GET /.hub/status`.
 
 "Aided" = a retype right after the answer was revealed: earns the point,
-does **not** count toward accuracy or the mastery streak (`MASTERED_STREAK=2`).
-Missed words are re-queued in-session and resurface across sessions until
-mastered (spaced repetition) — that's the core pedagogy; don't break it.
+does **not** count toward accuracy or the learning ladder. Words-mode words
+climb a per-word ladder — copy (visible) → from memory (hides) → from sound
+(audio only) → mastered — advancing on unaided corrects, dropping a rung on
+misses (`STAGE_UP` in server.py; full rules in docs/SCORING.md). Missed words
+re-queue in-session and resurface across sessions until mastered (spaced
+repetition) — that's the core pedagogy; don't break it.

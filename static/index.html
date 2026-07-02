@@ -91,6 +91,7 @@
     <div class="done-emoji">🎉</div>
     <div class="done-title">Great job!</div>
     <div class="done-points">You earned <span id="earned">0</span> ⭐</div>
+    <div id="level-ups" class="done-levelups"></div>
     <div class="done-total">Total: <span id="done-total">0</span> ⭐</div>
     <div class="done-actions">
       <button id="again" class="big-btn primary">Play again</button>
@@ -125,12 +126,20 @@
   </header>
   <div class="parent-body">
     <div class="stat-grid">
-      <div class="stat"><div class="stat-num" id="s-points">0</div><div class="stat-lbl">Points</div></div>
+      <div class="stat"><div class="stat-num good" id="s-mastered">0</div><div class="stat-lbl">Words mastered ★</div></div>
+      <div class="stat"><div class="stat-num" id="s-learning">0</div><div class="stat-lbl">Still learning</div></div>
+      <div class="stat"><div class="stat-num" id="s-points">0</div><div class="stat-lbl">Stars earned</div></div>
       <div class="stat"><div class="stat-num" id="s-accuracy">0%</div><div class="stat-lbl">Accuracy</div></div>
       <div class="stat"><div class="stat-num" id="s-words">0</div><div class="stat-lbl">Words practiced</div></div>
       <div class="stat"><div class="stat-num" id="s-sessions">0</div><div class="stat-lbl">Sessions</div></div>
     </div>
     <div class="stat wide"><div class="stat-num small" id="s-last">never</div><div class="stat-lbl">Last practiced</div></div>
+
+    <div class="card">
+      <div class="card-head">Learning journey</div>
+      <p class="card-note">Every word climbs a ladder: copy it → spell it from memory → spell it just from hearing it → mastered. <span id="j-week" class="j-week"></span></p>
+      <ul id="journey-list" class="journey-list"></ul>
+    </div>
 
     <div class="card">
       <div class="card-head">Day by day</div>
@@ -143,13 +152,14 @@
     </div>
 
     <div class="card">
-      <div class="card-head">His spelling words</div>
-      <p class="card-note">Add the words from his weekly school list. They'll show up more often until he's got them.</p>
+      <div class="card-head">School spelling list</div>
+      <p class="card-note">Paste this week's list — spaces, commas, or one word per line all work. These words show up more often until he's mastered them.</p>
       <div class="add-row">
-        <input id="custom-input" type="text" placeholder="e.g. because friend enough"
-               autocomplete="off" autocapitalize="none" spellcheck="false">
+        <textarea id="custom-input" rows="2" placeholder="because&#10;friend enough, Wednesday"
+               autocomplete="off" autocapitalize="none" spellcheck="false"></textarea>
         <button id="custom-add" class="mini-btn">Add</button>
       </div>
+      <div id="custom-summary" class="custom-summary"></div>
       <div id="custom-list" class="chips-wrap"></div>
       <div id="custom-status" class="saved-note"></div>
     </div>

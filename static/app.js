@@ -44,6 +44,9 @@ const state = {
   curHidden: false,  // sentence line: is the current word masked yet?
   memorizing: false, // memory mode: still in the read-the-sentence phase
   caseSensitive: false, // sentence modes require the capitals too
+  itemStage: 2,      // ladder stage of the current word (words mode)
+  keepVisible: false, // stage 1 "copy it": word stays visible while typing
+  levelUps: 0,       // stage-ups this session (celebrated on the done screen)
   // ignore typing while a result is showing. We use this flag instead of
   // disabling the input: disabling blurs it, which closes the iOS keyboard
   // between every word and forces an extra tap to bring it back.
@@ -112,6 +115,7 @@ async function startSession() {
   state.wordsDone = 0;
   state.correctCount = 0;
   state.earned = 0;
+  state.levelUps = 0;
   state.finished = false;
   $("play-points").textContent = "+0";
   // memory (dictation) and listen (audio-only) NEED the speaker, so it
@@ -155,10 +159,30 @@ function loadNext() {
   } else if (state.mode === "listen") {
     state.sentence = null;
     $("sentence-line").classList.add("hidden");
+    state.itemStage = 3;
     beginListenWord(item.w);
   } else {
     state.sentence = null;
     $("sentence-line").classList.add("hidden");
+    presentWordItem(item);
+  }
+}
+
+// Words mode is a LADDER: each word is presented at its own stage.
+//   1 Copy it     — the word stays visible the whole time he types
+//   2 From memory — hides at the first keystroke (look-cover-write-check)
+//   3 From sound  — audio only, never shown (falls back to stage 2 if the
+//                   parent turned the speaker off)
+function presentWordItem(item) {
+  const audioOk = state.showSpeaker && ("speechSynthesis" in window);
+  const stage = Math.min(item.stage || 1, audioOk ? 3 : 2);
+  state.itemStage = stage;
+  if (stage >= 3) {
+    beginListenWord(item.w);
+    $("prompt-hint").textContent = "You know this one — listen 🔊 and type it!";
+  } else if (stage === 1) {
+    beginWord(item.w, "New word! Copy it — it stays right here.", false, true);
+  } else {
     beginWord(item.w, "Look at the word, then type it!");
   }
 }
@@ -177,9 +201,10 @@ function sizePrompt() {
     Math.max(28, Math.min(maxFs, Math.floor(room / (0.62 * len)))) + "px";
 }
 
-function beginWord(display, hint, cased) {
+function beginWord(display, hint, cased, keepVisible) {
   // cased (sentence modes): capitals count — "The" must be typed as "The"
   state.caseSensitive = !!cased;
+  state.keepVisible = !!keepVisible; // stage 1: don't hide while typing
   state.target = cased ? cleanChars(display) : toTarget(display);
   $("prompt-hint").textContent = hint || "";
   const pw = $("prompt-word");
@@ -197,6 +222,7 @@ function beginWord(display, hint, cased) {
 // Listen & Spell: the word is NEVER shown — he hears it and types it.
 function beginListenWord(w) {
   state.caseSensitive = false;
+  state.keepVisible = false;
   state.target = toTarget(w);
   const pw = $("prompt-word");
   pw.textContent = "";
@@ -240,8 +266,9 @@ function onType() {
   let val = cleanChars(inp.value);
   if (!state.caseSensitive) val = val.toLowerCase();
   inp.value = val;
-  // hide the word the moment they start typing it (look–cover–write)
-  if (val.length >= 1) {
+  // hide the word the moment they start typing it (look–cover–write) —
+  // except at stage 1 ("copy it"), where seeing it IS the exercise
+  if (val.length >= 1 && !state.keepVisible) {
     $("prompt-word").classList.add("gone");
     if (state.mode === "sentences" && state.sentence && !state.curHidden) {
       state.curHidden = true;      // ...and hide it in the sentence line too
@@ -304,7 +331,9 @@ function doCheck() {
     // re-queue this word once, later in the session, for extra practice
     if (!state.requeued && (state.mode === "words" || state.mode === "listen")) {
       state.requeued = true;
-      const back = { w: state.target, group: "" };
+      // re-present a rung down the ladder — the same drop the server records
+      const back = { w: state.target, group: "",
+                     stage: Math.max(1, (state.itemStage || 2) - 1) };
       const pos = Math.min(state.queue.length, 2 + Math.floor(Math.random() * 3));
       state.queue.splice(pos, 0, back);
       state.total++;
@@ -397,6 +426,7 @@ function beginMemoryWord() {
   const item = state.sentence;
   const tok = item.tokens[item.wordIdx];
   state.caseSensitive = true; // capitals count in sentences
+  state.keepVisible = false;
   state.target = cleanChars(tok.display);
   const pw = $("prompt-word");
   pw.textContent = "";
@@ -495,6 +525,12 @@ function postAnswer(word, correct, aided) {
         state.points = r.points;
         $("home-points").textContent = state.points;
       }
+      // the word climbed the ladder — tell him while the glow is fresh
+      if (r.stage_up) {
+        state.levelUps++;
+        const fb = $("feedback");
+        if (fb.className.includes("good")) fb.textContent += " ⬆️ Level up!";
+      }
     })
     .catch(() => {});
 }
@@ -512,6 +548,10 @@ function finishSession() {
   }).catch(() => {});
   $("earned").textContent = state.earned;
   $("done-total").textContent = state.points;
+  const lu = $("level-ups");
+  lu.textContent = state.levelUps
+    ? `⬆️ ${state.levelUps} word${state.levelUps === 1 ? "" : "s"} leveled up!`
+    : "";
   show("done");
 }
 
@@ -677,6 +717,30 @@ function renderReport(rep) {
   $("s-accuracy").textContent = rep.summary.accuracy + "%";
   $("s-words").textContent = rep.summary.words_practiced;
   $("s-sessions").textContent = rep.summary.sessions;
+  $("s-mastered").textContent = rep.summary.mastered ?? 0;
+  $("s-learning").textContent = rep.summary.learning ?? 0;
+
+  // the learning journey — progress a parent can feel good about
+  const journey = rep.journey || {};
+  const jl = $("journey-list");
+  jl.innerHTML = "";
+  const rungs = [
+    ["mastered", "★ Mastered", "var(--green)"],
+    ["sound", "🔊 From sound", "var(--blue)"],
+    ["memory", "✏️ From memory", "var(--amber)"],
+    ["copy", "🐣 Copying", "#d9cfc0"],
+  ];
+  const jTotal = Math.max(1, rungs.reduce((n, [k]) => n + (journey[k] || 0), 0));
+  rungs.forEach(([k, label, color]) => {
+    const n = journey[k] || 0;
+    const li = document.createElement("li");
+    li.innerHTML = `<span class="j-label">${label}</span>` +
+      `<span class="journey-bar"><span class="journey-fill" style="width:${Math.round(100 * n / jTotal)}%;background:${color}"></span></span>` +
+      `<span class="j-count">${n}</span>`;
+    jl.appendChild(li);
+  });
+  $("j-week").textContent = rep.summary.mastered_this_week
+    ? `${rep.summary.mastered_this_week} mastered this week! 🎉` : "";
 
   const ml = $("missed-list");
   ml.innerHTML = "";
@@ -763,7 +827,7 @@ function renderReport(rep) {
     });
   }
 
-  renderCustom(rep.custom_words);
+  renderCustom(rep.custom_status || []);
 
   $("set-name").value = rep.profile.name || "";
   $("set-level").value = String(rep.profile.max_level || 3);
@@ -772,22 +836,36 @@ function renderReport(rep) {
   $("settings-saved").textContent = "";
 }
 
-function renderCustom(words) {
+// items: [{word, stage(0=not tried,1-3=learning,4=mastered), seen, missed}]
+const STAGE_TAGS = { 1: "copying", 2: "from memory", 3: "from sound" };
+function renderCustom(items) {
   const wrap = $("custom-list");
+  const summary = $("custom-summary");
   wrap.innerHTML = "";
-  if (!words || !words.length) {
-    wrap.innerHTML = '<span class="muted">No custom words yet.</span>';
+  if (!items || !items.length) {
+    wrap.innerHTML = '<span class="muted">No school words yet.</span>';
+    summary.textContent = "";
     return;
   }
-  words.forEach((w) => {
+  const mastered = items.filter((i) => i.stage >= 4).length;
+  const learning = items.filter((i) => i.stage >= 1 && i.stage < 4).length;
+  summary.textContent = `★ ${mastered} of ${items.length} mastered` +
+    (learning ? ` · ${learning} in progress` : "") +
+    (mastered === items.length ? " — ready for the test! 🎉" : "");
+  items.forEach((it) => {
     const chip = document.createElement("span");
-    chip.className = "word-chip";
-    chip.innerHTML = `${esc(w)} <button aria-label="remove">✕</button>`;
+    chip.className = "word-chip" +
+      (it.stage >= 4 ? " st-mastered" : it.stage >= 1 ? " st-learning" : "");
+    let extra = "";
+    if (it.stage >= 4) extra = " ★";
+    else if (it.stage >= 1) extra = ` <span class="chip-stage">${STAGE_TAGS[it.stage]}</span>`;
+    if (it.missed > 0) extra += ` <span class="chip-miss">✗${it.missed}</span>`;
+    chip.innerHTML = `${esc(it.word)}${extra} <button aria-label="remove">✕</button>`;
     chip.querySelector("button").addEventListener("click", async () => {
       try {
         const r = await postJSON("/api/parent/custom_words",
-          { pin: state.parentPin, action: "remove", word: w });
-        renderCustom(r.custom_words);
+          { pin: state.parentPin, action: "remove", word: it.word });
+        renderCustom(r.custom_status);
         $("custom-status").textContent = "";
       } catch (_) {
         $("custom-status").textContent = "Could not remove — check your connection.";
@@ -819,7 +897,7 @@ function wireParent() {
       const r = await postJSON("/api/parent/custom_words",
         { pin: state.parentPin, action: "add", words: val });
       $("custom-input").value = "";
-      renderCustom(r.custom_words);
+      renderCustom(r.custom_status);
       $("custom-status").textContent = "";
     } catch (_) {
       $("custom-status").textContent = "Could not add — check your connection.";

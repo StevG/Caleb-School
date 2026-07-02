@@ -32,7 +32,11 @@ credit). Missed words come back later in the session and in later sessions
 until mastered.
 
 Four modes share that mechanic (owner-specified behavior — keep it exact):
-- **Spell Words** — one word at a time, goal of 10/15/20.
+- **Spell Words** — one word at a time, goal of 10/15/20. Each word is
+  presented at its LADDER stage (owner-specified progression): stage 1 the
+  word stays visible while he copies it; stage 2 it hides at the first
+  keystroke; stage 3 it's audio-only. Unaided successes climb, misses drop a
+  rung, "Level up!" celebrates climbs (full rules: docs/SCORING.md).
 - **Listen & Spell** — the word is spoken (auto + 🔊 to repeat) and NEVER
   shown; he types it from sound alone. True recall, one step harder than
   look-cover-write. Wrong answers reveal-and-retry like everywhere else.
@@ -80,7 +84,7 @@ Four modes share that mechanic (owner-specified behavior — keep it exact):
 - 2026-07-01 — Server-side storage (command app, not static) so the parent
   dashboard syncs across the kid's iPad and both parents' phones.
 - 2026-07-01 — Points: aided retypes still earn a star (motivation) but never
-  mastery/accuracy credit (honest reporting). MASTERED_STREAK=2 unaided.
+  mastery/accuracy credit (honest reporting).
 - 2026-07-01 — Light theme, no timers/pressure, misses phrased gently.
 - 2026-07-01 — Icon changed from ABC tiles to dino-in-rocket (owner asked for
   playful over literal).
@@ -99,3 +103,10 @@ Four modes share that mechanic (owner-specified behavior — keep it exact):
 - 2026-07-02 — Word bank regraded: 1st-9th grade ladder in half-grade steps
   (~1,550 words). Parent Level select is "Nth grade · early/later"; the
   server clamps max_level to 1.0-9.0. Word modes stay lowercase-only.
+- 2026-07-02 — Learning ladder (owner-specified): per-word stages
+  copy→memory→sound→mastered replace the flat streak; stars stay effort
+  currency, the ladder is the progress metric. Dashboard reframed for a
+  parent of a struggling speller: Mastered/Learning headline tiles, Learning
+  journey card, school-list card with per-word status chips + "X of Y
+  mastered · ready for the test!" summary, textarea paste for lists.
+  Docs split: SCORING.md + STATISTICS.md; tests committed to tests/.

@@ -30,7 +30,8 @@ redistributed), CMU Pronouncing Dictionary (BSD-ish; has syllable/phoneme data).
   (Intervention Central; ERIC EJ1098122.)
 - **Spaced repetition of the child's own missed words** beats re-drilling
   known words (Iowa Reading Research Center). → miss re-queues in-session and
-  resurfaces across sessions until 2 unaided corrects (`MASTERED_STREAK`).
+  resurfaces across sessions until mastered on the learning ladder
+  (copy → memory → sound; rules in docs/SCORING.md).
 - **Session size:** quality over count; typical school lists are 10–15/week;
   struggling spellers need shorter, more frequent sets. → goals of 10/15/20
   with "as many as he wants" allowed.
