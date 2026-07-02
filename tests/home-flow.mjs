@@ -70,6 +70,27 @@ check('Spell Sentences still starts straight away', true);
 await page.click('#quit');
 await page.waitForSelector('#home.active');
 
+// the ⚙️ gear must stay tappable even when the home content scrolls — iOS
+// otherwise lets the momentum-scroll layer under it swallow the tap
+const short = await browser.newContext({ viewport: { width: 390, height: 430 } });
+const sp = await short.newPage();
+await sp.goto('http://127.0.0.1:9911', { waitUntil: 'networkidle' });
+const gearOK = await sp.evaluate(() => {
+  const g = document.getElementById('gear');
+  const r = g.getBoundingClientRect();
+  const top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+  const scrolls = document.querySelector('.home-inner');
+  return { onTop: top === g, scrolls: scrolls.scrollHeight > scrolls.clientHeight + 1,
+           tapH: Math.round(r.height) };
+});
+check('gear: on top and >=44px tall even while home scrolls',
+  gearOK.onTop && gearOK.scrolls && gearOK.tapH >= 44, JSON.stringify(gearOK));
+await sp.click('#gear');
+await sp.waitForTimeout(200);
+check('gear opens the grown-ups gate from a scrolling home',
+  await sp.$eval('#gate', el => el.classList.contains('active')));
+await short.close();
+
 console.log(results.join('\n'));
 console.log('\nJS ERRORS:', errors.length ? errors : 'none');
 await browser.close();

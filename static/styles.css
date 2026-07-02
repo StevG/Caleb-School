@@ -56,8 +56,15 @@ body.has-update .screen{padding-top:calc(env(safe-area-inset-top) + 46px)}
 .gear{
   position:absolute;top:calc(env(safe-area-inset-top) + 14px);
   right:calc(env(safe-area-inset-right) + 18px); /* clear the notch in landscape */
-  background:none;border:none;font-size:26px;opacity:.5;cursor:pointer;padding:6px;
+  background:none;border:none;font-size:26px;opacity:.5;cursor:pointer;padding:10px;
+  /* The home content below is a -webkit-overflow-scrolling:touch scroller,
+     which iOS paints on its own compositing layer; without this the gear's
+     taps get swallowed by that scroller. z-index + an own layer (translateZ)
+     lift the gear above it; touch-action kills the tap delay/gesture guess. */
+  z-index:20;transform:translateZ(0);touch-action:manipulation;
+  -webkit-tap-highlight-color:rgba(0,0,0,.08);
 }
+.gear:active{opacity:.85;transform:translateZ(0) scale(.9)}
 .home-inner{flex:1;display:flex;flex-direction:column;align-items:center;
   justify-content:flex-start;text-align:center;padding:54px 24px 24px;gap:6px;
   overflow-y:auto;-webkit-overflow-scrolling:touch}
