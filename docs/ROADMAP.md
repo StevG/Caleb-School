@@ -20,6 +20,26 @@ The pieces already generalize; don't fork the app, extend it:
 - **Parent dashboard:** most-missed facts falls out for free (same stats map);
   add a mode filter only if it gets noisy.
 
+## From the 2026-07 instruction research (docs/RESEARCH.md — prioritized)
+
+- **Heart-letter highlighting** — when presenting a heart word (data ready in
+  `wordbank.HEART_WORDS`), render the irregular grapheme in red/with a ♥ in
+  the prompt and in the reveal, and speak "the *ai* in said is the tricky
+  part". Highest-value next feature; the data side is done.
+- **"Map it" on misses (Elkonin boxes)** — after the reveal, show the word
+  segmented by grapheme (b|oa|t) before the aided retype, turning copying
+  into phoneme-grapheme mapping.
+- **Feature-level miss analysis** — log *which grapheme* was wrong (vowel
+  team vs consonant vs suffix) and report "most misses are long-o teams" —
+  the same placement logic as a spelling inventory.
+- **Blind-sort practice** — a contrast interaction: hear a word, choose
+  between plausible spellings (coat/cote/cott). Replicates the
+  highest-value classroom sort.
+- **Day-spanning mastery** — require ladder stage-ups to span different
+  days (spacing effect: gains show at the 28-day delay, not Friday).
+- **Transfer checks** — occasionally test an *unpracticed* word from a
+  mastered pattern group; that's what school programs call mastery.
+
 ## Smaller ideas (unscheduled, sanity-checked)
 
 - **Daily streak** chip on the home screen (data exists in `sessions`).

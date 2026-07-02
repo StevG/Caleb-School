@@ -369,6 +369,56 @@ GRADE_LISTS = {
           "versatile", "vying"],
 }
 
+# --- Heart words -------------------------------------------------------------
+# High-frequency words with a part that can't be sounded out with basic
+# phonics — kids "learn that part by heart" while decoding the rest (the
+# science-of-reading replacement for whole-word sight memorization; see
+# docs/RESEARCH.md). Mapping: word -> the irregular grapheme(s), kept as data
+# for the planned heart-letter highlight feature (docs/ROADMAP.md). Words not
+# already in the bank are added under the "Heart words" group.
+
+HEART_WORDS = {
+    # articles / verbs-of-being
+    "the": "e", "a": "a", "was": "a", "is": "s", "as": "s", "has": "s",
+    "are": "e", "were": "ere", "been": "ee", "does": "oe", "gone": "o",
+    # o says /oo/ or /uh/
+    "to": "o", "do": "o", "who": "o", "into": "o", "two": "wo",
+    "of": "f", "from": "o", "front": "o", "month": "o", "won": "o",
+    "son": "o", "ton": "o", "one": "o-e", "once": "o",
+    "come": "o-e", "some": "o-e", "done": "o-e", "none": "o-e",
+    "love": "o", "above": "o", "other": "o", "mother": "o",
+    "brother": "o", "another": "o", "nothing": "o", "Monday": "o",
+    # w bends the vowel
+    "want": "a", "wash": "a", "watch": "a", "what": "a",
+    "water": "a", "woman": "o", "women": "o-e",
+    "word": "or", "work": "or", "world": "or", "worm": "or",
+    # ould / oul family
+    "could": "oul", "would": "oul", "should": "oul",
+    # ou says /uh/ or /oo/
+    "you": "ou", "your": "ou", "young": "ou", "touch": "ou",
+    "country": "ou", "cousin": "ou", "double": "ou", "trouble": "ou",
+    "enough": "ough", "rough": "ough", "tough": "ough",
+    "through": "ough", "thought": "ough", "though": "ough",
+    # short-u spelled u after p/b/f
+    "put": "u", "push": "u", "pull": "u", "full": "u", "sugar": "s-u",
+    "sure": "s", "busy": "u", "build": "ui", "buy": "uy",
+    # ai/ay/ea surprises
+    "said": "ai", "says": "ay", "again": "ai", "against": "ai",
+    "great": "ea", "break": "ea", "steak": "ea",
+    "learn": "ear", "early": "ear", "earth": "ear", "heard": "ear",
+    "heart": "ear",
+    # e/ey/eo oddities
+    "they": "ey", "their": "eir", "there": "ere", "where": "ere",
+    "friend": "ie", "people": "eo", "pretty": "e",
+    "any": "a", "many": "a", "have": "e", "give": "e", "live": "e",
+    # al says /aw/, silent letters
+    "walk": "al", "talk": "al", "half": "al", "laugh": "augh",
+    "hour": "h", "honest": "h", "island": "s", "eye": "eye",
+    "school": "ch", "stomach": "ch",
+    # oe / old friends
+    "shoe": "oe", "goes": "oe", "only": "o",
+}
+
 # --- Tricky high-frequency words (kids misspell these a lot) ----------------
 
 TRICKY = [
@@ -533,6 +583,10 @@ def build_pool():
         half = " · later" if level != grade else " · early"
         for w in words:
             add(w, f"Grade {grade}{half}", level)
+    # last, so words already in the bank keep their group/level — only heart
+    # words the bank didn't have yet get added (the mapping covers them all)
+    for w in HEART_WORDS:
+        add(w, "Heart words", 2)
 
     sentences = [{"s": s, "level": lvl} for (lvl, s) in SENTENCES]
     return order, sentences

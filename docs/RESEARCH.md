@@ -80,6 +80,70 @@ curriculum sequences — no published source splits by semester; thinnest at
 6.5/7.5/8.5. Classic hard-spellers are placed at the grade where they're
 conventionally taught.
 
+## How spelling is taught in US schools (researched 2026-07)
+
+The context Caleb's classroom almost certainly lives in:
+
+- **The science-of-reading shift.** 40+ states now mandate evidence-based
+  literacy instruction ("structured literacy"); balanced-literacy practices
+  (word walls of memorized sight words, three-cueing) are being replaced by
+  explicit, systematic, cumulative phonics — with spelling taught as
+  *encoding*, the mirror of decoding, not visual memorization. Evidence:
+  Graham & Santangelo 2014 meta-analysis (ES 0.54, transfer to reading).
+  (ExcelinEd, EdWeek SoR tracker, Springer.)
+- **Developmental stages (Words Their Way / Bear et al.).** Five stages;
+  **a 2nd→3rd grader is typically a "Within Word Pattern" speller**: solid
+  on CVC/blends/digraphs, but "uses-but-confuses" long-vowel markers (SNAIK
+  for snake, FLOTE for float). That stage studies, in order: short-vs-long
+  contrast → CVCe → vowel teams (ai/ay, ee/ea, oa/ow, igh) → r-controlled →
+  diphthongs/ambiguous vowels → complex consonants (-ck/-tch/-dge, kn/wr,
+  scr/thr) → homophones. **Our pattern groups already follow this arc.**
+- **What a school week looks like.** Fundations/UFLI-style daily 30-min
+  block: tap out phonemes, build with tiles, **dictation** (words then
+  sentences), heavy cumulative review; or Words-Their-Way word sorts
+  (Mon closed sort → Tue speed sort → Wed writing sort/word hunt →
+  Thu blind sort → Fri quiz, often with unstudied transfer words).
+- **Techniques with evidence:** word sorts (pattern contrast beats rote
+  lists), sound walls, **phoneme-grapheme mapping** (Elkonin boxes: b|oa|t),
+  dictation, distributed/spaced review (biggest effect at 28-day delay —
+  Petersen-Brown 2023), morphology from ~3rd grade (largest gains for
+  weaker readers), typing ≈ handwriting for spelling acquisition in 2nd
+  grade once handwriting exists (Ouellette & Tims 2014).
+- **Assessment:** teachers place kids with a developmental spelling
+  inventory scored by *feature* (vowel pattern vs consonant vs suffix), and
+  teach at the first feature where errors cluster. Mastery = *delayed* +
+  *transfer* (spell unstudied words with the pattern), not Friday-test
+  recall.
+
+### Heart words (the modern take on sight words)
+
+High-frequency words are no longer memorized whole. The **heart word**
+method (Really Great Reading "Heart Word Magic", UFLI, Reading Rockets "A
+New Model for Teaching High-Frequency Words"): decode the regular graphemes
+normally and mark only the truly irregular part with a heart — in *said*,
+s and d are regular; only **ai** must be learned by heart. This drives
+orthographic mapping (Ehri): bonding spelling to pronunciation instead of
+photographing word shapes.
+
+**`wordbank.HEART_WORDS`** now holds ~110 K-3 heart words each mapped to its
+irregular grapheme(s) (said→ai, was→a, of→f, come→o-e, could→oul,
+friend→ie, people→eo …), compiled editorially following those published
+sources (the classic lists are consistent across programs). Words the bank
+lacked were added under a "Heart words" group; the mapping is data for the
+planned heart-letter highlight feature (ROADMAP).
+
+### What we already do right vs. what to add
+
+Already aligned: pattern-grouped bank in the Within-Word-Pattern order,
+look-cover-write-check + reveal-retype (≈ cover-copy-compare), spaced
+resurfacing of misses, ladder mastery ending in audio recall, dictation-style
+sentence modes, per-day/per-type honest reporting.
+
+Adopted into ROADMAP from this research: feature-level miss analysis,
+blind-sort style contrast practice, Elkonin "map it" step after a miss,
+day-spanning mastery streaks, unstudied transfer words as the true mastery
+check, and heart-letter highlighting.
+
 ## Open questions for future iterations
 
 - Should mastery decay (a word mastered in July re-checked in September)?
