@@ -79,6 +79,13 @@ Four modes share that mechanic (owner-specified behavior — keep it exact):
 - Not a game with an economy — points are minutes of iPad time, period.
 
 ## Decisions log
+- 2026-07-02 — Home menu flow (owner-specified): tapping Spell Words /
+  Listen & Spell no longer pops the count chips at the bottom of the
+  screen, disconnected from the card. The OTHER game cards glide away
+  (staggered fade-slide), the chosen card stays with "How many words?" +
+  chips popping in 1-2-3 directly beneath it, and a "⬅ All games" button
+  returns to the full menu without starting. Sentence modes still start
+  on one tap. Kid-side animation only; the parent side stays utilitarian.
 - 2026-07-02 — Speech hardened for iOS (owner field report): speak-after-
   cancel settle delay (a tap mid-utterance used to be silently dropped),
   resume() before speaking (synth wakes paused after app switches), a

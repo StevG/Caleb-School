@@ -204,7 +204,7 @@ function wireHome() {
     btn.addEventListener("click", () => {
       state.mode = btn.dataset.mode;
       if (state.mode === "words" || state.mode === "listen") {
-        $("goal-row").classList.remove("hidden"); // pick how many words
+        chooseMode(btn); // ask how many — right under the tapped card
       } else {
         startSession(); // sentence modes jump straight in
       }
@@ -216,7 +216,46 @@ function wireHome() {
       startSession();
     });
   });
+  $("goal-back").addEventListener("click", resetHomeMenu);
   $("gear").addEventListener("click", openGate);
+}
+
+// Tap a word game -> the other games glide away (staggered) and the
+// how-many chips pop in directly under the chosen card, so the question
+// clearly belongs to the game he just picked. "⬅ All games" undoes it.
+function chooseMode(card) {
+  if (card.classList.contains("chosen")) return; // second tap: already asking
+  document.querySelector(".mode-cards").classList.add("choosing");
+  card.classList.add("chosen");
+  const others = [...document.querySelectorAll(".mode-card:not(.chosen)")];
+  others.forEach((c, i) => {
+    c.style.transitionDelay = `${i * 45}ms`;
+    c.classList.add("leaving");
+  });
+  setTimeout(() => {
+    // faded out — now drop them from the layout so the chips close up
+    others.forEach((c) => c.classList.add("off"));
+    const row = $("goal-row");
+    card.insertAdjacentElement("afterend", row);
+    row.classList.remove("hidden");
+    row.classList.add("pop-in");
+  }, 280);
+}
+
+function resetHomeMenu() {
+  const row = $("goal-row");
+  row.classList.add("hidden");
+  row.classList.remove("pop-in");
+  const wrap = document.querySelector(".mode-cards");
+  if (wrap) wrap.classList.remove("choosing");
+  const cards = [...document.querySelectorAll(".mode-card")];
+  cards.forEach((c) => c.classList.remove("chosen", "off"));
+  // let display:none lift before un-fading, so the return animates
+  requestAnimationFrame(() => cards.forEach((c, i) => {
+    c.style.transitionDelay = `${i * 40}ms`;
+    c.classList.remove("leaving");
+    setTimeout(() => { c.style.transitionDelay = ""; }, 500);
+  }));
 }
 
 // ---------- SESSION ----------
@@ -829,16 +868,13 @@ updateViewport();
 
 // ---------- DONE ----------
 function wireDone() {
-  $("again").addEventListener("click", () => {
-    if (state.mode === "sentences") startSession();
-    else { $("goal-row").classList.remove("hidden"); startSession(); }
-  });
+  $("again").addEventListener("click", startSession); // same game, same goal
   $("home-btn").addEventListener("click", goHome);
 }
 
 function goHome() {
   $("home-points").textContent = state.points;
-  $("goal-row").classList.add("hidden");
+  resetHomeMenu(); // full menu again, chips tucked away
   state.sentence = null;
   state.memorizing = false;
   currentUtterance = null;

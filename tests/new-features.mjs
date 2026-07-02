@@ -80,6 +80,8 @@ await page.evaluate(() => {
 const listenCard = await page.$('.mode-card.listen');
 check('listen: mode card exists on home', !!listenCard);
 await page.click('.mode-card.listen');
+// the picker glides in under the tapped card (~300ms animation)
+await page.waitForSelector('#goal-row:not(.hidden)', { timeout: 3000 });
 const goalVisible = await page.$eval('#goal-row', el => !el.classList.contains('hidden'));
 check('listen: goal picker shows (10/15/20)', goalVisible);
 await page.click('.chip[data-goal="10"]');
