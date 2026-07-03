@@ -11,11 +11,19 @@ page.on('pageerror', e => errors.push(e.message));
 const results = [];
 const check = (n, ok, x='') => results.push(`${ok?'PASS':'FAIL'}  ${n}${x?' — '+x:''}`);
 
+// stub logs each utterance's text + rate and fires onstart/onend so chained
+// sequences (word, then the slower spelling) actually advance
 const installStub = () => page.evaluate(() => {
-  window.__log = [];
+  window.__log = []; window.__utts = [];
   const stub = { speaking: false, pending: false, resume() {},
     cancel() { window.__log.push('CANCEL'); this.speaking = false; },
-    speak(u) { window.__log.push('SPEAK:' + u.text); this.speaking = true; if (u.onstart) u.onstart(); } };
+    speak(u) {
+      window.__log.push('SPEAK:' + u.text);
+      window.__utts.push({ text: u.text, rate: u.rate });
+      this.speaking = true;
+      if (u.onstart) u.onstart();
+      if (u.onend) setTimeout(() => { this.speaking = false; u.onend(); }, 0);
+    } };
   Object.defineProperty(window, 'speechSynthesis', { value: stub, configurable: true });
 });
 const spellOf = (w) => w.split('').map(c => ({ "'": 'apostrophe', '-': 'dash' }[c] || c)).join('. ');
@@ -46,30 +54,42 @@ await page.reload({ waitUntil: 'networkidle' });
 await installStub();
 await page.waitForTimeout(150);
 
-// Hide & Spell: auto-play says the word, then spells it
+// Hide & Spell: auto-play says the word, THEN spells it as a separate,
+// slower utterance (word at normal speed, letters slower)
 await page.click('.section-card.sec-words'); await page.click('.mode-card.words'); await page.click('.chip[data-goal="10"]');
-await page.waitForSelector('#play.active'); await page.waitForTimeout(400);
+await page.waitForSelector('#play.active'); await page.waitForTimeout(500);
 let target = await page.evaluate(() => state.target);
-let spoke = await page.evaluate(() => window.__log.filter(l => l.startsWith('SPEAK:') && l.length > 7));
-check('Hide & Spell: auto-play says the word then spells it',
-  spoke[spoke.length - 1] === `SPEAK:${target}. ${spellOf(target)}`, JSON.stringify(spoke.slice(-1)));
+let utts = await page.evaluate(() => window.__utts.filter(u => u.text));
+const wordU = utts.find(u => u.text === target);
+const spellU = utts.find(u => u.text === spellOf(target));
+check('Hide & Spell: auto-play says the word (normal speed)',
+  !!wordU && wordU.rate >= 0.7, JSON.stringify(wordU));
+check('Hide & Spell: then spells the letters, and SLOWER than the word',
+  !!spellU && spellU.rate < wordU.rate, JSON.stringify([wordU, spellU]));
 
 // typing stops the audio (so the spelling can't be copied)
 await page.evaluate(() => { window.__log = []; });
 await page.focus('#typed'); await page.type('#typed', target[0]); await page.waitForTimeout(150);
 check('typing stops the audio', await page.evaluate(() => window.__log.includes('CANCEL')));
+
+// AFTER he's started typing, tapping 🔊 says the WORD ONLY — no more spelling
+await page.evaluate(() => { window.__log = []; window.__utts = []; });
+await page.click('#speaker'); await page.waitForTimeout(250);
+const afterType = await page.evaluate(() => window.__utts.filter(u => u.text));
+check('after typing: 🔊 says the word only, never spells it',
+  afterType.length === 1 && afterType[0].text === target, JSON.stringify(afterType));
 await page.fill('#typed', target); await page.dispatchEvent('#typed', 'input');
 await page.click('#check'); await page.waitForTimeout(1100);
 await page.click('#quit'); await page.waitForSelector('#home.active');
 
-// Copy It: also auto-plays word + spelling
+// Copy It: also auto-plays word + (slower) spelling
 await installStub();
 await page.click('.section-card.sec-words'); await page.click('.mode-card.copy'); await page.click('.chip[data-goal="10"]');
-await page.waitForSelector('#play.active'); await page.waitForTimeout(400);
+await page.waitForSelector('#play.active'); await page.waitForTimeout(500);
 target = await page.evaluate(() => state.target);
-spoke = await page.evaluate(() => window.__log.filter(l => l.startsWith('SPEAK:') && l.length > 7));
-check('Copy It: auto-play says the word then spells it',
-  spoke[spoke.length - 1] === `SPEAK:${target}. ${spellOf(target)}`, JSON.stringify(spoke.slice(-1)));
+utts = await page.evaluate(() => window.__utts.filter(u => u.text));
+check('Copy It: auto-play says the word then spells it (slower)',
+  utts.some(u => u.text === target) && utts.some(u => u.text === spellOf(target)), JSON.stringify(utts.map(u => u.text)));
 await page.click('#quit'); await page.waitForSelector('#home.active');
 
 // Listen & Spell: says the word ONLY — never spells it (would give the answer)

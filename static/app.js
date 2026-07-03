@@ -549,6 +549,7 @@ async function startSession() {
 function resetItemUI() {
   state.answered = false;
   state.locked = false;
+  state.typedStarted = false; // fresh word: 🔊 spells it until he starts typing
   $("feedback").textContent = "";
   $("feedback").className = "feedback";
   $("check").classList.remove("hidden");
@@ -716,8 +717,9 @@ function onType() {
   let val = cleanChars(inp.value);
   if (!state.caseSensitive) val = val.toLowerCase();
   inp.value = val;
-  // the moment he types, kill any audio so the spoken spelling can't be copied
-  if (val.length >= 1) stopSpeech();
+  // the moment he types, kill any audio so the spoken spelling can't be copied,
+  // and remember he's started so 🔊 only says the word (no more spelling) now
+  if (val.length >= 1) { stopSpeech(); state.typedStarted = true; }
   // hide the word the moment they start typing it (look–cover–write) —
   // except at stage 1 ("copy it"), where seeing it IS the exercise
   if (val.length >= 1 && !state.keepVisible) {
@@ -1071,24 +1073,54 @@ function wirePlay() {
 //     so auto-speak (Listen & Spell, ladder stage 3) works from word one.
 // Note: the iPhone RING/SILENT switch mutes speech synthesis entirely —
 // the pulsing speaker shows the app IS talking even when the phone is mute.
-let currentUtterance = null;
+// A generation counter (not a stored utterance) tracks the "current" speech
+// job: any new speakParts() or stopSpeech() bumps it, so stale onend/onstart
+// callbacks from a cancelled job are ignored — no races, no GC of live audio.
+const SPELL_RATE = 0.45; // spelling out letters — deliberately slower than 0.8
+let speechGen = 0;
 
-function speakText(text) {
+// Speak a list of {text, rate} parts in order — the next starts when the
+// previous ends. Lets the word read at normal speed and the spelling slower.
+function speakParts(parts) {
   const synth = window.speechSynthesis;
-  if (!synth || !text) return;
+  parts = (parts || []).filter((p) => p && p.text);
+  if (!synth || !parts.length) return;
+  const gen = ++speechGen;
   try { synth.resume(); } catch (_) {}
-  const u = new SpeechSynthesisUtterance(text);
-  u.rate = 0.8;
-  u.lang = "en-US";
-  u.onstart = () => $("speaker").classList.add("speaking");
-  u.onend = u.onerror = () => $("speaker").classList.remove("speaking");
-  currentUtterance = u; // hold the reference (3)
+  const queue = parts.slice();
+  const runNext = () => {
+    if (gen !== speechGen) return;              // superseded/cancelled
+    if (!queue.length) { $("speaker").classList.remove("speaking"); return; }
+    const part = queue.shift();
+    const u = new SpeechSynthesisUtterance(part.text);
+    u.rate = part.rate || 0.8;
+    u.lang = "en-US";
+    u.onstart = () => { if (gen === speechGen) $("speaker").classList.add("speaking"); };
+    u.onend = () => { if (gen === speechGen) runNext(); };
+    u.onerror = () => { if (gen === speechGen) $("speaker").classList.remove("speaking"); };
+    synth.speak(u);
+  };
+  // an in-flight job gets cancelled; iOS drops a speak() right after cancel(),
+  // so let it settle first (the gen guard ignores the old job's callbacks)
   if (synth.speaking || synth.pending) {
     synth.cancel();
-    setTimeout(() => { if (currentUtterance === u) synth.speak(u); }, 80);
+    setTimeout(runNext, 90);
   } else {
-    synth.speak(u);
+    runNext();
   }
+}
+
+// say a word (or sentence) at normal reading speed
+function speakText(text) { speakParts([{ text: text, rate: 0.8 }]); }
+
+// say the word, then spell it slowly — "planet"  then  "p. l. a. n. e. t"
+function spellLetters(word) {
+  const names = { "'": "apostrophe", "-": "dash" };
+  return word.split("").map((c) => names[c] || c).join(". ");
+}
+function speakWordAndSpell(word) {
+  speakParts([{ text: word, rate: 0.8 },
+              { text: spellLetters(word), rate: SPELL_RATE }]);
 }
 
 function unlockSpeech() {
@@ -1106,16 +1138,9 @@ function unlockSpeech() {
 function stopSpeech() {
   const synth = window.speechSynthesis;
   if (!synth) return;
-  currentUtterance = null;
+  speechGen++;                 // invalidate the running sequence
   try { synth.cancel(); } catch (_) {}
   $("speaker").classList.remove("speaking");
-}
-
-// "planet" -> "planet. p. l. a. n. e. t" : say the word, then spell it out.
-function spellOut(word) {
-  const names = { "'": "apostrophe", "-": "dash" };
-  const letters = word.split("").map((c) => names[c] || c).join(". ");
-  return `${word}. ${letters}`;
 }
 
 // Parent accommodation: when a word is SHOWN (Copy It / Hide & Spell) and the
@@ -1125,22 +1150,24 @@ function maybeAutoplayWord() {
   if (!state.autoplayAudio) return;
   if (state.mode !== "copy" && state.mode !== "words") return;
   if (!("speechSynthesis" in window) || !state.target) return;
-  speakText(spellOut(state.target));
+  speakWordAndSpell(state.target);
 }
 
 function speakCurrent() {
   if (!("speechSynthesis" in window)) return;
-  let text = state.target;
   if (state.mode === "memory" && state.sentence) {
-    text = state.sentence.s; // dictation: always the whole sentence
+    speakText(state.sentence.s); // dictation: always the whole sentence
   } else if (state.mode === "sentences" && state.sentence) {
     const tok = state.sentence.tokens[state.sentence.wordIdx];
-    if (!tok) return; // between the last word and the next sentence
-    text = tok.answer;
+    if (tok) speakText(tok.answer);
   } else if (state.mode === "copy" || state.mode === "words") {
-    text = spellOut(state.target); // say it, then spell it (never in listen)
+    // spell it out ONLY before he's started typing this word; once he's
+    // begun (the word has hidden), just say the name so it can't be copied
+    if (state.typedStarted) speakText(state.target);
+    else speakWordAndSpell(state.target);
+  } else {
+    speakText(state.target); // listen mode: word only, never spelled
   }
-  speakText(text);
 }
 
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
@@ -1192,9 +1219,7 @@ function goHome() {
   refreshState().catch(() => {});
   state.sentence = null;
   state.memorizing = false;
-  currentUtterance = null;
-  window.speechSynthesis && window.speechSynthesis.cancel();
-  $("speaker").classList.remove("speaking");
+  stopSpeech();
   show("home");
 }
 

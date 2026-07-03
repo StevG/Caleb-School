@@ -85,6 +85,13 @@ game can only prove skills up to its own rung; see docs/SCORING.md):
 - Not a game with an economy — points are minutes of iPad time, period.
 
 ## Decisions log
+- 2026-07-02 — Audio refinements (owner): (1) the spelling reads SLOWER than
+  the word — speech is now a sequence of `{text, rate}` parts (`speakParts`),
+  word at 0.8, letters at `SPELL_RATE` 0.45. (2) The manual 🔊 spells the
+  word only BEFORE the child starts typing; once he's begun (tracked by
+  `state.typedStarted`, set in onType, cleared in resetItemUI) it says the
+  word name only, so the spelling can't be used to copy. Auto-play still
+  says word+spell on show and stops on the first keystroke.
 - 2026-07-02 — Badges (owner-approved, docs/BADGES.md). 14 badges in 7
   categories, each 4 levels drawn as plates added clockwise to a hexagon
   (bronze/silver/gold/rainbow), one SVG generator (`badgeSVG` in app.js,
