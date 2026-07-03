@@ -28,6 +28,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, urlsplit
 
 import wordbank
+import badgebank
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(HERE, "static")
@@ -131,6 +132,10 @@ def _default_child(name="Caleb"):
         "assignments": [],    # parent-assigned tests ("missions") — see
                               # _api_assign: {id, mode, list_id, name, count,
                               #               ts, status, result?, done_ts?}
+        "counters": {},       # lifetime tallies for badges (badgebank.py) —
+                              # immune to resets; seeded from history on first
+                              # load (see _seed_counters)
+        "badges": {},         # badge id -> earned level (0-4)
     }
 
 
@@ -158,7 +163,158 @@ def _fill_child(child):
             "words": [{"w": clean_token(w), "on": True}
                       for w in child["custom_words"] if clean_token(w)],
         })
+    # badges: seed lifetime counters from existing history the first time, so
+    # a kid who's been practicing wakes up to the badges he already earned
+    if "_counters_seeded" not in child:
+        _seed_counters(child)
+        child["_counters_seeded"] = True
+        # baseline the earned levels WITHOUT celebrating — these are already his
+        child["badges"] = {b["id"]: badgebank.badge_tier(b, m)
+                           for b, m in (
+                               (bd, badge_metrics(child).get(bd["metric"], 0))
+                               for bd in badgebank.BADGES)}
     return child
+
+
+def _seed_counters(child):
+    """Best-effort lifetime tallies from a child's existing data — floors, not
+    exact history. Going forward the live counters accumulate precisely."""
+    stats = child.get("words", {})
+    modes = child.get("modes", {})
+    sessions = child.get("sessions", [])
+    c = child.setdefault("counters", {})
+    c.setdefault("lifetime_correct",
+                 sum(s.get("correct", 0) for s in stats.values()))
+    c.setdefault("lifetime_points", child["profile"].get("points", 0))
+    c.setdefault("best_streak", max((s.get("streak", 0)
+                                     for s in stats.values()), default=0))
+    c.setdefault("answer_streak", 0)
+    c.setdefault("sessions_total", len(sessions))
+    c.setdefault("perfect_sessions",
+                 sum(1 for s in sessions
+                     if s.get("count", 0) > 0
+                     and s.get("correct", 0) >= s.get("count", 0)))
+    gs = {}
+    for s in sessions:
+        mode = s.get("mode", "words")
+        gs[mode] = gs.get(mode, 0) + 1
+    c.setdefault("game_sessions", gs)
+    c.setdefault("stage_ups", sum(max(0, word_stage(s) - 1)
+                                  for s in stats.values() if s.get("seen", 0)))
+    c.setdefault("listen_correct", modes.get("listen", {}).get("correct", 0))
+    c.setdefault("sentence_words",
+                 modes.get("sentences", {}).get("correct", 0)
+                 + modes.get("memory", {}).get("correct", 0))
+    c.setdefault("missions_done",
+                 sum(1 for a in child.get("assignments", [])
+                     if a.get("status") == "done"))
+    c.setdefault("fastest_pace", 0)  # no historical timing
+    streak = current_day_streak(child)
+    c.setdefault("day_streak", streak)
+    c.setdefault("best_day_streak", streak)
+
+
+# --- Badges (badgebank.py catalog, per-child counters + tier engine) --------
+
+def current_day_streak(state):
+    """Consecutive calendar days with practice, counting back from today."""
+    days = state.get("days", {})
+    if not days:
+        return 0
+    streak = 0
+    t = time.time()
+    for _ in range(400):
+        if time.strftime("%Y-%m-%d", time.localtime(t)) in days:
+            streak += 1
+            t -= 86400
+        else:
+            break
+    return streak
+
+
+def badge_metrics(state):
+    """Every value the catalog measures against, from counters (live) plus a
+    few derived straight from the word stats (always current)."""
+    c = state.get("counters", {})
+    stats = state.get("words", {})
+    mastered = sum(1 for s in stats.values()
+                   if s.get("seen", 0) and word_stage(s) >= STAGE_MASTERED)
+    hearts = sum(1 for w, s in stats.items()
+                 if w in wordbank.HEART_WORDS and s.get("seen", 0)
+                 and word_stage(s) >= STAGE_MASTERED)
+    gs = c.get("game_sessions", {})
+    all_games = min((gs.get(mode, 0) for mode in VALID_MODES), default=0)
+    return {
+        "speed": c.get("fastest_pace", 0),
+        "perfect_sessions": c.get("perfect_sessions", 0),
+        "best_streak": c.get("best_streak", 0),
+        "lifetime_correct": c.get("lifetime_correct", 0),
+        "lifetime_points": c.get("lifetime_points", 0),
+        "sessions_total": c.get("sessions_total", 0),
+        "best_day_streak": c.get("best_day_streak", 0),
+        "words_mastered": mastered,
+        "hearts_mastered": hearts,
+        "stage_ups": c.get("stage_ups", 0),
+        "all_games": all_games,
+        "listen_correct": c.get("listen_correct", 0),
+        "sentence_words": c.get("sentence_words", 0),
+        "missions_done": c.get("missions_done", 0),
+    }
+
+
+def evaluate_badges(state):
+    """Recompute every badge's level, persist, and return the levels newly
+    reached this call (for celebration) with the stars they awarded."""
+    metrics = badge_metrics(state)
+    prev = state.get("badges", {})
+    now = {}
+    newly = []
+    for b in badgebank.BADGES:
+        old = prev.get(b["id"], 0)
+        # trophies never un-earn: a progress reset clears the words a couple of
+        # metrics derive from, but a badge already won stays won (floor at old)
+        tier = max(old, badgebank.badge_tier(b, metrics.get(b["metric"], 0)))
+        now[b["id"]] = tier
+        if tier > old:
+            # award stars for EACH level newly crossed (e.g. 0 -> 2 pays both)
+            stars = sum(badgebank.STAR_PER_LEVEL.get(lv, 0)
+                        for lv in range(old + 1, tier + 1))
+            if stars:
+                state["profile"]["points"] = \
+                    state["profile"].get("points", 0) + stars
+                c = state.setdefault("counters", {})
+                c["lifetime_points"] = c.get("lifetime_points", 0) + stars
+            newly.append({"id": b["id"], "name": b["name"],
+                          "emoji": b["emoji"], "level": tier, "stars": stars})
+    state["badges"] = now
+    return newly
+
+
+def badges_view(state):
+    """The catalog with this child's level + progress — drives the badge case
+    and the parent's badges strip."""
+    metrics = badge_metrics(state)
+    stored = state.get("badges", {})
+    out = []
+    for b in badgebank.BADGES:
+        val = metrics.get(b["metric"], 0)
+        # earned level is sticky (see evaluate_badges); progress uses live value
+        tier = max(stored.get(b["id"], 0), badgebank.badge_tier(b, val))
+        out.append({
+            "id": b["id"], "name": b["name"], "emoji": b["emoji"],
+            "accent": b["accent"], "category": b["category"],
+            "blurb": b["blurb"], "unlock": b.get("unlock", ""),
+            "unit": b.get("unit", ""), "lower_better": bool(b.get("lower_better")),
+            "level": tier, "value": val,
+            "tiers": b["tiers"],
+            "prev_at": b["tiers"][tier - 1] if tier > 0 else None,
+            "next_at": b["tiers"][tier] if tier < 4 else None,
+        })
+    return out
+
+
+def badges_earned_count(state):
+    return sum(1 for lv in state.get("badges", {}).values() if lv > 0)
 
 
 def load_doc():
@@ -684,8 +840,10 @@ def record_answer(state, word, correct, aided=False, mode="words"):
         for old in sorted(days)[:-60]:
             del days[old]
 
+    c = state.setdefault("counters", {})
     if correct and aided:
         state["profile"]["points"] = state["profile"].get("points", 0) + 1
+        c["lifetime_points"] = c.get("lifetime_points", 0) + 1
         m["points"] += 1
         d["points"] += 1
         dm["points"] += 1
@@ -718,6 +876,15 @@ def record_answer(state, word, correct, aided=False, mode="words"):
         d["points"] += 1
         dm["correct"] += 1
         dm["points"] += 1
+        # badge counters: lifetime tallies + the cross-session answer streak
+        c["lifetime_correct"] = c.get("lifetime_correct", 0) + 1
+        c["lifetime_points"] = c.get("lifetime_points", 0) + 1
+        c["answer_streak"] = c.get("answer_streak", 0) + 1
+        c["best_streak"] = max(c.get("best_streak", 0), c["answer_streak"])
+        if mode == "listen":
+            c["listen_correct"] = c.get("listen_correct", 0) + 1
+        if mode in ("sentences", "memory"):
+            c["sentence_words"] = c.get("sentence_words", 0) + 1
         # climb the ladder — but a game can only prove up to its own rung
         # (CLIMB_CAP): copying never advances a from-memory word, and only
         # from-sound games push a word to mastered. Streaks don't bank while
@@ -728,6 +895,7 @@ def record_answer(state, word, correct, aided=False, mode="words"):
                 s["stage"] = stage + 1
                 s["stage_streak"] = 0
                 stage_up = True
+                c["stage_ups"] = c.get("stage_ups", 0) + 1
                 if s["stage"] == STAGE_MASTERED:
                     s["mastered_ts"] = int(time.time())
     else:
@@ -735,6 +903,7 @@ def record_answer(state, word, correct, aided=False, mode="words"):
         s["streak"] = 0
         m["missed"] += 1
         d["missed"] += 1
+        c["answer_streak"] = 0  # a miss breaks the Hot Streak
         # slide one rung down and rebuild from there
         s["stage"] = max(STAGE_COPY, stage - 1)
         s["stage_streak"] = 0
@@ -923,6 +1092,7 @@ def parent_report(state):
         "sources_empty": sources_empty(state),
         "assignments": assignments_status(state),
         "progress": source_progress(state),
+        "badges": badges_view(state),
         "bank": bank_status(state),
         "summary": {
             "points": state["profile"].get("points", 0),
@@ -993,6 +1163,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._api_state(parse_qs(parsed.query))
         if path == "/api/push/key":
             return self._send_json({"key": vapid_public_key(load_push())})
+        if path == "/api/badges":
+            return self._api_badges(parse_qs(parsed.query))
         if path == "/api/session":
             return self._api_session(parse_qs(parsed.query))
         if path == "/api/parent/report":
@@ -1042,6 +1214,8 @@ class Handler(BaseHTTPRequestHandler):
             "points": p.get("points", 0),
             "show_speaker": p.get("show_speaker", True),
             "autoplay_audio": p.get("autoplay_audio", False),
+            "badges_earned": badges_earned_count(state),
+            "badges_total": len(badgebank.BADGES),
             # open missions land on the kid's home screen
             "missions": [{"id": a["id"], "mode": a["mode"],
                           "name": a.get("name", ""),
@@ -1051,6 +1225,14 @@ class Handler(BaseHTTPRequestHandler):
             # lets the gate show a first-run hint until the PIN is changed
             "pin_is_default": doc.get("pin", DEFAULT_PIN) == DEFAULT_PIN,
         })
+
+    def _api_badges(self, query):
+        # the kid's badge case — no PIN, it's his own trophies
+        doc = load_doc()
+        state = get_child(doc, self._query_child(query))
+        self._send_json({"child": state["id"], "badges": badges_view(state),
+                         "earned": badges_earned_count(state),
+                         "total": len(badgebank.BADGES)})
 
     def _api_session(self, query):
         mode = (query.get("mode", ["words"])[0] or "words").lower()
@@ -1110,32 +1292,61 @@ class Handler(BaseHTTPRequestHandler):
         with _lock:
             doc = load_doc()
             state = get_child(doc, body.get("child"))
+            mode = str(body.get("mode", "words"))[:20]
+            count = as_int(body.get("count", 0))
+            correct = as_int(body.get("correct", 0))
             state.setdefault("sessions", []).append({
                 "ts": int(time.time()),
-                "mode": str(body.get("mode", "words"))[:20],
-                "count": as_int(body.get("count", 0)),
-                "correct": as_int(body.get("correct", 0)),
+                "mode": mode,
+                "count": count,
+                "correct": correct,
                 "points": as_int(body.get("points", 0)),
             })
             state["sessions"] = state["sessions"][-200:]
+            # --- badge counters for the finished session ---
+            c = state.setdefault("counters", {})
+            c["sessions_total"] = c.get("sessions_total", 0) + 1
+            gs = c.setdefault("game_sessions", {})
+            gs[mode] = gs.get(mode, 0) + 1
+            if count > 0 and correct >= count:
+                c["perfect_sessions"] = c.get("perfect_sessions", 0) + 1
+            # Speed of Light: only real word games of 10+ words, and only if
+            # mostly right (≥80% first try) so fast guessing can't farm it
+            if mode in ("copy", "words", "listen") and count >= 10 \
+                    and correct / count >= 0.8:
+                secs = as_int(body.get("seconds", 0))
+                pace = secs / count if secs else 0
+                if 1 <= pace <= 120:  # clamp implausible clocks
+                    best = c.get("fastest_pace", 0)
+                    c["fastest_pace"] = pace if not best else min(best, pace)
+            streak = current_day_streak(state)
+            c["day_streak"] = streak
+            c["best_day_streak"] = max(c.get("best_day_streak", 0), streak)
             aid = str(body.get("assignment", "") or "")
             a = find_assignment(state, aid) if aid else None
             if a and a["status"] == "todo":
                 a["status"] = "done"
                 a["done_ts"] = int(time.time())
-                a["result"] = {"count": as_int(body.get("count", 0)),
-                               "correct": as_int(body.get("correct", 0))}
+                a["result"] = {"count": count, "correct": correct}
+                c["missions_done"] = c.get("missions_done", 0) + 1
                 finished = (state["id"], state["profile"].get("name", "Kid"),
                             a)
+            new_badges = evaluate_badges(state)  # awards stars, persists levels
             save_doc(doc)
             points = state["profile"].get("points", 0)
+            cid = state["id"]
+            kid_name = state["profile"].get("name", "Kid")
         if finished:
-            cid, kid_name, a = finished
+            _, _, a = finished
             r = a["result"]
             notify("parent", cid, f"{kid_name} finished a mission! ⭐",
                    f"{MODE_LABELS.get(a['mode'], a['mode'])} — "
                    f"{a.get('name', '')}: {r['correct']}/{r['count']} right")
-        self._send_json({"points": points, "assignment_done": bool(finished)})
+        for nb in new_badges:  # ping the parents for each new badge level
+            notify("parent", cid, f"{kid_name} earned a badge! {nb['emoji']}",
+                   f"{nb['name']} — Level {nb['level']}")
+        self._send_json({"points": points, "assignment_done": bool(finished),
+                         "new_badges": new_badges})
 
     def _api_parent_login(self, body):
         doc = load_doc()

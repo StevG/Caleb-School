@@ -61,6 +61,7 @@ them casually.
 |---|---|
 | `server.py` | HTTP server + JSON API + persistence. One file on purpose. |
 | `wordbank.py` | Graded word/sentence bank. Edit lists here to change content. |
+| `badgebank.py` | Badge catalog (14 badges × 4 levels). Edit thresholds here. |
 | `static/` | Front end: `index.html`, `styles.css`, `app.js`, PWA bits, icons. |
 | `generate_icons.py` | Regenerates icons (pixel-art dino-in-rocket). Edit `SPRITE`, run it. |
 | `docs/` | Design identity, scoring/ladder, statistics, research, roadmap. |
@@ -109,7 +110,11 @@ all_children?}` (missions: parent-assigned tests; kid sees them in
 `session_end {assignment}`) · Web Push: `GET /api/push/key`, `POST
 /api/push/subscribe|pull` — pure-stdlib VAPID (P-256 in server.py), EMPTY
 tickle pushes + SW pull (no payload crypto); key + subs in gitignored
-`data/push.json` · `GET /.hub/status`.
+`data/push.json` · `GET /api/badges?child=` (kid's trophy case) — 14 tiered
+badges (`badgebank.py`); lifetime per-child `counters` feed
+`badge_metrics`→`evaluate_badges` on `session_end` (returns `new_badges`,
+awards +5/10/15/25 ⭐/level, pushes parents); levels are STICKY (resets never
+un-earn) · `GET /.hub/status`.
 
 "Aided" = a retype right after the answer was revealed: earns the point,
 does **not** count toward accuracy or the learning ladder. Words-mode words

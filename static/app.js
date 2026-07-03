@@ -84,6 +84,7 @@ function refreshState() {
       state.autoplayAudio = s.autoplay_audio === true;
       $("kid-name").textContent = s.name || "Caleb";
       $("home-points").textContent = state.points;
+      $("badges-count").textContent = s.badges_earned || 0;
       renderWhoRow();
       renderMissions(s.missions || []);
       updateHomeHints();
@@ -185,6 +186,166 @@ function renderWhoRow() {
   });
 }
 
+// ---------- badges ----------
+// One SVG draws every badge: a flat-top hexagon (white face, ink outline,
+// accent ring, big emoji), with a beveled plate added to a diagonal edge per
+// earned level — clockwise from upper-right: bronze, silver, gold, rainbow.
+const BADGE_TIER_FILL = ["#cd8a4b", "#b9c2cc", "#f4b942", "url(#badge-rainbow)"];
+const BADGE_TIER_EDGE = ["#a96a33", "#93a1ad", "#d99a1e", "#7a5fb5"];
+
+function badgeSVG(emoji, tier, accent, dim) {
+  const cx = 60, cy = 60, R = 42;
+  const v = [];
+  for (let i = 0; i < 6; i++) {
+    const th = i * Math.PI / 3;
+    v.push([cx + R * Math.cos(th), cy + R * Math.sin(th)]);
+  }
+  const scale = (p, k) => [cx + (p[0] - cx) * k, cy + (p[1] - cy) * k];
+  const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+  // clockwise diagonal edges from upper-right; top & bottom stay clean
+  const order = [[v[5], v[0]], [v[0], v[1]], [v[3], v[2]], [v[4], v[3]]];
+  let plates = "";
+  for (let i = 0; i < Math.min(tier, 4); i++) {
+    const [a, b] = order[i];
+    const ai = lerp(a, b, 0.08), bi = lerp(b, a, 0.08);
+    const ao = scale(ai, 1.2), bo = scale(bi, 1.2);
+    plates += `<polygon points="${ai},${bi},${bo},${ao}" fill="${BADGE_TIER_FILL[i]}"` +
+      ` stroke="${BADGE_TIER_EDGE[i]}" stroke-width="1.5" stroke-linejoin="round"/>`;
+  }
+  const hex = v.map((p) => p.join(",")).join(" ");
+  const inner = v.map((p) => scale(p, 0.82).join(",")).join(" ");
+  const face = dim ? "#f1eadd" : "#fff";
+  const ring = dim ? "#d9cfc0" : accent;
+  const dash = dim ? ' stroke-dasharray="5 5"' : "";
+  return `<svg viewBox="0 0 120 120" class="badge-svg">` +
+    `<defs><linearGradient id="badge-rainbow" x1="0" y1="0" x2="1" y2="1">` +
+    `<stop offset="0" stop-color="#4f9dde"/><stop offset=".5" stop-color="#5bbf6a"/>` +
+    `<stop offset="1" stop-color="#f4b942"/></linearGradient></defs>${plates}` +
+    `<polygon points="${hex}" fill="${face}" stroke="#2d2a26" stroke-width="2.5"` +
+    ` stroke-linejoin="round"${dash}/>` +
+    `<polygon points="${inner}" fill="none" stroke="${ring}" stroke-width="2"` +
+    ` stroke-linejoin="round" opacity="${dim ? .5 : .85}"/>` +
+    `<text x="60" y="62" font-size="38" text-anchor="middle"` +
+    ` dominant-baseline="central" opacity="${dim ? .4 : 1}">${emoji}</text></svg>`;
+}
+
+const BADGE_LEVELS = ["Locked", "Level 1", "Level 2", "Level 3", "Level 4 ★"];
+
+// progress toward the NEXT level (0..1); speed badges count down, so invert
+function badgeProgress(b) {
+  if (b.level >= 4 || b.next_at == null) return 1;
+  const prev = b.prev_at || 0;
+  if (b.lower_better) {
+    if (!b.value) return 0;
+    // from prev threshold (or a soft ceiling) down to next
+    const ceil = prev || b.next_at * 2;
+    return Math.max(0, Math.min(1, (ceil - b.value) / (ceil - b.next_at)));
+  }
+  return Math.max(0, Math.min(1, (b.value - prev) / (b.next_at - prev)));
+}
+
+function openBadges() {
+  show("badges-screen");
+  api("/api/badges?child=" + encodeURIComponent(state.childId))
+    .then((d) => renderBadgeCase(d)).catch(() => {});
+}
+
+function renderBadgeCase(d) {
+  $("badges-earned").textContent = d.earned;
+  $("badges-all").textContent = d.total;
+  const grid = $("badge-grid");
+  grid.innerHTML = "";
+  // group by category, keeping catalog order
+  const cats = [];
+  d.badges.forEach((b) => {
+    let g = cats.find((c) => c.name === b.category);
+    if (!g) { g = { name: b.category, items: [] }; cats.push(g); }
+    g.items.push(b);
+  });
+  cats.forEach((g) => {
+    const h = document.createElement("div");
+    h.className = "badge-cat";
+    h.textContent = g.name;
+    grid.appendChild(h);
+    const row = document.createElement("div");
+    row.className = "badge-row";
+    g.items.forEach((b) => {
+      const cell = document.createElement("button");
+      cell.className = "badge-cell" + (b.level ? "" : " locked");
+      cell.innerHTML = badgeSVG(b.emoji, b.level, b.accent, b.level === 0) +
+        `<span class="badge-cell-name">${esc(b.name)}</span>` +
+        `<span class="badge-cell-lvl">${b.level ? BADGE_LEVELS[b.level] : "Locked"}</span>`;
+      cell.addEventListener("click", () => openBadgeDetail(b));
+      row.appendChild(cell);
+    });
+    grid.appendChild(row);
+  });
+}
+
+function openBadgeDetail(b) {
+  $("bd-badge").innerHTML = badgeSVG(b.emoji, b.level, b.accent, b.level === 0);
+  $("bd-name").textContent = b.name;
+  $("bd-level").textContent = b.level ? BADGE_LEVELS[b.level] : "Not earned yet";
+  $("bd-blurb").textContent = b.blurb;
+  const next = $("bd-next");
+  if (b.level >= 4) {
+    next.innerHTML = `<div class="bd-max">🌈 Maxed out — every level earned!</div>`;
+  } else {
+    const goal = b.lower_better
+      ? `${b.next_at}${b.unit ? " " + b.unit : ""} or faster`
+      : `${b.next_at} ${b.unit || ""}`.trim();
+    const have = b.lower_better
+      ? (b.value ? `${b.value} ${b.unit || ""}`.trim() : "not started")
+      : `${b.value}`;
+    next.innerHTML =
+      `<div class="bd-next-label">Next: Level ${b.level + 1} — ${esc(goal)}</div>` +
+      `<div class="bd-bar"><span style="width:${Math.round(badgeProgress(b) * 100)}%"></span></div>` +
+      (b.level === 0 ? `<div class="bd-unlock">Unlock: ${esc(b.unlock)}</div>`
+        : `<div class="bd-have">You're at ${esc(have)}</div>`);
+  }
+  $("badge-detail").classList.remove("hidden");
+}
+
+// the done-screen celebration for freshly-earned levels
+function celebrateBadges(list) {
+  const wrap = $("badge-earns");
+  wrap.innerHTML = list.map((nb) => {
+    const b = { emoji: nb.emoji, level: nb.level };
+    return `<div class="badge-earn">${badgeSVG(nb.emoji, nb.level, "#f4b942", false)}` +
+      `<div class="be-text">${esc(nb.name)}<small>Level ${nb.level}` +
+      (nb.stars ? ` · +${nb.stars} ⭐` : "") + `</small></div></div>`;
+  }).join("");
+}
+
+// the compact parent strip (rep.badges — same shape as /api/badges)
+function renderParentBadges(badges) {
+  const strip = $("p-badge-strip");
+  const earned = (badges || []).filter((b) => b.level > 0);
+  $("p-badge-count").textContent = `${earned.length}/${(badges || []).length}`;
+  strip.innerHTML = "";
+  if (!badges || !badges.length) return;
+  // earned first (by level desc), then the closest not-yet-earned
+  const sorted = [...badges].sort((a, b) =>
+    (b.level - a.level) || (badgeProgress(b) - badgeProgress(a)));
+  sorted.slice(0, 8).forEach((b) => {
+    const cell = document.createElement("div");
+    cell.className = "p-badge";
+    cell.innerHTML = badgeSVG(b.emoji, b.level, b.accent, b.level === 0) +
+      `<span>${b.level ? "L" + b.level : "—"}</span>`;
+    cell.title = `${b.name}: ${b.level ? BADGE_LEVELS[b.level] : "not earned"}`;
+    strip.appendChild(cell);
+  });
+}
+
+function wireBadges() {
+  $("badges-btn").addEventListener("click", openBadges);
+  $("badges-back").addEventListener("click", () => { resetHomeMenu(); show("home"); });
+  $("bd-close").addEventListener("click", () => $("badge-detail").classList.add("hidden"));
+  $("badge-detail").addEventListener("click", (e) => {
+    if (e.target === $("badge-detail")) $("badge-detail").classList.add("hidden");
+  });
+}
+
 function boot() {
   // Wire everything first — buttons must work even if the network is slow.
   wireHome();
@@ -192,6 +353,7 @@ function boot() {
   wireDone();
   wireGate();
   wireParent();
+  wireBadges();
   initUpdates();
   state.childId = storedChild();
   refreshState().catch(() => {});
@@ -369,6 +531,7 @@ async function startSession() {
   state.earned = 0;
   state.levelUps = 0;
   state.finished = false;
+  state.sessionStart = Date.now(); // for the Speed of Light badge (secs/word)
   $("play-points").textContent = "+0";
   // memory (dictation) and listen (audio-only) NEED the speaker; so does
   // auto-play (so he can replay the word+spelling). Otherwise it follows the
@@ -837,15 +1000,26 @@ function finishSession() {
   $("check").classList.add("hidden");
   $("next").classList.add("hidden");
   const wasMission = state.assignment;
+  const secs = Math.round((Date.now() - (state.sessionStart || Date.now())) / 1000);
+  $("badge-earns").innerHTML = ""; // clear last session's celebration
   postJSON("/api/session_end", {
     mode: state.mode,
     count: state.wordsDone,
     correct: state.correctCount,
     points: state.earned,
+    seconds: secs,
     child: state.childId,
     assignment: state.assignment || undefined,
   }).then((r) => {
-    if (r.assignment_done) refreshState().catch(() => {}); // mission card gone
+    if (typeof r.points === "number") { // badges may have added stars
+      state.points = r.points;
+      $("done-total").textContent = state.points;
+      $("home-points").textContent = state.points;
+    }
+    if (r.new_badges && r.new_badges.length) celebrateBadges(r.new_badges);
+    if (r.assignment_done || (r.new_badges || []).length) {
+      refreshState().catch(() => {}); // mission card + badge count refresh
+    }
   }).catch(() => {});
   state.assignment = null;
   $("earned").textContent = state.earned;
@@ -1243,6 +1417,7 @@ function renderReport(rep) {
 
   // word sources: the custom lists first (the bank's copy-target dropdown
   // needs them cached), then the bank with its grade bands
+  renderParentBadges(rep.badges);
   renderAssignments(rep);
   renderProgress(rep.progress);
   renderLists(rep.lists || []);

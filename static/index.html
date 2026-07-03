@@ -30,6 +30,7 @@
     <div id="who-row" class="who-row hidden"></div>
     <div class="points-big"><span id="home-points">0</span> <span class="star">⭐</span></div>
     <p class="tagline">Let's practice spelling!</p>
+    <button id="badges-btn" class="badges-chip">🎖️ <b id="badges-count">0</b> badges</button>
 
     <div id="missions" class="missions hidden">
       <p class="missions-head">Your missions 📋</p>
@@ -139,10 +140,31 @@
     <div class="done-title">Great job!</div>
     <div class="done-points">You earned <span id="earned">0</span> ⭐</div>
     <div id="level-ups" class="done-levelups"></div>
+    <div id="badge-earns" class="badge-earns"></div>
     <div class="done-total">Total: <span id="done-total">0</span> ⭐</div>
     <div class="done-actions">
       <button id="again" class="big-btn primary">Play again</button>
       <button id="home-btn" class="big-btn go">Home</button>
+    </div>
+  </div>
+</section>
+
+<!-- BADGE CASE (kid) -->
+<section id="badges-screen" class="screen">
+  <header class="badges-top">
+    <button id="badges-back" class="ghost-btn" aria-label="Home">✕</button>
+    <div class="badges-title">My Badges 🎖️</div>
+    <div class="badges-tally"><span id="badges-earned">0</span>/<span id="badges-all">0</span></div>
+  </header>
+  <div id="badge-grid" class="badge-grid"></div>
+  <div id="badge-detail" class="badge-detail hidden" role="dialog">
+    <div class="bd-card">
+      <div id="bd-badge" class="bd-badge"></div>
+      <div id="bd-name" class="bd-name"></div>
+      <div id="bd-level" class="bd-level"></div>
+      <div id="bd-blurb" class="bd-blurb"></div>
+      <div id="bd-next" class="bd-next"></div>
+      <button id="bd-close" class="mini-btn wide">Close</button>
     </div>
   </div>
 </section>
@@ -182,6 +204,12 @@
       <div class="stat"><div class="stat-num" id="s-sessions">0</div><div class="stat-lbl">Sessions</div></div>
     </div>
     <div class="stat wide"><div class="stat-num small" id="s-last">never</div><div class="stat-lbl">Last practiced</div></div>
+
+    <div class="card">
+      <div class="card-head">Badges <span id="p-badge-count" class="badge-count-pill"></span></div>
+      <p class="card-note">Trophies he's earned — each builds through four levels. They're never taken away, even by a reset.</p>
+      <div id="p-badge-strip" class="p-badge-strip"></div>
+    </div>
 
     <div class="card">
       <div class="card-head">Learning journey</div>

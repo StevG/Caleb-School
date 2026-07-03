@@ -1,4 +1,18 @@
-# Badges — PROPOSAL (owner review pending, nothing implemented)
+# Badges — IMPLEMENTED 2026-07-02 (owner-approved)
+
+Shipped as designed. Owner said yes to all open questions: **+5/10/15/25 ⭐
+per level**, **parent push on earn**, **retroactive credit**, **14 badges**.
+Code map: catalog in `badgebank.py`; counters + tier engine + endpoints in
+`server.py` (`badge_metrics`/`evaluate_badges`/`badges_view`, `_seed_counters`
+migration, `GET /api/badges`, `new_badges` on `session_end`); SVG generator +
+badge case + celebration + parent strip in `app.js`; tests in `tests/badges.mjs`.
+Trophies are STICKY — `evaluate_badges` floors each level at its stored value,
+so resets never un-earn (words/hearts-mastered derive from stats, which a
+reset clears, but the badge keeps its level). Original plan below.
+
+---
+
+# Badges — original plan
 
 Owner ask (2026-07-02): Caleb wants badges. Each badge has FOUR stages that
 build on it visually — a hexagon that gains a "plate" on one of its sides per

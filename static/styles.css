@@ -448,6 +448,63 @@ details.wlist[open] summary .tri{transform:rotate(90deg)}
 .setting.toggle input{width:24px;height:24px;flex:none}
 .saved-note{color:var(--green-d);font-weight:700;min-height:20px;margin-top:8px;font-size:14px}
 
+/* ---------- BADGES ---------- */
+.badges-chip{margin-top:10px;background:#fff;border:2px solid var(--line);
+  border-radius:20px;padding:8px 16px;font-size:15px;font-weight:700;
+  color:var(--ink);cursor:pointer;box-shadow:var(--shadow)}
+.badges-chip b{color:var(--amber-d,#d99a1e)}
+.badges-chip:active{transform:scale(.96)}
+
+.badges-top{display:flex;align-items:center;gap:12px;padding:14px 18px 6px;
+  width:100%;max-width:672px;margin:0 auto}
+.badges-title{flex:1;font-size:20px;font-weight:800;text-align:center}
+.badges-tally{font-weight:800;color:var(--muted);font-size:15px;min-width:44px;text-align:right}
+.badge-grid{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:6px 16px 40px;
+  width:100%;max-width:672px;margin:0 auto}
+.badge-cat{font-size:13px;font-weight:800;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.05em;margin:16px 0 6px}
+.badge-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.badge-cell{background:var(--card);border:none;border-radius:16px;box-shadow:var(--shadow);
+  padding:12px 6px 10px;cursor:pointer;display:flex;flex-direction:column;
+  align-items:center;gap:2px;transition:transform .08s ease}
+.badge-cell:active{transform:scale(.95)}
+.badge-cell.locked{background:#f6efe2;box-shadow:none}
+.badge-svg{width:76px;height:76px;display:block}
+.badge-cell-name{font-size:13px;font-weight:800;text-align:center;line-height:1.15}
+.badge-cell-lvl{font-size:11px;font-weight:700;color:var(--muted)}
+
+.badge-detail{position:fixed;inset:0;z-index:200;display:flex;align-items:center;
+  justify-content:center;background:rgba(45,42,38,.5);padding:24px}
+.bd-card{background:#fff;border-radius:22px;box-shadow:var(--shadow);padding:24px 22px;
+  max-width:340px;width:100%;text-align:center}
+.bd-badge .badge-svg{width:120px;height:120px;margin:0 auto}
+.bd-name{font-size:22px;font-weight:900;margin-top:8px}
+.bd-level{font-size:15px;font-weight:700;color:var(--amber-d,#d99a1e)}
+.bd-blurb{font-size:14px;color:var(--muted);margin:8px 0 12px}
+.bd-next-label{font-size:14px;font-weight:700}
+.bd-bar{height:9px;background:#eee3d0;border-radius:5px;overflow:hidden;margin:7px 0 4px}
+.bd-bar span{display:block;height:100%;background:var(--green);border-radius:5px}
+.bd-unlock,.bd-have{font-size:12px;color:var(--muted)}
+.bd-max{font-size:15px;font-weight:800;color:var(--green-d)}
+.badge-detail .mini-btn{margin-top:16px}
+
+/* done-screen celebration */
+.badge-earns{display:flex;flex-direction:column;gap:8px;align-items:center;margin:6px 0}
+.badge-earn{display:flex;align-items:center;gap:12px;background:#fffdf5;
+  border:2px solid var(--amber);border-radius:16px;padding:8px 16px 8px 8px;
+  animation:badge-pop .5s ease backwards}
+@keyframes badge-pop{from{opacity:0;transform:scale(.6)}60%{transform:scale(1.08)}}
+.badge-earn .badge-svg{width:54px;height:54px}
+.be-text{font-weight:800;font-size:16px;text-align:left}
+.be-text small{display:block;font-size:13px;font-weight:700;color:var(--muted)}
+
+/* parent dashboard strip */
+.badge-count-pill{font-size:13px;font-weight:700;color:var(--muted)}
+.p-badge-strip{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.p-badge{display:flex;flex-direction:column;align-items:center;width:52px}
+.p-badge .badge-svg{width:48px;height:48px}
+.p-badge span{font-size:11px;font-weight:700;color:var(--muted)}
+
 /* ---------- SHORT VIEWPORTS ---------- */
 /* body.compact is set by JS whenever the VISIBLE height (visual viewport)
    drops under 540px — phone landscape, or the keyboard eating the screen.

@@ -108,7 +108,9 @@ const dadMsg = await page.evaluate(async () => {
     body: JSON.stringify({ endpoint: 'http://127.0.0.1:9925/push/dad-phone' }) })).json();
   return r.messages;
 });
-check('parent message carries the score', dadMsg.length === 1 && dadMsg[0].body.includes('3/3'), JSON.stringify(dadMsg));
+// the queue may also hold badge-earned pings (a finished mission earns
+// Mission Hero etc.) — the mission message is the one carrying the score
+check('parent message carries the score', dadMsg.some(m => m.body.includes('3/3')), JSON.stringify(dadMsg));
 
 // mission gone from home; dashboard shows the completed row, deletable
 await page.click('#home-btn');

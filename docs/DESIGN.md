@@ -85,6 +85,17 @@ game can only prove skills up to its own rung; see docs/SCORING.md):
 - Not a game with an economy — points are minutes of iPad time, period.
 
 ## Decisions log
+- 2026-07-02 — Badges (owner-approved, docs/BADGES.md). 14 badges in 7
+  categories, each 4 levels drawn as plates added clockwise to a hexagon
+  (bronze/silver/gold/rainbow), one SVG generator (`badgeSVG` in app.js,
+  no assets). Lifetime per-child `counters` (immune to resets, seeded
+  retroactively so history counts) feed a pure tier engine; earning pays
+  +5/10/15/25 ⭐ per level and pushes the parents. A "🎖️ Badges" chip on the
+  home screen opens the trophy case; the done screen celebrates new levels;
+  the dashboard shows a compact strip. Guardrails from the gamification
+  research: badges are optional, never gate content, never expire, and are
+  STICKY — a progress reset can't un-earn a trophy. Catalog/thresholds live
+  in `badgebank.py`.
 - 2026-07-02 — Per-child "auto-play audio when a word is shown" (owner
   accommodation). A Settings toggle (`profile.autoplay_audio`, default off,
   per child). When on, each shown word in Copy It / Hide & Spell is spoken
