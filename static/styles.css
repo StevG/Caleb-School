@@ -446,6 +446,13 @@ details.wlist[open] summary .tri{transform:rotate(90deg)}
 .setting span{font-size:15px}
 .setting span small{display:block;font-size:12px;font-weight:400;color:var(--muted);margin-top:2px}
 .setting.toggle input{width:24px;height:24px;flex:none}
+.rate-block{padding:12px 0;border-bottom:1px solid var(--line)}
+.rate-head{font-size:15px;font-weight:800;margin-bottom:6px}
+.rate-row{display:flex;align-items:center;gap:10px;margin:8px 0}
+.rate-row label{flex:0 0 128px;font-size:14px;color:var(--muted)}
+.rate-row label b{color:var(--ink);font-weight:800}
+.rate-row input[type=range]{flex:1;accent-color:var(--blue);height:26px}
+.rate-row .mini-btn{flex:none;margin:0;padding:8px 12px}
 .saved-note{color:var(--green-d);font-weight:700;min-height:20px;margin-top:8px;font-size:14px}
 
 /* ---------- BADGES ---------- */

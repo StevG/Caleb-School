@@ -150,6 +150,8 @@ def _fill_child(child):
     child["profile"].setdefault("bank_enabled", True)
     child["profile"].setdefault("hearts_only", False)
     child["profile"].setdefault("autoplay_audio", False)
+    child["profile"].setdefault("word_rate", 0.8)    # TTS reading speed
+    child["profile"].setdefault("spell_rate", 0.45)  # slower for letters
     # migrate the old single "max level" cap into per-band selection
     if "enabled_grades" not in child["profile"]:
         child["profile"]["enabled_grades"] = default_bands(
@@ -1083,6 +1085,8 @@ def parent_report(state):
             "points": state["profile"].get("points", 0),
             "show_speaker": state["profile"].get("show_speaker", True),
             "autoplay_audio": state["profile"].get("autoplay_audio", False),
+            "word_rate": state["profile"].get("word_rate", 0.8),
+            "spell_rate": state["profile"].get("spell_rate", 0.45),
             "max_level": state["profile"].get("max_level", 3),
             "bank_enabled": state["profile"].get("bank_enabled", True),
             "hearts_only": state["profile"].get("hearts_only", False),
@@ -1214,6 +1218,8 @@ class Handler(BaseHTTPRequestHandler):
             "points": p.get("points", 0),
             "show_speaker": p.get("show_speaker", True),
             "autoplay_audio": p.get("autoplay_audio", False),
+            "word_rate": p.get("word_rate", 0.8),
+            "spell_rate": p.get("spell_rate", 0.45),
             "badges_earned": badges_earned_count(state),
             "badges_total": len(badgebank.BADGES),
             # open missions land on the kid's home screen
@@ -1511,6 +1517,14 @@ class Handler(BaseHTTPRequestHandler):
                 p["show_speaker"] = bool(body["show_speaker"])
             if "autoplay_audio" in body:
                 p["autoplay_audio"] = bool(body["autoplay_audio"])
+            # audio speeds (TTS rate) — parent-tunable, clamped to sane ranges
+            for key, lo, hi in (("word_rate", 0.5, 1.2),
+                                ("spell_rate", 0.3, 1.0)):
+                if key in body:
+                    try:
+                        p[key] = max(lo, min(hi, round(float(body[key]), 2)))
+                    except (ValueError, TypeError):
+                        pass
             if "bank_enabled" in body:
                 p["bank_enabled"] = bool(body["bank_enabled"])
             if "hearts_only" in body:

@@ -100,6 +100,41 @@ const lt = await page.evaluate(() => state.target);
 const ls = await page.evaluate(() => window.__log.filter(l => l.startsWith('SPEAK:')));
 check('Listen & Spell: word only, never spelled',
   ls.includes(`SPEAK:${lt}`) && !ls.some(l => l.includes('. ')), JSON.stringify(ls.slice(-1)));
+await page.click('#quit'); await page.waitForSelector('#home.active');
+
+// parent audio-speed sliders: adjusting reads an example at the NEW rate and
+// saves it per child; the child's session then speaks at that rate
+await page.click('#gear');
+for (const d of ['1','2','3','4']) await page.click(`.pin-key:has-text("${d}")`);
+await page.waitForTimeout(600);
+const defaults = await page.evaluate(() => ({
+  w: document.querySelector('#set-word-rate').value,
+  s: document.querySelector('#set-spell-rate').value }));
+check('sliders load the saved rates (defaults 0.8 / 0.45)',
+  defaults.w === '0.8' && defaults.s === '0.45', JSON.stringify(defaults));
+await installStub();
+const demo = await page.evaluate(() => {
+  window.__utts = [];
+  const set = (id, v) => { const s = document.getElementById(id); s.value = v;
+    s.dispatchEvent(new Event('input')); s.dispatchEvent(new Event('change')); };
+  set('set-word-rate', '1.1');
+  return new Promise(r => setTimeout(() => r(window.__utts.slice()), 200));
+});
+check('word slider: reads a word example at the new rate',
+  demo.length === 1 && demo[0].rate > 1.0 && !demo[0].text.includes('. '), JSON.stringify(demo));
+const demo2 = await page.evaluate(() => {
+  window.__utts = [];
+  const s = document.getElementById('set-spell-rate'); s.value = '0.6';
+  s.dispatchEvent(new Event('input')); s.dispatchEvent(new Event('change'));
+  return new Promise(r => setTimeout(() => r(window.__utts.slice()), 200));
+});
+check('spell slider: spells an example at the new rate',
+  demo2.length === 1 && Math.abs(demo2[0].rate - 0.6) < 0.01 && demo2[0].text.includes('. '), JSON.stringify(demo2));
+const savedRates = await page.evaluate(async () => {
+  const r = await (await fetch('/api/parent/report', { headers: { 'X-Parent-Pin': '1234' } })).json();
+  return { w: r.profile.word_rate, s: r.profile.spell_rate };
+});
+check('slider changes persist to the server', savedRates.w === 1.1 && savedRates.s === 0.6, JSON.stringify(savedRates));
 
 console.log(results.join('\n'));
 console.log('\nJS ERRORS:', errors.length ? errors : 'none');

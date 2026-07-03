@@ -85,6 +85,13 @@ game can only prove skills up to its own rung; see docs/SCORING.md):
 - Not a game with an economy — points are minutes of iPad time, period.
 
 ## Decisions log
+- 2026-07-02 — Parent-tunable audio speeds (owner): Settings "Audio speed"
+  section with two sliders — Word reading (`word_rate`, 0.5–1.2, default
+  0.8) and Spelling speed (`spell_rate`, 0.3–1.0, default 0.45), per child,
+  clamped server-side. Releasing a slider reads an example back at the new
+  rate (word slider → says "spelling"; spell slider → spells it) and saves;
+  a 🔊 button replays. `SPELL_RATE` constant is gone — `speakText`/
+  `speakWordAndSpell` read `state.wordRate`/`state.spellRate`.
 - 2026-07-02 — Audio refinements (owner): (1) the spelling reads SLOWER than
   the word — speech is now a sequence of `{text, rate}` parts (`speakParts`),
   word at 0.8, letters at `SPELL_RATE` 0.45. (2) The manual 🔊 spells the

@@ -30,6 +30,8 @@ const state = {
   goal: 10,
   showSpeaker: true,
   autoplayAudio: false, // per-child: auto-speak "word, then spell it" on show
+  wordRate: 0.8,        // per-child TTS speeds (parent-tunable)
+  spellRate: 0.45,
   points: 0,
   parentPin: "",
   // multiple kids: this DEVICE remembers who practices on it; the parent
@@ -82,6 +84,8 @@ function refreshState() {
       state.points = s.points || 0;
       state.showSpeaker = s.show_speaker !== false;
       state.autoplayAudio = s.autoplay_audio === true;
+      if (s.word_rate) state.wordRate = s.word_rate;
+      if (s.spell_rate) state.spellRate = s.spell_rate;
       $("kid-name").textContent = s.name || "Caleb";
       $("home-points").textContent = state.points;
       $("badges-count").textContent = s.badges_earned || 0;
@@ -1076,7 +1080,7 @@ function wirePlay() {
 // A generation counter (not a stored utterance) tracks the "current" speech
 // job: any new speakParts() or stopSpeech() bumps it, so stale onend/onstart
 // callbacks from a cancelled job are ignored — no races, no GC of live audio.
-const SPELL_RATE = 0.45; // spelling out letters — deliberately slower than 0.8
+// Rates are parent-tunable per child (state.wordRate / state.spellRate).
 let speechGen = 0;
 
 // Speak a list of {text, rate} parts in order — the next starts when the
@@ -1110,17 +1114,17 @@ function speakParts(parts) {
   }
 }
 
-// say a word (or sentence) at normal reading speed
-function speakText(text) { speakParts([{ text: text, rate: 0.8 }]); }
+// say a word (or sentence) at the child's word-reading speed
+function speakText(text) { speakParts([{ text: text, rate: state.wordRate }]); }
 
-// say the word, then spell it slowly — "planet"  then  "p. l. a. n. e. t"
+// say the word, then spell it slower — "planet"  then  "p. l. a. n. e. t"
 function spellLetters(word) {
   const names = { "'": "apostrophe", "-": "dash" };
   return word.split("").map((c) => names[c] || c).join(". ");
 }
 function speakWordAndSpell(word) {
-  speakParts([{ text: word, rate: 0.8 },
-              { text: spellLetters(word), rate: SPELL_RATE }]);
+  speakParts([{ text: word, rate: state.wordRate },
+              { text: spellLetters(word), rate: state.spellRate }]);
 }
 
 function unlockSpeech() {
@@ -1454,6 +1458,8 @@ function renderReport(rep) {
   $("set-name").value = rep.profile.name || "";
   $("set-speaker").checked = rep.profile.show_speaker !== false;
   $("set-autoplay").checked = rep.profile.autoplay_audio === true;
+  setRateSlider("set-word-rate", "word-rate-val", rep.profile.word_rate || 0.8);
+  setRateSlider("set-spell-rate", "spell-rate-val", rep.profile.spell_rate || 0.45);
   $("set-pin").value = "";
   $("settings-saved").textContent = "";
   if (lsGet("push-parent")) $("notif-btn").textContent = "🔔 On for this device ✓";
@@ -1835,7 +1841,42 @@ function gradeLabel(v) {
   return ORDINAL[g - 1] + " grade" + (g === 9 ? "" : half ? " · later" : " · early");
 }
 
+// ---- audio-speed sliders (parent-tunable TTS rates) ----
+function setRateSlider(sliderId, valId, rate) {
+  $(sliderId).value = rate;
+  $(valId).textContent = Number(rate).toFixed(2) + "×";
+}
+// the example is read at the slider's LIVE value so the parent hears the
+// change immediately: word slider → a sample word; spell slider → spell it
+function demoWordRate() {
+  speakParts([{ text: "spelling", rate: parseFloat($("set-word-rate").value) }]);
+}
+function demoSpellRate() {
+  speakParts([{ text: spellLetters("spelling"),
+               rate: parseFloat($("set-spell-rate").value) }]);
+}
+function wireRateSlider(sliderId, valId, saveKey, stateKey, demoFn) {
+  const s = $(sliderId);
+  s.addEventListener("input", () => {
+    $(valId).textContent = parseFloat(s.value).toFixed(2) + "×";
+  });
+  s.addEventListener("change", () => {              // fires on release
+    const val = parseFloat(s.value);
+    state[stateKey] = val;                           // preview uses it too
+    demoFn();                                        // read the example back
+    postJSON("/api/parent/settings",
+      { pin: state.parentPin, child: state.parentChild, [saveKey]: val })
+      .then(() => refreshState().catch(() => {}))    // device kid picks it up
+      .catch(() => {});
+  });
+}
+
 function wireParent() {
+  wireRateSlider("set-word-rate", "word-rate-val", "word_rate", "wordRate", demoWordRate);
+  wireRateSlider("set-spell-rate", "spell-rate-val", "spell_rate", "spellRate", demoSpellRate);
+  $("word-rate-demo").addEventListener("click", demoWordRate);
+  $("spell-rate-demo").addEventListener("click", demoSpellRate);
+
   $("assign-mode").addEventListener("change", () => {
     // sentence tests come from the sentence bank, not a word list
     const m = $("assign-mode").value;
