@@ -100,7 +100,8 @@ hides-on-type; `CLIMB_CAP` keeps copying from mastering words) ·
 reset_list/bank_toggle_band/bank_toggle_word/bank_copy; settings accepts
 `reset_points`/`reset_progress` (targeted per-child resets) plus
 `enabled_grades` list — legacy `max_level` maps onto it — plus
-`hearts_only` to narrow word/listen practice to heart words) ·
+`hearts_only` to narrow word/listen practice to heart words, plus
+`autoplay_audio` to say+spell each shown word in copy/words modes) ·
 `GET /api/parent/report` (PIN in `X-Parent-Pin` header) ·
 `POST /api/parent/assign {action: create|delete, mode, list_id?,
 all_children?}` (missions: parent-assigned tests; kid sees them in

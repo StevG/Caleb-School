@@ -444,7 +444,8 @@ details.wlist[open] summary .tri{transform:rotate(90deg)}
   padding:12px 0;border-bottom:1px solid var(--line)}
 .setting:last-of-type{border-bottom:none}
 .setting span{font-size:15px}
-.setting.toggle input{width:24px;height:24px}
+.setting span small{display:block;font-size:12px;font-weight:400;color:var(--muted);margin-top:2px}
+.setting.toggle input{width:24px;height:24px;flex:none}
 .saved-note{color:var(--green-d);font-weight:700;min-height:20px;margin-top:8px;font-size:14px}
 
 /* ---------- SHORT VIEWPORTS ---------- */

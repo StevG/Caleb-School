@@ -29,6 +29,7 @@ const state = {
   mode: "words",
   goal: 10,
   showSpeaker: true,
+  autoplayAudio: false, // per-child: auto-speak "word, then spell it" on show
   points: 0,
   parentPin: "",
   // multiple kids: this DEVICE remembers who practices on it; the parent
@@ -80,6 +81,7 @@ function refreshState() {
       state.children = s.children || [];
       state.points = s.points || 0;
       state.showSpeaker = s.show_speaker !== false;
+      state.autoplayAudio = s.autoplay_audio === true;
       $("kid-name").textContent = s.name || "Caleb";
       $("home-points").textContent = state.points;
       renderWhoRow();
@@ -368,10 +370,12 @@ async function startSession() {
   state.levelUps = 0;
   state.finished = false;
   $("play-points").textContent = "+0";
-  // memory (dictation) and listen (audio-only) NEED the speaker, so it
-  // always shows in those modes regardless of the parent setting
+  // memory (dictation) and listen (audio-only) NEED the speaker; so does
+  // auto-play (so he can replay the word+spelling). Otherwise it follows the
+  // parent's "show speaker" setting.
   $("speaker").classList.toggle("hidden",
-    !state.showSpeaker && state.mode !== "memory" && state.mode !== "listen");
+    !state.showSpeaker && !state.autoplayAudio &&
+    state.mode !== "memory" && state.mode !== "listen");
   show("play");
   loadNext();
 }
@@ -441,6 +445,7 @@ function presentWordItem(item) {
       item.heart ? heartHint : "Look at the word — it hides when you type!",
       false, false, item.heart);  // hides on the first keystroke
   }
+  maybeAutoplayWord(); // say + spell it, if the parent enabled auto-play
 }
 
 // ----- WORD MECHANIC (shared by both modes) -----
@@ -548,6 +553,8 @@ function onType() {
   let val = cleanChars(inp.value);
   if (!state.caseSensitive) val = val.toLowerCase();
   inp.value = val;
+  // the moment he types, kill any audio so the spoken spelling can't be copied
+  if (val.length >= 1) stopSpeech();
   // hide the word the moment they start typing it (look–cover–write) —
   // except at stage 1 ("copy it"), where seeing it IS the exercise
   if (val.length >= 1 && !state.keepVisible) {
@@ -653,6 +660,7 @@ function advance() {
     } else {
       beginWord(state.target, "Try again — you can do it!",
         false, false, state.itemHeart);
+      maybeAutoplayWord(); // re-shown for the retype → say + spell again
     }
     return;
   }
@@ -919,6 +927,33 @@ function unlockSpeech() {
   } catch (_) {}
 }
 
+// Stop any audio immediately — used the moment the kid starts typing, so the
+// spoken spelling can't be copied letter-for-letter.
+function stopSpeech() {
+  const synth = window.speechSynthesis;
+  if (!synth) return;
+  currentUtterance = null;
+  try { synth.cancel(); } catch (_) {}
+  $("speaker").classList.remove("speaking");
+}
+
+// "planet" -> "planet. p. l. a. n. e. t" : say the word, then spell it out.
+function spellOut(word) {
+  const names = { "'": "apostrophe", "-": "dash" };
+  const letters = word.split("").map((c) => names[c] || c).join(". ");
+  return `${word}. ${letters}`;
+}
+
+// Parent accommodation: when a word is SHOWN (Copy It / Hide & Spell) and the
+// child has auto-play on, say the word and spell it. onType() stops it the
+// instant he types so it can't be used to copy.
+function maybeAutoplayWord() {
+  if (!state.autoplayAudio) return;
+  if (state.mode !== "copy" && state.mode !== "words") return;
+  if (!("speechSynthesis" in window) || !state.target) return;
+  speakText(spellOut(state.target));
+}
+
 function speakCurrent() {
   if (!("speechSynthesis" in window)) return;
   let text = state.target;
@@ -928,6 +963,8 @@ function speakCurrent() {
     const tok = state.sentence.tokens[state.sentence.wordIdx];
     if (!tok) return; // between the last word and the next sentence
     text = tok.answer;
+  } else if (state.mode === "copy" || state.mode === "words") {
+    text = spellOut(state.target); // say it, then spell it (never in listen)
   }
   speakText(text);
 }
@@ -1216,6 +1253,7 @@ function renderReport(rep) {
 
   $("set-name").value = rep.profile.name || "";
   $("set-speaker").checked = rep.profile.show_speaker !== false;
+  $("set-autoplay").checked = rep.profile.autoplay_audio === true;
   $("set-pin").value = "";
   $("settings-saved").textContent = "";
   if (lsGet("push-parent")) $("notif-btn").textContent = "🔔 On for this device ✓";
@@ -1657,6 +1695,7 @@ function wireParent() {
       child: state.parentChild,
       name: $("set-name").value,
       show_speaker: $("set-speaker").checked,
+      autoplay_audio: $("set-autoplay").checked,
     };
     const newPin = $("set-pin").value.trim();
     if (newPin) {

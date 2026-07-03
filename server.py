@@ -144,6 +144,7 @@ def _fill_child(child):
         child["profile"].setdefault(k, v)
     child["profile"].setdefault("bank_enabled", True)
     child["profile"].setdefault("hearts_only", False)
+    child["profile"].setdefault("autoplay_audio", False)
     # migrate the old single "max level" cap into per-band selection
     if "enabled_grades" not in child["profile"]:
         child["profile"]["enabled_grades"] = default_bands(
@@ -912,6 +913,7 @@ def parent_report(state):
             "name": state["profile"].get("name", "Caleb"),
             "points": state["profile"].get("points", 0),
             "show_speaker": state["profile"].get("show_speaker", True),
+            "autoplay_audio": state["profile"].get("autoplay_audio", False),
             "max_level": state["profile"].get("max_level", 3),
             "bank_enabled": state["profile"].get("bank_enabled", True),
             "hearts_only": state["profile"].get("hearts_only", False),
@@ -1039,6 +1041,7 @@ class Handler(BaseHTTPRequestHandler):
             "name": p.get("name", "Caleb"),
             "points": p.get("points", 0),
             "show_speaker": p.get("show_speaker", True),
+            "autoplay_audio": p.get("autoplay_audio", False),
             # open missions land on the kid's home screen
             "missions": [{"id": a["id"], "mode": a["mode"],
                           "name": a.get("name", ""),
@@ -1295,6 +1298,8 @@ class Handler(BaseHTTPRequestHandler):
                 p["name"] = str(body["name"]).strip()[:24]
             if "show_speaker" in body:
                 p["show_speaker"] = bool(body["show_speaker"])
+            if "autoplay_audio" in body:
+                p["autoplay_audio"] = bool(body["autoplay_audio"])
             if "bank_enabled" in body:
                 p["bank_enabled"] = bool(body["bank_enabled"])
             if "hearts_only" in body:

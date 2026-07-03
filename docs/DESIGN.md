@@ -85,6 +85,14 @@ game can only prove skills up to its own rung; see docs/SCORING.md):
 - Not a game with an economy — points are minutes of iPad time, period.
 
 ## Decisions log
+- 2026-07-02 — Per-child "auto-play audio when a word is shown" (owner
+  accommodation). A Settings toggle (`profile.autoplay_audio`, default off,
+  per child). When on, each shown word in Copy It / Hide & Spell is spoken
+  then spelled out ("planet. p. l. a. n. e. t"; `'`→"apostrophe", `-`→"dash")
+  via `maybeAutoplayWord()`. `onType()` calls `stopSpeech()` on the first
+  keystroke so the spelling can't be copied. The manual 🔊 in those modes
+  also says-then-spells; Listen & Spell stays word-only (spelling would give
+  the answer). Speaker button shows whenever auto-play is on (for replay).
 - 2026-07-02 — Fixed: Hide & Spell could show the word while typing (owner
   bug). A missed word re-queues a ladder rung down (stage 1), and
   `presentWordItem` had keyed presentation off the item's stage — so the
