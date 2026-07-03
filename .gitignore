@@ -1,7 +1,7 @@
-# Runtime data — the child's progress lives here. Gitignored so HomeHub's
-# every-30s `git merge --ff-only` never touches it and it survives deploys.
-/data/progress.json
-/data/*.tmp
+# Runtime data — the child's progress, badges, push keys/subs all live here.
+# Gitignore the WHOLE dir so HomeHub's every-15s `git merge --ff-only` never
+# touches it and it survives deploys. NEVER commit anything under data/.
+/data/
 
 # Python
 __pycache__/
