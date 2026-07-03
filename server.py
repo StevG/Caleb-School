@@ -1517,9 +1517,9 @@ class Handler(BaseHTTPRequestHandler):
                 p["show_speaker"] = bool(body["show_speaker"])
             if "autoplay_audio" in body:
                 p["autoplay_audio"] = bool(body["autoplay_audio"])
-            # audio speeds (TTS rate) — parent-tunable, clamped to sane ranges
-            for key, lo, hi in (("word_rate", 0.5, 1.2),
-                                ("spell_rate", 0.3, 1.0)):
+            # audio speeds (TTS rate) — parent-tunable, clamped to the range
+            for key, lo, hi in (("word_rate", 0.05, 1.0),
+                                ("spell_rate", 0.05, 1.0)):
                 if key in body:
                     try:
                         p[key] = max(lo, min(hi, round(float(body[key]), 2)))

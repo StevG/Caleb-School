@@ -117,11 +117,11 @@ const demo = await page.evaluate(() => {
   window.__utts = [];
   const set = (id, v) => { const s = document.getElementById(id); s.value = v;
     s.dispatchEvent(new Event('input')); s.dispatchEvent(new Event('change')); };
-  set('set-word-rate', '1.1');
+  set('set-word-rate', '0.95');
   return new Promise(r => setTimeout(() => r(window.__utts.slice()), 200));
 });
 check('word slider: reads a word example at the new rate',
-  demo.length === 1 && demo[0].rate > 1.0 && !demo[0].text.includes('. '), JSON.stringify(demo));
+  demo.length === 1 && Math.abs(demo[0].rate - 0.95) < 0.01 && !demo[0].text.includes('. '), JSON.stringify(demo));
 const demo2 = await page.evaluate(() => {
   window.__utts = [];
   const s = document.getElementById('set-spell-rate'); s.value = '0.6';
@@ -134,7 +134,7 @@ const savedRates = await page.evaluate(async () => {
   const r = await (await fetch('/api/parent/report', { headers: { 'X-Parent-Pin': '1234' } })).json();
   return { w: r.profile.word_rate, s: r.profile.spell_rate };
 });
-check('slider changes persist to the server', savedRates.w === 1.1 && savedRates.s === 0.6, JSON.stringify(savedRates));
+check('slider changes persist to the server', savedRates.w === 0.95 && savedRates.s === 0.6, JSON.stringify(savedRates));
 
 console.log(results.join('\n'));
 console.log('\nJS ERRORS:', errors.length ? errors : 'none');
