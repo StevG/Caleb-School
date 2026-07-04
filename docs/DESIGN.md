@@ -277,3 +277,18 @@ game can only prove skills up to its own rung; see docs/SCORING.md):
   "Copy words" action to clone a band into a custom list without typing.
   Bands/bank words can be switched off but never deleted; custom lists can.
   The Settings "Level" dropdown is gone (legacy max_level API still maps).
+- 2026-07-04 — Targeted spelling loop (owner-specified): the parent
+  dashboard now diagnoses and treats by word TYPE, the way US classrooms
+  do (Words Their Way feature analysis — docs/RESEARCH.md):
+  (a) Recent sessions are CLICKABLE — each opens to the actual words,
+  misses first, every word tagged with its category and ♥;
+  (b) a new "Word types" card aggregates accuracy per category, floats
+  struggling types up (6+ tries, <80%) with their trouble words and a
+  one-tap "Assign practice" button;
+  (c) assignments can target a school list, a word TYPE, or a whole grade
+  (dropdown optgroups; type/grade missions pick missed words first, then
+  shuffle — it's a test);
+  (d) the bank is category-first: each grade shows its types with
+  tri-state checkboxes (all/some/none), words one fold deeper, plus a
+  per-category "Copy to a list". The parent picks categories, not one
+  word at a time — but can still fine-tune single words.

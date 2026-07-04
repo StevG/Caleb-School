@@ -21,6 +21,7 @@ from main).
 | `autoplay.mjs` | Per-child auto-play-on-show: off by default, says word then spells it in Copy It / Hide & Spell, stops on typing, never spells in Listen & Spell, setting persists per child |
 | `badges.mjs` | Badges: 14-badge catalog + tier engine, earning with per-level star payout, Speed-of-Light pace math, sticky levels (reset immunity), per-child isolation, home chip + badge case + detail + parent strip |
 | `home-flow.mjs` | Home drill-down: pick a section (Words/Sentences) → game → count; each step fits without scrolling; Back steps up; sentence games one-tap; gear on top + opens gate |
+| `types.mjs` | Targeted spelling: per-word session results (requeued word = own line, ✗ tagged with category), clickable Recent-sessions drill-down, `by_type` needs-work analysis + Word-types card with one-tap assign, category & whole-grade missions (only that group's words, misses picked first), category-first bank (tri-state toggle, grey remembered checkmarks, per-category copy), session-words sanitization |
 | `assign.mjs` | Assignments + push: assign via the dashboard (list picker, every-child), mission card on kid home, list-words-only test session, completion score + done row, VAPID tickles to a local push sink + `/api/push/pull` messages, cancel |
 
 ## Running

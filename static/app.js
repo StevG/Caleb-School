@@ -536,6 +536,7 @@ async function startSession() {
   state.levelUps = 0;
   state.finished = false;
   state.sessionStart = Date.now(); // for the Speed of Light badge (secs/word)
+  state.sessionWords = []; // per-word first-try results for the parent view
   $("play-points").textContent = "+0";
   // memory (dictation) and listen (audio-only) NEED the speaker; so does
   // auto-play (so he can replay the word+spelling). Otherwise it follows the
@@ -756,6 +757,10 @@ function doCheck() {
     // A retype right after the reveal is "aided": it earns the star but
     // shouldn't count toward accuracy or mastery.
     const aided = state.missedThisItem;
+    // one line per completed word for the parent's session drill-down:
+    // ok = right on the first try (a requeued word is its own line again)
+    (state.sessionWords || (state.sessionWords = []))
+      .push({ w: state.target, ok: !aided });
     postAnswer(state.target, true, aided);
     if (!aided) state.correctCount++;
     state.wordsDone++;
@@ -1014,6 +1019,7 @@ function finishSession() {
     correct: state.correctCount,
     points: state.earned,
     seconds: secs,
+    words: (state.sessionWords || []).slice(0, 60),
     child: state.childId,
     assignment: state.assignment || undefined,
   }).then((r) => {
@@ -1438,11 +1444,39 @@ function renderReport(rep) {
       const li = document.createElement("li");
       const when = new Date(s.ts * 1000).toLocaleDateString(undefined,
         { month: "short", day: "numeric" });
-      li.innerHTML = `<span>${when} · ${esc(s.mode)}</span>` +
-        `<span>${s.correct}/${s.count} right</span>`;
+      const label = MODE_LABELS[s.mode] || s.mode;
+      const score = `${s.correct}/${s.count} right`;
+      if (!s.words || !s.words.length) {
+        // sessions from before word tracking — plain row, nothing to open
+        li.innerHTML = `<span>${when} · ${esc(label)}</span><span>${score}</span>`;
+      } else {
+        // clickable: opens the actual words — misses first, each with its
+        // category, so the parent sees WHAT went wrong, not just the score
+        li.className = "sess-li";
+        const det = document.createElement("details");
+        det.className = "sess";
+        det.innerHTML = `<summary><span class="tri">▶</span>` +
+          `<span>${when} · ${esc(label)}</span>` +
+          `<span class="sess-score">${score}</span></summary>`;
+        const body = document.createElement("div");
+        body.className = "sess-words";
+        const order = [...s.words.filter((w) => !w.ok),
+                       ...s.words.filter((w) => w.ok)];
+        order.forEach((w) => {
+          const row = document.createElement("div");
+          row.className = "sess-word" + (w.ok ? " ok" : " miss");
+          row.innerHTML = `<span class="sw-mark">${w.ok ? "✓" : "✗"}</span>` +
+            `<span class="sw-word">${esc(w.w)}${w.heart ? heartMark() : ""}</span>` +
+            `<span class="sw-group">${esc(w.group || "school word")}</span>`;
+          body.appendChild(row);
+        });
+        det.appendChild(body);
+        li.appendChild(det);
+      }
       sl.appendChild(li);
     });
   }
+  renderTypes(rep);
 
   // word sources: the custom lists first (the bank's copy-target dropdown
   // needs them cached), then the bank with its grade bands
@@ -1469,12 +1503,87 @@ function renderReport(rep) {
   rc.textContent = `Remove ${rep.profile.name || "this child"}…`;
 }
 
+// ---------- Word types (targeted instruction: results by category) ----------
+// US classrooms teach spelling by FEATURE — long-vowel teams, r-controlled
+// vowels, endings — so the analysis groups his results the same way. A
+// category with enough tries and low accuracy floats to the top with an
+// "Assign practice" button: one tap hands him a mission on just that type.
+function typeGradeTag(level) {
+  const g = Math.floor(level);
+  return ORDINAL[g - 1] + (level - g >= 0.5 ? "+" : "");
+}
+
+function renderTypes(rep) {
+  const list = $("types-list");
+  const restWrap = $("types-rest-wrap");
+  const rest = $("types-rest");
+  if (!list) return;
+  list.innerHTML = "";
+  rest.innerHTML = "";
+  const all = rep.by_type || [];
+  if (!all.length) {
+    list.innerHTML = '<li class="muted">Results by word type appear here once he practices.</li>';
+    restWrap.classList.add("hidden");
+    return;
+  }
+  const needy = all.filter((t) => t.needs_work);
+  const fine = all.filter((t) => !t.needs_work);
+
+  const row = (t, withAssign) => {
+    const li = document.createElement("li");
+    li.className = "type-row" + (withAssign ? " needs-work" : "");
+    let html =
+      `<div class="type-top"><span class="type-name">${esc(t.name)}` +
+      ` <span class="type-grade">${typeGradeTag(t.level)}</span></span>` +
+      `<span class="type-acc${t.accuracy < 80 ? " low" : ""}">${t.accuracy}%</span></div>` +
+      `<div class="type-meta">${t.practiced} of ${t.total} tried · ` +
+      `${t.seen} tries` + (t.mastered ? ` · ★${t.mastered}` : "") + `</div>`;
+    if (t.trouble && t.trouble.length) {
+      html += `<div class="prog-trouble">Still tricky: ` + t.trouble.map((w) =>
+        `<span class="wr-miss">${esc(w.word)} ✗${w.missed}</span>`).join("&ensp;") +
+        `</div>`;
+    }
+    if (withAssign) {
+      html += `<button class="mini-btn type-assign">📋 Assign practice</button>`;
+    }
+    li.innerHTML = html;
+    const btn = li.querySelector(".type-assign");
+    if (btn) btn.addEventListener("click", () => {
+      btn.disabled = true;
+      // Hide & Spell on just this category — his misses are picked first
+      assignCall({ action: "create", mode: "words", group: t.name });
+    });
+    return li;
+  };
+
+  if (!needy.length) {
+    list.innerHTML = '<li class="muted">Nothing needs extra work right now 🎉</li>';
+  } else {
+    needy.forEach((t) => list.appendChild(row(t, true)));
+  }
+  restWrap.classList.toggle("hidden", !fine.length);
+  $("types-rest-n").textContent =
+    `${fine.length} type${fine.length === 1 ? "" : "s"}`;
+  fine.forEach((t) => rest.appendChild(row(t, false)));
+}
+
 // ---------- Assignments (parent hands out missions) ----------
 function renderAssignments(rep) {
+  // what to practice: his checked words, a school list, one word TYPE
+  // (category), or a whole grade band — values carry a prefix so one
+  // dropdown can hold all four kinds of source
   const sel = $("assign-list");
+  const lists = (rep.lists || []).map((l) =>
+    `<option value="list:${esc(l.id)}">${esc(l.name)}</option>`).join("");
+  const tg = rep.type_groups || [];
+  const types = tg.filter((g) => !g.general).map((g) =>
+    `<option value="group:${esc(g.name)}">${esc(g.name)} · ${typeGradeTag(g.level)}</option>`).join("");
+  const bands = (rep.bank && rep.bank.bands || []).map((b) =>
+    `<option value="band:${b.level}">${gradeLabel(b.level)}</option>`).join("");
   sel.innerHTML = '<option value="">his checked words</option>' +
-    (rep.lists || []).map((l) =>
-      `<option value="${esc(l.id)}">${esc(l.name)}</option>`).join("");
+    (lists ? `<optgroup label="School lists">${lists}</optgroup>` : "") +
+    `<optgroup label="Word types">${types}</optgroup>` +
+    `<optgroup label="Whole grades">${bands}</optgroup>`;
   const a = rep.assignments || { todo: [], done: [] };
   const open = $("assign-open");
   open.innerHTML = a.todo.length ? "" :
@@ -1625,6 +1734,9 @@ function renderBank(bank) {
   const wasOpen = !!wrap.querySelector("details.wlist[open]");
   const openBands = new Set(
     [...wrap.querySelectorAll("details.band[open]")].map((d) => d.dataset.level));
+  const openGroups = new Set(
+    [...wrap.querySelectorAll("details.bank-group[open]")].map((d) =>
+      d.closest("details.band").dataset.level + "|" + d.dataset.group));
   wrap.innerHTML = "";
   const det = document.createElement("details");
   // "src-off" greys the contents when the source is switched off — the
@@ -1679,29 +1791,72 @@ function renderBank(bank) {
     });
     bd.appendChild(bsum);
 
+    // inside a grade: its CATEGORIES (phonics patterns, themes, sight
+    // words, everyday grade words) — the parent picks types, not 300
+    // individual words. Opening a category still shows every word in it.
     const bbody = document.createElement("div");
     bbody.className = "wlist-body";
-    const rows = document.createElement("div");
-    rows.className = "word-rows";
-    band.words.forEach((it) => {
-      const row = document.createElement("div");
-      row.className = "word-row" +
-        (it.stage >= 4 ? " st-mastered" : "") + (it.on ? "" : " off");
-      const status = it.stage >= 4 ? "★ mastered"
-        : it.stage >= 1 ? STAGE_TAGS[it.stage] : "";
-      row.innerHTML =
-        `<input type="checkbox" ${it.on ? "checked" : ""}` +
-        ` aria-label="practice this word">` +
-        `<span class="wr-word">${esc(it.word)}${it.heart ? heartMark() : ""}</span>` +
-        `<span class="wr-status">${status}</span>`;
-      const wcb = row.querySelector("input");
-      wcb.addEventListener("change", () => {
-        listsCall({ action: "bank_toggle_word", word: it.word,
-                    enabled: wcb.checked }).catch(listsFail);
+    (band.groups || []).forEach((grp) => {
+      const gd = document.createElement("details");
+      gd.className = "bank-group" + (grp.enabled_count ? "" : " grp-off");
+      gd.dataset.group = grp.name;
+      if (openGroups.has(String(band.level) + "|" + grp.name)) gd.open = true;
+
+      const gsum = document.createElement("summary");
+      gsum.innerHTML = `<span class="tri">▶</span>` +
+        `<input type="checkbox" aria-label="practice this category">` +
+        `<span class="list-name">${grp.general ? "Everyday words" : esc(grp.name)}</span>` +
+        `<span class="list-count">${grp.enabled_count}:${grp.total}</span>`;
+      const gcb = gsum.querySelector("input");
+      // tri-state: checked = all on · dash = some on · empty = none on
+      gcb.checked = grp.enabled_count === grp.total;
+      gcb.indeterminate = grp.enabled_count > 0 && grp.enabled_count < grp.total;
+      gcb.addEventListener("click", (e) => e.stopPropagation());
+      gcb.addEventListener("change", () => {
+        gd.classList.toggle("grp-off", !gcb.checked); // grey instantly
+        listsCall({ action: "bank_toggle_group", group: grp.name,
+                    enabled: gcb.checked }).catch(listsFail);
       });
-      rows.appendChild(row);
+      gd.appendChild(gsum);
+
+      const gbody = document.createElement("div");
+      gbody.className = "wlist-body";
+      const rows = document.createElement("div");
+      rows.className = "word-rows";
+      grp.words.forEach((it) => {
+        const row = document.createElement("div");
+        row.className = "word-row" +
+          (it.stage >= 4 ? " st-mastered" : "") + (it.on ? "" : " off");
+        const status = it.stage >= 4 ? "★ mastered"
+          : it.stage >= 1 ? STAGE_TAGS[it.stage] : "";
+        row.innerHTML =
+          `<input type="checkbox" ${it.on ? "checked" : ""}` +
+          ` aria-label="practice this word">` +
+          `<span class="wr-word">${esc(it.word)}${it.heart ? heartMark() : ""}</span>` +
+          `<span class="wr-status">${status}</span>`;
+        const wcb = row.querySelector("input");
+        wcb.addEventListener("change", () => {
+          listsCall({ action: "bank_toggle_word", word: it.word,
+                      enabled: wcb.checked }).catch(listsFail);
+        });
+        rows.appendChild(row);
+      });
+      gbody.appendChild(rows);
+
+      // copy just this category into a custom list — one tap
+      const gcopy = document.createElement("div");
+      gcopy.className = "wlist-actions";
+      gcopy.innerHTML = `<button class="mini-btn">Copy to a list</button>`;
+      gcopy.querySelector("button").addEventListener("click", () => {
+        listsCall({ action: "bank_copy", group: grp.name,
+                    name: grp.general
+                      ? gradeLabel(band.level) + " everyday words"
+                      : grp.name }).catch(listsFail);
+      });
+      gbody.appendChild(gcopy);
+      gd.appendChild(gbody);
+      bbody.appendChild(gd);
     });
-    bbody.appendChild(rows);
 
     // copy this grade's checked words into a custom list — no typing
     const copy = document.createElement("div");
@@ -1711,7 +1866,7 @@ function renderBank(bank) {
     copy.innerHTML =
       `<select aria-label="copy target">` +
       `<option value="">as a new list</option>${opts}</select>` +
-      `<button class="mini-btn">Copy words</button>`;
+      `<button class="mini-btn">Copy grade</button>`;
     copy.querySelector("button").addEventListener("click", () => {
       const target = copy.querySelector("select").value;
       listsCall({ action: "bank_copy", level: band.level,
@@ -1883,10 +2038,14 @@ function wireParent() {
     $("assign-list").disabled = m === "sentences" || m === "memory";
   });
   $("assign-create").addEventListener("click", () => {
-    assignCall({ action: "create",
-                 mode: $("assign-mode").value,
-                 list_id: $("assign-list").value || undefined,
-                 all_children: $("assign-all").checked || undefined });
+    const body = { action: "create",
+                   mode: $("assign-mode").value,
+                   all_children: $("assign-all").checked || undefined };
+    const src = $("assign-list").value; // "list:ID" | "group:NAME" | "band:LEVEL"
+    if (src.startsWith("list:")) body.list_id = src.slice(5);
+    else if (src.startsWith("group:")) body.group = src.slice(6);
+    else if (src.startsWith("band:")) body.level = parseFloat(src.slice(5));
+    assignCall(body);
   });
 
   $("notif-btn").addEventListener("click", async () => {

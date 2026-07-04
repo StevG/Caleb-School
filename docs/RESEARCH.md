@@ -156,9 +156,45 @@ blind-sort style contrast practice, Elkonin "map it" step after a miss,
 day-spanning mastery streaks, unstudied transfer words as the true mastery
 check, and heart-letter highlighting.
 
+## Feature-targeted instruction (the 2026-07-04 targeted-spelling loop)
+
+How US classrooms actually act on spelling errors: they diagnose by
+**feature**, not by word. *Words Their Way*'s within-word-pattern volume
+(the grades 1–4 stage most 2nd–3rd graders sit in) organizes every week
+around **word sorts that contrast one feature** (ai vs. ay, oi vs. oy), and
+its Spell Checks exist precisely to tell the teacher **which features** a
+child has mastered and which need targeted follow-up work (Invernizzi,
+Johnston, Bear & Templeton, *Words Their Way: Word Sorts for Within Word
+Pattern Spellers*, Pearson). Reading Rockets' practice guidance says the
+same thing for parents: analyze the child's misspellings for the pattern
+behind them and reteach that pattern
+(readingrockets.org → Reading 101 → Spelling: In Practice).
+
+The app now closes that exact loop, with the parent as the teacher:
+
+1. **Diagnose** — every session stores per-word first-try results; the
+   report aggregates them by the bank's category tags (`WORD_GROUP`) into
+   `by_type`. A category with 6+ tries under 80% unaided accuracy is
+   flagged `needs_work` — our stand-in for a failed Spell Check feature.
+2. **Target** — one tap on a flagged category assigns a Hide & Spell
+   mission on just that category, missed words selected first (then the
+   normal spaced-repetition ladder keeps resurfacing them).
+3. **Control** — the bank itself is presented category-first (each grade's
+   types, not a 300-word wall), so the parent can steer week-to-week
+   practice at the same granularity the analysis reports on. This is the
+   sort-group as a selectable unit — the closest a checkbox UI gets to
+   handing the kid a word sort.
+
+What we deliberately did NOT copy: physical sorting (open vs. closed
+sorts) — typing-based games can't do card sorts honestly, so the app keeps
+its look–cover–write–check core and uses the categories for *selection and
+reporting* instead.
+
 ## Open questions for future iterations
 
 - Should mastery decay (a word mastered in July re-checked in September)?
-- Per-pattern reporting for parents ("he misses r-controlled vowels most")?
-  The data already exists (`group` tags per word) — it's a UI question.
+- ~~Per-pattern reporting for parents ("he misses r-controlled vowels
+  most")?~~ Done 2026-07-04 — the Word types card (`by_type`).
 - Handwriting capture (Apple Pencil / finger tracing) as an alternate input.
+- True contrast sorts (show two pattern columns, kid drags words) as a
+  sixth game — the category data is already in place.

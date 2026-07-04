@@ -95,19 +95,28 @@ single-kid files migrate automatically.
 `GET /api/state` · `GET /api/session?mode=copy|words|listen|sentences|memory&count=N`
 (presentation follows the mode: copy always visible, words always
 hides-on-type; `CLIMB_CAP` keeps copying from mastering words) ·
-`POST /api/answer {word, correct, aided, mode}` · `POST /api/session_end` ·
+`POST /api/answer {word, correct, aided, mode}` · `POST /api/session_end`
+(accepts `words: [{w, ok}]` — per-word first-try results, sanitized + capped
+60, stored in the session entry; the report tags each with its `group` +
+heart for the clickable Recent-sessions drill-down) ·
 `POST /api/parent/login|settings|custom_words|lists|children` (PIN in body;
 `lists` actions: create/delete/toggle_list/toggle_word/add_words/remove_word/
-reset_list/bank_toggle_band/bank_toggle_word/bank_copy; settings accepts
+reset_list/bank_toggle_band/bank_toggle_word/bank_toggle_group (whole
+category on/off, stored per-word in bank_off)/bank_copy (a band via `level`
+or one category via `group`); settings accepts
 `reset_points`/`reset_progress` (targeted per-child resets) plus
 `enabled_grades` list — legacy `max_level` maps onto it — plus
 `hearts_only` to narrow word/listen practice to heart words, plus
 `autoplay_audio` to say+spell each shown word in copy/words modes) ·
-`GET /api/parent/report` (PIN in `X-Parent-Pin` header) ·
-`POST /api/parent/assign {action: create|delete, mode, list_id?,
-all_children?}` (missions: parent-assigned tests; kid sees them in
-`/api/state.missions`, plays via `/api/session?assignment=`, completion via
-`session_end {assignment}`) · Web Push: `GET /api/push/key`, `POST
+`GET /api/parent/report` (PIN in `X-Parent-Pin` header; includes `by_type`
+per-category accuracy — `needs_work` = 6+ tries <80% → the Word types card
+with one-tap assign — plus the `type_groups` catalog, and `bank.bands[]`
+split into `groups` for the category-first Word-lists card) ·
+`POST /api/parent/assign {action: create|delete, mode, list_id?|group?|
+level?, all_children?}` (missions: parent-assigned tests on a school list,
+one word CATEGORY, or a whole grade band — type/grade missions pick missed
+words first, cap 25, shuffle; kid sees them in `/api/state.missions`, plays
+via `/api/session?assignment=`, completion via `session_end {assignment}`) · Web Push: `GET /api/push/key`, `POST
 /api/push/subscribe|pull` — pure-stdlib VAPID (P-256 in server.py), EMPTY
 tickle pushes + SW pull (no payload crypto); key + subs in gitignored
 `data/push.json` · `GET /api/badges?child=` (kid's trophy case) — 14 tiered

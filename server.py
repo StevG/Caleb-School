@@ -55,6 +55,30 @@ CLIMB_CAP = {"copy": STAGE_MEMORY, "words": STAGE_SOUND}
 WORDS, SENTENCES = wordbank.build_pool()
 WORD_GROUP = {item["w"]: item["group"] for item in WORDS}
 
+# Category catalog: every bank word belongs to one named group (a phonics
+# pattern like "Long a (ai)", a theme, sight/tricky words, or a grade's
+# general list), and every group lives in exactly one half-grade band.
+# GROUP_ORDER preserves wordbank's build order — phonics patterns first,
+# then themes, sight words, grade lists — which is the teaching order the
+# parent dashboard shows categories in.
+GROUP_ORDER = []
+GROUP_LEVEL = {}
+for _item in WORDS:
+    if _item["group"] not in GROUP_LEVEL:
+        GROUP_ORDER.append(_item["group"])
+        GROUP_LEVEL[_item["group"]] = float(_item["level"])
+# "Grade N · early/later" catch-alls are general word lists, not a taught
+# feature — the dashboard labels them differently and the type analysis
+# keeps them apart from the pattern work.
+GENERAL_GROUPS = {g for g in GROUP_ORDER if g.startswith("Grade ")}
+_GROUP_WORDS = {}
+for _item in WORDS:
+    _GROUP_WORDS.setdefault(_item["group"], []).append(_item["w"])
+# the catalog the parent's "assign by category / grade" dropdowns draw from
+TYPE_GROUPS = [{"name": g, "level": GROUP_LEVEL[g],
+                "general": g in GENERAL_GROUPS, "total": len(_GROUP_WORDS[g])}
+               for g in GROUP_ORDER]
+
 # The bank is organized in half-grade bands (1.0, 1.5, ... 9.0). Each band is
 # individually selectable in the parent's Word lists card; a word belongs to
 # the band matching its level.
@@ -597,41 +621,61 @@ def bank_words(state):
 
 def bank_status(state):
     """The bank as the Word-lists card shows it: one entry per grade band,
-    each with its words (individually switchable, never removable)."""
+    each split into its CATEGORIES (phonics patterns, themes, sight words,
+    the grade's general list). The parent switches whole categories on or
+    off; opening one still shows — and toggles — the single words inside
+    (switchable, never removable)."""
     stats = state["words"]
     off = set(state.get("bank_off", []))
     on_bands = enabled_bands(state)
+    by_band = {}
+    for item in WORDS:
+        b = float(item["level"])
+        g = by_band.setdefault(b, {})
+        g.setdefault(item["group"], []).append(item["w"])
     bands = []
     total_on = 0
     for b in GRADE_BANDS:
-        words = []
-        n_on = 0
-        for item in WORDS:
-            if float(item["level"]) != b:
+        groups = []
+        band_total = 0
+        band_on = 0
+        for name in GROUP_ORDER:
+            if GROUP_LEVEL[name] != b or name not in by_band.get(b, {}):
                 continue
-            w = item["w"]
-            s = stats.get(w)
-            is_on = w not in off
-            n_on += is_on
-            entry = {
-                "word": w,
-                "on": is_on,
-                "stage": word_stage(s) if s and s.get("seen", 0) else 0,
-            }
-            if w in wordbank.HEART_WORDS:
-                entry["heart"] = True
-            words.append(entry)
-        # heart words first (the hard ones a parent scans for), then the
-        # rest — each section alphabetical
-        words.sort(key=lambda e: (0 if e.get("heart") else 1, e["word"]))
+            words = []
+            n_on = 0
+            for w in by_band[b][name]:
+                s = stats.get(w)
+                is_on = w not in off
+                n_on += is_on
+                entry = {
+                    "word": w,
+                    "on": is_on,
+                    "stage": word_stage(s) if s and s.get("seen", 0) else 0,
+                }
+                if w in wordbank.HEART_WORDS:
+                    entry["heart"] = True
+                words.append(entry)
+            # heart words first (the hard ones a parent scans for), then
+            # the rest — each section alphabetical
+            words.sort(key=lambda e: (0 if e.get("heart") else 1, e["word"]))
+            band_total += len(words)
+            band_on += n_on
+            groups.append({
+                "name": name,
+                "general": name in GENERAL_GROUPS,
+                "total": len(words),
+                "enabled_count": n_on,
+                "words": words,
+            })
         if b in on_bands:
-            total_on += n_on
+            total_on += band_on
         bands.append({
             "level": b,
             "enabled": b in on_bands,
-            "total": len(words),
-            "enabled_count": n_on,
-            "words": words,
+            "total": band_total,
+            "enabled_count": band_on,
+            "groups": groups,
         })
     return {
         "enabled": state["profile"].get("bank_enabled", True),
@@ -795,6 +839,29 @@ def build_assignment_session(state, a):
                 if l.get("id") == a.get("list_id")), None)
     if lst:
         words = [wd["w"] for wd in lst["words"] if wd.get("on", True)]
+    elif a.get("group") in _GROUP_WORDS or a.get("level") in BAND_COUNTS:
+        # a CATEGORY or whole-grade mission: the targeted-practice case.
+        # Words the parent switched off stay out (unless that empties it);
+        # missed/unmastered words come first — that's what needs the work —
+        # then fresh ones, and already-mastered words only pad the tail.
+        if a.get("group") in _GROUP_WORDS:
+            pool = list(_GROUP_WORDS[a["group"]])
+        else:
+            pool = [item["w"] for item in WORDS
+                    if float(item["level"]) == a["level"]]
+        off = set(state.get("bank_off", []))
+        pool = [w for w in pool if w not in off] or pool
+        random.shuffle(pool)  # ties land in a fresh order every time
+
+        def urgency(w):
+            s = stats.get(w)
+            if not s or not s.get("seen", 0):
+                return (1, 0)                     # fresh: after the misses
+            if word_stage(s) >= STAGE_MASTERED:
+                return (2, 0)                     # mastered: filler only
+            return (0, -s.get("missed", 0))       # unmastered, most-missed
+        pool.sort(key=urgency)
+        words = pool[:a.get("count", 10)]
     else:
         words = eligible_words(state)
         random.shuffle(words)
@@ -972,6 +1039,46 @@ def source_progress(state):
     return {"lists": lists, "bands": bands}
 
 
+def type_analysis(state):
+    """Per-CATEGORY results across everything he's practiced — the heart of
+    targeted instruction (US classrooms teach spelling by FEATURE — a child
+    who misses "coin" and "voice" needs the oi/oy pattern, not those two
+    words; see docs/RESEARCH.md). One entry per category with any practice,
+    worst accuracy first, flagged needs_work when there's enough signal
+    (6+ tries) and accuracy is under 80% — those are the categories the
+    dashboard suggests assigning extra practice on."""
+    stats = state["words"]
+    out = []
+    for g in GROUP_ORDER:
+        words = _GROUP_WORDS[g]
+        seen_words = [w for w in words if stats.get(w, {}).get("seen", 0)]
+        if not seen_words:
+            continue
+        seen = sum(stats[w]["seen"] for w in seen_words)
+        correct = sum(stats[w]["correct"] for w in seen_words)
+        acc = round(100 * correct / seen) if seen else 0
+        trouble = sorted(
+            ({"word": w, "missed": stats[w].get("missed", 0),
+              "stage": word_stage(stats[w])}
+             for w in seen_words if stats[w].get("missed", 0) > 0),
+            key=lambda t: -t["missed"])[:4]
+        out.append({
+            "name": g,
+            "level": GROUP_LEVEL[g],
+            "general": g in GENERAL_GROUPS,
+            "total": len(words),
+            "practiced": len(seen_words),
+            "mastered": sum(1 for w in seen_words
+                            if word_stage(stats[w]) >= STAGE_MASTERED),
+            "seen": seen,
+            "accuracy": acc,
+            "needs_work": seen >= 6 and acc < 80,
+            "trouble": trouble,
+        })
+    out.sort(key=lambda e: (not e["needs_work"], e["accuracy"], -e["seen"]))
+    return out
+
+
 def lists_status(state):
     """Every custom list with counts and per-word ladder status — what the
     parent's Word lists card renders."""
@@ -1047,7 +1154,24 @@ def parent_report(state):
     lists = lists_status(state)
 
     sessions = state.get("sessions", [])
-    recent = list(reversed(sessions[-14:]))
+    # newest first, each word tagged with its category + heart mark so the
+    # parent can open a session and see WHAT was practiced, not just a score
+    recent = []
+    for s in reversed(sessions[-14:]):
+        s = dict(s)
+        if s.get("words"):
+            tagged = []
+            for it in s["words"]:
+                t = {"w": it["w"], "ok": bool(it.get("ok"))}
+                cw = clean_token(it["w"])
+                g = WORD_GROUP.get(cw)
+                if g:
+                    t["group"] = g
+                if cw in wordbank.HEART_WORDS:
+                    t["heart"] = True
+                tagged.append(t)
+            s["words"] = tagged
+        recent.append(s)
 
     # last 14 practice days, newest first — each day is its own row,
     # deliberately NOT rolled into the lifetime numbers
@@ -1110,6 +1234,8 @@ def parent_report(state):
         },
         "journey": journey,
         "lists": lists,
+        "by_type": type_analysis(state),
+        "type_groups": TYPE_GROUPS,
         "most_missed": missed[:25],
         "by_mode": by_mode,
         "daily": daily,
@@ -1301,13 +1427,28 @@ class Handler(BaseHTTPRequestHandler):
             mode = str(body.get("mode", "words"))[:20]
             count = as_int(body.get("count", 0))
             correct = as_int(body.get("correct", 0))
-            state.setdefault("sessions", []).append({
+            entry = {
                 "ts": int(time.time()),
                 "mode": mode,
                 "count": count,
                 "correct": correct,
                 "points": as_int(body.get("points", 0)),
-            })
+            }
+            # per-word results (ok = right on the FIRST try) — lets the
+            # parent open a session and see exactly what was practiced and
+            # what went wrong. Sanitized hard: it's kid-device input.
+            raw_words = body.get("words")
+            if isinstance(raw_words, list):
+                seen_words = []
+                for it in raw_words[:60]:
+                    if not isinstance(it, dict):
+                        continue
+                    w = str(it.get("w", ""))[:32].strip()
+                    if w:
+                        seen_words.append({"w": w, "ok": bool(it.get("ok"))})
+                if seen_words:
+                    entry["words"] = seen_words
+            state.setdefault("sessions", []).append(entry)
             state["sessions"] = state["sessions"][-200:]
             # --- badge counters for the finished session ---
             c = state.setdefault("counters", {})
@@ -1432,11 +1573,25 @@ class Handler(BaseHTTPRequestHandler):
                 if mode not in VALID_MODES:
                     return self._send_json({"error": "bad mode"}, 400)
                 list_id = str(body.get("list_id", "") or "")
+                # category / whole-grade sources (targeted practice)
+                group = str(body.get("group", "") or "")
+                group = group if group in _GROUP_WORDS else ""
+                level = None
+                try:
+                    level = float(body.get("level"))
+                except (ValueError, TypeError):
+                    pass
+                if level not in BAND_COUNTS:
+                    level = None
                 targets = doc["children"] if body.get("all_children") \
                     else [state]
                 for kid in targets:
                     lst = next((l for l in kid.get("lists", [])
                                 if l.get("id") == list_id), None)
+                    try:
+                        count = max(5, min(25, int(body.get("count", 10))))
+                    except (ValueError, TypeError):
+                        count = 10
                     if mode in ("sentences", "memory"):
                         count = 3 if mode == "memory" else 6
                         name = f"{count} sentences"
@@ -1444,22 +1599,29 @@ class Handler(BaseHTTPRequestHandler):
                         count = min(25, sum(1 for wd in lst["words"]
                                             if wd.get("on", True)))
                         name = lst.get("name", "List")
+                    elif group:
+                        count = min(count, len(_GROUP_WORDS[group]))
+                        name = group
+                    elif level is not None:
+                        count = min(count, BAND_COUNTS[level])
+                        name = f"Grade {level:g} words"
                     else:
-                        try:
-                            count = max(5, min(25, int(body.get("count", 10))))
-                        except (ValueError, TypeError):
-                            count = 10
                         name = "Practice words"
                     n = 1
                     have = {a.get("id") for a in kid["assignments"]}
                     while f"a{n}" in have:
                         n += 1
-                    kid["assignments"].append({
+                    entry = {
                         "id": f"a{n}", "mode": mode,
                         "list_id": lst.get("id") if lst else "",
                         "name": name, "count": count,
                         "ts": int(time.time()), "status": "todo",
-                    })
+                    }
+                    if not lst and group:
+                        entry["group"] = group
+                    elif not lst and level is not None:
+                        entry["level"] = level
+                    kid["assignments"].append(entry)
                     notices.append((kid["id"],
                                     f"{MODE_LABELS[mode]} — {name}"))
             else:
@@ -1687,20 +1849,41 @@ class Handler(BaseHTTPRequestHandler):
                 elif target in WORD_GROUP:
                     off.add(target)
                 state["bank_off"] = sorted(off)
-            elif action == "bank_copy":
-                # copy a band's checked words into a list (new or existing) —
-                # a school list without any typing
-                try:
-                    band = float(body.get("level"))
-                except (ValueError, TypeError):
-                    return self._send_json({"error": "bad level"}, 400)
+            elif action == "bank_toggle_group":
+                # one checkbox per CATEGORY: switch every word of a group on
+                # or off at once (still stored per-word in bank_off, so any
+                # finer word-level tweaks the parent makes stay possible)
+                group = str(body.get("group", ""))
+                if group not in _GROUP_WORDS:
+                    return self._send_json({"error": "bad group"}, 400)
                 off = set(state.get("bank_off", []))
-                words = [item["w"] for item in WORDS
-                         if float(item["level"]) == band
-                         and item["w"] not in off]
+                if bool(body.get("enabled", True)):
+                    off -= set(_GROUP_WORDS[group])
+                else:
+                    off |= set(_GROUP_WORDS[group])
+                state["bank_off"] = sorted(off)
+            elif action == "bank_copy":
+                # copy a band's — or one category's — checked words into a
+                # list (new or existing): a school list without any typing
+                group = str(body.get("group", "") or "")
+                if group and group not in _GROUP_WORDS:
+                    return self._send_json({"error": "bad group"}, 400)
+                band = None
+                if not group:
+                    try:
+                        band = float(body.get("level"))
+                    except (ValueError, TypeError):
+                        return self._send_json({"error": "bad level"}, 400)
+                off = set(state.get("bank_off", []))
+                if group:
+                    words = [w for w in _GROUP_WORDS[group] if w not in off]
+                else:
+                    words = [item["w"] for item in WORDS
+                             if float(item["level"]) == band
+                             and item["w"] not in off]
                 if lst is None:
                     name = str(body.get("name", "")).strip()[:40] or \
-                        f"Grade {band:g} words"
+                        (group if group else f"Grade {band:g} words")
                     lst = {"id": new_list_id(state), "name": name,
                            "enabled": True, "words": []}
                     lists.append(lst)

@@ -22,7 +22,7 @@ check('bank row shows on:total count', /^\d+:\d+$/.test(bankCount), bankCount);
 
 // open the bank -> one nested, non-deletable band per half grade
 await page.evaluate(() => { document.querySelector('#bank-wrap details.wlist').open = true; });
-const bandRows = await page.$$eval('#bank-wrap details.band summary', els =>
+const bandRows = await page.$$eval('#bank-wrap details.band > summary', els =>
   els.map(e => ({ label: e.querySelector('.list-name').textContent,
                   count: e.querySelector('.list-count').textContent,
                   on: e.querySelector('input').checked })));
@@ -38,7 +38,7 @@ check('grade bands are permanent (no delete button)',
 // uncheck a band -> summary count drops by that band's size and persists
 const band1Size = parseInt(bandRows[0].count, 10); // its enabled count
 const before = parseInt(bankCount, 10);
-await page.click('#bank-wrap details.band summary input');
+await page.click('#bank-wrap details.band > summary input');
 await page.waitForTimeout(400);
 const after = parseInt((await page.textContent('#bank-count')).trim(), 10);
 const savedBands = await page.evaluate(async () => {
@@ -48,25 +48,27 @@ const savedBands = await page.evaluate(async () => {
 check('band toggle: count drops by the band size and persists',
   after === before - band1Size && !savedBands.includes(1) && savedBands.includes(3),
   `${before} -> ${after} (band=${band1Size}), saved: ${JSON.stringify(savedBands)}`);
-await page.click('#bank-wrap details.band summary input'); // restore
+await page.click('#bank-wrap details.band > summary input'); // restore
 await page.waitForTimeout(300);
 
 // per-word toggle inside a band: uncheck one word -> band shows 49:50
 await page.evaluate(() => {
   document.querySelector('#bank-wrap details.wlist').open = true;
   document.querySelector('#bank-wrap details.band').open = true;
+  document.querySelector('#bank-wrap details.bank-group').open = true;
 });
 const bankWord = (await page.textContent('#bank-wrap details.band .word-row .wr-word'))
   .replace('♥', '').trim(); // heart words sort first and carry the ♥ glyph
 await page.click('#bank-wrap details.band .word-row input');
 await page.waitForTimeout(400);
-const bandCount = (await page.$$eval('#bank-wrap details.band summary .list-count',
+const bandCount = (await page.$$eval('#bank-wrap details.band > summary .list-count',
   els => els[0].textContent)).trim();
 const offOnServer = await page.evaluate(async (w) => {
   const r = await fetch('/api/parent/report', { headers: { 'X-Parent-Pin': '1234' } });
   const b = (await r.json()).bank.bands[0];
+  const flat = b.groups.flatMap(g => g.words);
   return { count: b.enabled_count, total: b.total,
-           off: b.words.find(x => x.word === w)?.on === false };
+           off: flat.find(x => x.word === w)?.on === false };
 }, bankWord);
 check('bank word toggle: band count drops by one and persists',
   bandCount.startsWith(`${band1Size - 1}:${band1Size}`) &&
@@ -75,6 +77,7 @@ check('bank word toggle: band count drops by one and persists',
 await page.evaluate(() => {
   document.querySelector('#bank-wrap details.wlist').open = true;
   document.querySelector('#bank-wrap details.band').open = true;
+  document.querySelector('#bank-wrap details.bank-group').open = true;
 });
 await page.click('#bank-wrap details.band .word-row input'); // restore
 await page.waitForTimeout(300);
@@ -84,13 +87,14 @@ await page.waitForTimeout(300);
 await page.evaluate(() => {
   document.querySelector('#bank-wrap details.wlist').open = true;
   document.querySelector('#bank-wrap details.band').open = true;
+  document.querySelector('#bank-wrap details.bank-group').open = true;
 });
 await page.click('#bank-wrap details.band .word-row input'); // 1 word off
 await page.waitForTimeout(400);
 const snapBefore = await page.evaluate(() =>
   [...document.querySelector('#bank-wrap details.band')
     .querySelectorAll('.word-row input')].map(e => e.checked).join(''));
-await page.click('#bank-wrap details.band summary input'); // band OFF
+await page.click('#bank-wrap details.band > summary input'); // band OFF
 await page.waitForTimeout(400);
 const offState = await page.evaluate(() => {
   const band = document.querySelector('#bank-wrap details.band');
@@ -100,7 +104,7 @@ const offState = await page.evaluate(() => {
 check('band off: section greys, word checkmarks stay put',
   offState.grey && offState.snap === snapBefore,
   `grey=${offState.grey} same=${offState.snap === snapBefore}`);
-await page.click('#bank-wrap details.band summary input'); // band back ON
+await page.click('#bank-wrap details.band > summary input'); // band back ON
 await page.waitForTimeout(400);
 const onState = await page.evaluate(() => {
   const band = document.querySelector('#bank-wrap details.band');
@@ -115,6 +119,7 @@ check('band back on: grey lifts, the previous selection is active again',
 await page.evaluate(() => {
   document.querySelector('#bank-wrap details.wlist').open = true;
   document.querySelector('#bank-wrap details.band').open = true;
+  document.querySelector('#bank-wrap details.bank-group').open = true;
 });
 await page.click('#bank-wrap details.band .word-row input'); // restore word
 await page.waitForTimeout(400);
@@ -122,7 +127,7 @@ await page.waitForTimeout(400);
 // word rows are ordered: heart words A-Z first, then the rest A-Z
 const order = await page.evaluate(async () => {
   const rep = await (await fetch('/api/parent/report', { headers: { 'X-Parent-Pin': '1234' } })).json();
-  const rows = rep.bank.bands[0].words;
+  const rows = rep.bank.bands[0].groups[0].words; // hearts-first is per category
   const hearts = rows.filter(w => w.heart).map(w => w.word);
   const rest = rows.filter(w => !w.heart).map(w => w.word);
   const sorted = (a) => JSON.stringify(a) === JSON.stringify([...a].sort());
@@ -135,13 +140,13 @@ check('band rows: hearts A-Z on top, then the rest A-Z',
 // uncheck EVERY band -> the empty selection STICKS (no snap-back to the
 // defaults) and a heads-up note appears; sessions fall back to starter words
 for (let i = 0; i < 20; i++) {
-  const cb = await page.$('#bank-wrap details.band summary input:checked');
+  const cb = await page.$('#bank-wrap details.band > summary input:checked');
   if (!cb) break;
   await cb.click();
   await page.waitForTimeout(300);
 }
 const allOff = await page.evaluate(async () => {
-  const boxes = [...document.querySelectorAll('#bank-wrap details.band summary input')];
+  const boxes = [...document.querySelectorAll('#bank-wrap details.band > summary input')];
   const rep = await (await fetch('/api/parent/report', { headers: { 'X-Parent-Pin': '1234' } })).json();
   const sess = await (await fetch('/api/session?mode=words&count=8')).json();
   return { uiChecked: boxes.filter(b => b.checked).length,
@@ -157,7 +162,7 @@ check('all unchecked -> heads-up note shows', allOff.noteShown);
 check('all unchecked -> kid still gets a session (starter fallback)',
   allOff.sessionItems === 8, String(allOff.sessionItems));
 // re-check one band -> note hides again
-await page.click('#bank-wrap details.band summary input');
+await page.click('#bank-wrap details.band > summary input');
 await page.waitForTimeout(400);
 const noteGone = await page.$eval('#no-words-note', el => el.classList.contains('hidden'));
 check('re-checking a band hides the note', noteGone);
@@ -244,8 +249,9 @@ check('delete list removes it', listsLeft === 0);
 await page.evaluate(() => {
   document.querySelector('#bank-wrap details.wlist').open = true;
   document.querySelector('#bank-wrap details.band').open = true;
+  document.querySelector('#bank-wrap details.bank-group').open = true;
 });
-await page.click('#bank-wrap details.band .wlist-actions button');
+await page.click('#bank-wrap details.band .wlist-actions button:has-text("Copy grade")');
 await page.waitForTimeout(500);
 const copied = await page.$$eval('#lists-wrap details.wlist summary', els =>
   els.map(e => ({ name: e.querySelector('.list-name').textContent,

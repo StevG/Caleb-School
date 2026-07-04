@@ -11,14 +11,15 @@ view answers one question a parent of a struggling speller actually asks.
 | Accuracy tile | "How is he doing overall?" | `summary.accuracy` (unaided only) |
 | Last practiced bar | "Did he do it today?" | `last_practice_ts` |
 | Learning journey card | "Where is everything on the ladder?" | `journey` {copy, memory, sound, mastered} + `summary.mastered_this_week` |
-| Word lists card | "What is he practicing, and is he ready for Friday's test?" | Two kinds of sources, same checklist UI. **The bank** (`bank`: enabled, enabled_count:total, bands[]): one PERMANENT nested list per half-grade band, each with its own checkbox, `on:total` count, and per-word checkboxes (`bank_off` stores switched-off words) — plus a "Copy words" action that clones a band's checked words into a new or existing custom list without typing. **Custom lists** (`lists` [{id, name, enabled, total, enabled_count, mastered, words:[{word, on, stage, seen, missed}]}]): same rows plus ✕ remove and Delete — deletable, unlike grades. Words: green = mastered, struck = off, ✗N = misses. Deliberately utilitarian. |
+| Word lists card | "What is he practicing, and is he ready for Friday's test?" | Two kinds of sources, same checklist UI. **The bank** (`bank`: enabled, enabled_count:total, bands[]): one PERMANENT nested list per half-grade band — and inside each band its CATEGORIES (`bands[].groups`: `{name, general, total, enabled_count, words}`). The parent toggles whole categories (tri-state checkbox; `bank_toggle_group` writes the per-word `bank_off` set) or single words one fold deeper; each category and each band has a copy action (`bank_copy {group}` / `{level}`) that clones its checked words into a custom list without typing. **Custom lists** (`lists` [{id, name, enabled, total, enabled_count, mastered, words:[{word, on, stage, seen, missed}]}]): same rows plus ✕ remove and Delete — deletable, unlike grades. Words: green = mastered, struck = off, ✗N = misses. Deliberately utilitarian. |
 | Heart words only ♥ toggle | "Can we drill just the tricky-part words?" | `profile.hearts_only` (set via settings) + `hearts_in_pool` (how many heart words the checked sources hold — also returned by `/api/parent/lists` calls so the note stays live). Bank/list word rows carry `heart: true` → the red ♥ after the word. Filter applies to words + listen modes; zero hearts in the selection falls back to ALL heart words (never an empty session). |
-| Assignments card | "Did he do the test I gave him, and how did it go?" | `assignments` — `{todo: [...], done: [last 8]}` per child. Each: `{id, mode, list_id, name, count, ts, status, result: {count, correct}, done_ts}`. Create/delete via `POST /api/parent/assign`; the kid's `/api/state` carries open ones as `missions`; `/api/session?assignment=` builds the test (list words once, shuffled, hidden-on-type); `session_end {assignment}` marks done + notifies parent devices. |
+| Assignments card | "Did he do the test I gave him, and how did it go?" | `assignments` — `{todo: [...], done: [last 8]}` per child. Each: `{id, mode, list_id, name, count, ts, status, result: {count, correct}, done_ts, group?, level?}`. Create/delete via `POST /api/parent/assign` — create takes `list_id` OR `group` (category name) OR `level` (grade band): type/grade missions pick missed-unmastered words first, then fresh, then mastered filler, capped at 25 and shuffled. The kid's `/api/state` carries open ones as `missions`; `/api/session?assignment=` builds the test; `session_end {assignment}` marks done + notifies parent devices. |
 | Results by list card | "Is he ready for Friday's test? Is this week's list improving?" | `progress` — `{lists: [...], bands: [...]}`. Per group: `total/practiced/mastered` (bar), `accuracy` (unaided only), `last_ts`, `trend` (last 10 practice days as `{date, seen, correct}`, summed from the per-word `days` tallies), `trouble` (top-5 missed words with counts). Lists always show (id + name, with a "start over" reset); bands only once practiced (level label). |
 | Most-missed words | "What should we drill in the car?" | `most_missed` (sorted by misses; `stage` included) |
 | Day by day | "Is practice actually happening?" | `daily` — one row PER DAY, never merged (words, accuracy, stars) |
 | By practice type | "Which modes does he use / avoid?" | `by_mode` per words/listen/sentences/memory (tries, accuracy, sessions, stars) |
-| Recent sessions | raw log | `recent_sessions` |
+| Word types card | "WHICH patterns does he struggle with?" (the targeted-instruction view — docs/RESEARCH.md) | `by_type` — one entry per bank category with any practice: `{name, level, general, total, practiced, mastered, seen, accuracy, needs_work, trouble[4]}`. `needs_work` = 6+ unaided tries under 80% → floats to the top with an "Assign practice" button (creates a `group` mission); the rest folds under "Going fine". `type_groups` is the static 67-category catalog (name, level, general, total) the assign dropdowns draw from. |
+| Recent sessions | raw log — and "what EXACTLY did he practice?" | `recent_sessions` — each entry `{ts, mode, count, correct, points, words?}`. `words` (when the client sent them): `[{w, ok, group?, heart?}]`, ok = right on the FIRST try, requeued words appear twice, `group`/`heart` tagged server-side from `WORD_GROUP`/`HEART_WORDS`. The UI renders these rows as clickable folds, misses first. |
 
 ## Data model (data/progress.json)
 
@@ -47,7 +48,10 @@ modes:        mode -> {seen, correct, missed, points}
 days:         "YYYY-MM-DD" -> {seen, correct, missed, points,
                                modes: {mode: {seen, correct, points}}}
               (pruned to 60 days)
-last_answer_ts, custom_words [str], sessions [{ts, mode, count, correct, points}]
+last_answer_ts, custom_words [str]
+sessions:     [{ts, mode, count, correct, points,
+                words?: [{w, ok}]}]  (per-word first-try results, capped
+              at 60/session; sanitized server-side — kid-device input)
 ```
 
 Resets (all PIN-gated, all per child, none touch lists/settings):

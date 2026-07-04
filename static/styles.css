@@ -360,11 +360,58 @@ details.wlist[open] summary .tri{transform:rotate(90deg)}
 .word-row.off .wr-word{color:var(--muted);text-decoration:line-through}
 .wr-status{color:var(--muted);font-size:13px;white-space:nowrap}
 .word-row.st-mastered .wr-status{color:var(--green-d);font-weight:700}
-.wr-miss{color:var(--red);font-weight:700}
+.wr-miss{color:var(--red);font-weight:700;white-space:nowrap}
 .wr-heart{color:var(--red);font-size:13px}
 .word-row.off .wr-heart{color:var(--muted)}
 .wr-x{background:none;border:none;color:var(--muted);font-size:15px;
   cursor:pointer;padding:2px 6px;flex:none}
+
+/* categories inside a grade band: the parent picks TYPES, not 300 words.
+   Same fold pattern as bands, one step further in and a touch smaller. */
+details.bank-group summary{list-style:none;display:flex;align-items:center;
+  gap:10px;padding:6px 2px;font-size:14px;cursor:pointer}
+details.bank-group summary::-webkit-details-marker{display:none}
+details.bank-group summary .tri{color:var(--muted);font-size:10px;
+  transition:transform .15s;flex:none}
+details.bank-group[open] summary .tri{transform:rotate(90deg)}
+details.bank-group .wlist-body{padding:0 0 10px 26px}
+details.bank-group summary .list-count{font-size:13px}
+/* every word of the category switched off → grey like other off sources */
+.grp-off>summary .list-name{color:var(--muted)}
+.grp-off>summary .list-count{color:var(--muted)}
+.grp-off>.wlist-body{opacity:.45;filter:grayscale(.6)}
+
+/* Word types card: results grouped the way spelling is taught */
+.types-list{list-style:none;padding:0;margin:0}
+.type-row{padding:10px 2px;border-bottom:1px solid var(--line)}
+.type-row:last-child{border-bottom:none}
+.type-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.type-name{font-weight:800;font-size:15px}
+.type-grade{color:var(--muted);font-weight:700;font-size:12px}
+.type-acc{font-weight:800;color:var(--green-d)}
+.type-acc.low{color:var(--red)}
+.type-meta{color:var(--muted);font-size:13px;margin-top:2px}
+.type-row .prog-trouble{margin-top:6px}
+.type-assign{margin-top:8px}
+
+/* Recent sessions: tap a row to see the words (misses first, with type) */
+.sessions-list li.sess-li{display:block;padding:0}
+details.sess summary{list-style:none;display:flex;align-items:center;gap:8px;
+  padding:8px 2px;cursor:pointer}
+details.sess summary::-webkit-details-marker{display:none}
+details.sess summary .tri{color:var(--muted);font-size:10px;
+  transition:transform .15s;flex:none}
+details.sess[open] summary .tri{transform:rotate(90deg)}
+.sess-score{margin-left:auto;white-space:nowrap}
+.sess-words{padding:2px 2px 10px 20px}
+.sess-word{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:14px}
+.sw-mark{flex:none;font-weight:800;width:16px;text-align:center}
+.sess-word.ok .sw-mark{color:var(--green-d)}
+.sess-word.miss .sw-mark{color:var(--red)}
+.sess-word.miss .sw-word{color:var(--red);font-weight:800}
+.sw-word{font-weight:600}
+.sw-group{margin-left:auto;color:var(--muted);font-size:12px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;max-width:45%}
 
 /* shown when every source is unchecked — a heads-up, not an error */
 .no-words{background:#fdf3e7;border:1px solid #f4ddba;border-radius:10px;

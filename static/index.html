@@ -224,7 +224,7 @@
 
     <div class="card">
       <div class="card-head">Assignments</div>
-      <p class="card-note">Hand out a test: pick a game (and a list for word games) — it lands on the child's home screen as a mission and you'll get a notification when it's done.</p>
+      <p class="card-note">Hand out a test: pick a game and what to practice — a school list, one word type, or a whole grade. It lands on the child's home screen as a mission and you'll get a notification when it's done. Type and grade missions pick his missed words first (shuffled, like a real test).</p>
       <div class="assign-form">
         <select id="assign-mode" aria-label="game">
           <option value="words">Hide &amp; Spell</option>
@@ -252,13 +252,25 @@
     </div>
 
     <div class="card">
+      <div class="card-head">Word types</div>
+      <p class="card-note">Spelling is taught by pattern — a child who misses <i>coin</i> needs
+        the <b>oi&thinsp;/&thinsp;oy</b> pattern, not one word. Types that need work float up here;
+        one tap assigns practice on just that type.</p>
+      <ul id="types-list" class="types-list"><li class="muted">Results by word type appear here once he practices.</li></ul>
+      <details id="types-rest-wrap" class="prog-bands hidden">
+        <summary>Going fine (<span id="types-rest-n">0 types</span>)</summary>
+        <ul id="types-rest" class="types-list"></ul>
+      </details>
+    </div>
+
+    <div class="card">
       <div class="card-head">Most-missed words</div>
       <ul id="missed-list" class="missed-list"><li class="muted">No misses yet.</li></ul>
     </div>
 
     <div class="card">
       <div class="card-head">Word lists</div>
-      <p class="card-note">Check what he practices. Open a list to switch single words on or off — counts show on&#8202;:&#8202;total. School-list words show up more often until mastered.</p>
+      <p class="card-note">Check what he practices. Each grade is split into word <b>types</b> — pick categories, not single words; open a type to fine-tune the words inside. Counts show on&#8202;:&#8202;total. School-list words show up more often until mastered.</p>
 
       <label class="hearts-only">
         <input type="checkbox" id="hearts-only">
@@ -292,6 +304,7 @@
 
     <div class="card">
       <div class="card-head">Recent sessions</div>
+      <p class="card-note">Tap a session to see the actual words — misses first, each with its word type.</p>
       <ul id="sessions-list" class="sessions-list"><li class="muted">Nothing yet.</li></ul>
     </div>
 
