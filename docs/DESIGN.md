@@ -85,6 +85,35 @@ game can only prove skills up to its own rung; see docs/SCORING.md):
 - Not a game with an economy — points are minutes of iPad time, period.
 
 ## Decisions log
+- 2026-07-12 — Anti-frustration engagement pass, Phase 1 (owner: Caleb gets
+  frustrated and won't *begin*; the enemy is activation energy and the miss
+  spike). Full spec in `docs/ENGAGEMENT_PLAN.md`. Shipped:
+  (1) **Today's Quest** — a one-tap green card at the top of home that starts
+  a 5-word warm-started Hide & Spell session with zero decisions (section/
+  game/count all skipped). Smallness is the feature. Reward counts once/day
+  (`counters.quests_done`); the card flips to "Quest done! ✅ Play again?".
+  The done screen offers "One more game? 🎮" (→ the games menu, not a
+  treadmill). Server: `GET /api/session?quest=1`, `session_end {quest}`,
+  `state.quest {date,done}` + `quest_done_today`.
+  (2) **Warm start** — every word session leads with a near-certain win (a
+  proven word, else the shortest fresh one, never a lately-missed struggle);
+  only position 0–1 is reordered, the rest stays shuffled (`build_word_session`).
+  (3) **Home greeting chips** — 🦕 "Day N!" (streak ≥ 2) and "Yesterday: N ⭐"
+  (until he practices today), from new `/api/state` fields `streak_days` /
+  `yesterday` / `practiced_today`. (Delivers the ROADMAP "daily streak chip".)
+  (4) **"Show me again 👀" peek** — a grace pill under the boxes in Hide &
+  Spell / Listen & Spell: re-shows the word (hides again on the next
+  keystroke), earns the star as *aided* (no ladder climb) but is NOT a miss —
+  no shake, no rung drop, no requeue. Blanking shouldn't punish him.
+  (Delivers the ROADMAP "word-reveal grace".)
+  (5) **Closeness feedback** — a wrong try is length-matched to the target, so
+  a positional diff drives the message: "SO close! Just ONE letter is
+  different 🔍" / "Two letters swapped 🔀" / "You got N letters right 💪",
+  and the off-letters get a coral `.box-off` wiggle. "Wrong" and "99% right"
+  must feel different.
+  (6) **Spoken reveal** — when audio is already in play (autoplay on, or
+  Listen & Spell), a miss says+spells the correct answer (multisensory
+  correction; the next keystroke stops it).
 - 2026-07-02 — Parent-tunable audio speeds (owner): Settings "Audio speed"
   section with two sliders — Word reading (`word_rate`, 0.5–1.2, default
   0.8) and Spelling speed (`spell_rate`, 0.3–1.0, default 0.45), per child,

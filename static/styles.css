@@ -98,6 +98,31 @@ body.has-update .screen{padding-top:calc(env(safe-area-inset-top) + 46px)}
 .mi-go{background:var(--green);color:#fff;font-weight:900;font-size:15px;
   border-radius:14px;padding:8px 14px}
 
+/* home greeting chips — walk in on evidence of competence */
+.greeting-chips{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;
+  margin:6px 0 2px}
+.greeting-chips.hidden{display:none}
+.g-chip{background:#fff;border:2px solid var(--line);border-radius:14px;
+  padding:5px 12px;font-size:14px;font-weight:800;color:var(--muted)}
+.g-chip.streak{border-color:#cdeccf;color:var(--green-d);background:#f2fbf3}
+
+.home-chips{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;
+  margin-bottom:16px}
+
+/* Today's Quest — the cheapest door into practice, big and inviting */
+.quest-card{display:flex;align-items:center;gap:14px;width:100%;max-width:420px;
+  padding:16px 20px;border:none;border-radius:var(--radius);cursor:pointer;
+  background:linear-gradient(135deg,#e9f8ec,#cfeecf);box-shadow:var(--shadow);
+  margin-bottom:16px;text-align:left;transition:transform .08s ease}
+.quest-card:active{transform:scale(.97)}
+.quest-emoji{font-size:34px}
+.quest-text{flex:1;font-size:21px;font-weight:900;color:var(--ink);line-height:1.2}
+.quest-text small{display:block;font-size:14px;font-weight:600;color:var(--muted)}
+.quest-go{background:var(--green);color:#fff;font-weight:900;font-size:16px;
+  border-radius:14px;padding:9px 16px}
+.quest-card.quest-done{background:linear-gradient(135deg,#eef2f6,#e2e9f0)}
+.quest-card.quest-done .quest-go{background:var(--blue)}
+
 /* nudges toward installed-app notifications (kid side, quiet) */
 .soft-hint{position:relative;width:100%;max-width:420px;margin-top:22px;
   background:#fdf3e7;border:1px solid #f4ddba;border-radius:12px;
@@ -209,6 +234,10 @@ body.has-update .screen{padding-top:calc(env(safe-area-inset-top) + 46px)}
 .boxes.correct .box{border-color:var(--green);background:#eafaee}
 .boxes.wrong .box{border-color:var(--red);background:#fdeeea}
 .boxes.reveal .box{border-color:var(--amber);background:#fff8e8}
+/* the exact letters that were wrong — his eye jumps straight to the fix */
+.box.box-off{border-color:var(--red);background:#fbdcd4;animation:box-wiggle .4s ease}
+@keyframes box-wiggle{0%,100%{transform:none}25%{transform:translateX(-3px)}
+  75%{transform:translateX(3px)}}
 
 /* the real input sits invisibly over the boxes so the keyboard drives them */
 .typed-input{
@@ -217,6 +246,13 @@ body.has-update .screen{padding-top:calc(env(safe-area-inset-top) + 46px)}
   font-size:16px;/* >=16px stops iOS zoom */
   z-index:3;
 }
+
+/* "Show me again" — a quiet grace path, not a big shouty button */
+.peek-btn{align-self:center;background:none;border:2px solid var(--line);
+  border-radius:16px;padding:7px 16px;font-size:15px;font-weight:700;
+  color:var(--muted);cursor:pointer;margin:2px 0}
+.peek-btn:active{border-color:var(--blue);color:var(--blue-d)}
+.peek-btn.hidden{display:none}
 
 .feedback{min-height:30px;font-size:22px;font-weight:800}
 .feedback.good{color:var(--green-d)}

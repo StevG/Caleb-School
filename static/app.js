@@ -40,6 +40,7 @@ const state = {
   children: [],      // roster from the server: [{id, name, points}]
   parentChild: "",   // the child the dashboard is showing/editing
   assignment: null,  // mission id when the current session IS a mission
+  quest: false,      // true when the current session is Today's Quest
   // session
   queue: [],      // items still to do (words mode: {w,group}; sentences: token views)
   total: 0,       // queue items (words, or whole sentences)
@@ -51,6 +52,7 @@ const state = {
   target: "",     // the string being spelled right now
   missedThisItem: false,
   requeued: false,
+  peeked: false,     // used "Show me again": earns the star, no ladder credit
   answered: false,
   sentence: null,    // {s, tokens, wordIdx} in sentence/memory modes
   curHidden: false,  // sentence line: is the current word masked yet?
@@ -91,6 +93,8 @@ function refreshState() {
       $("badges-count").textContent = s.badges_earned || 0;
       renderWhoRow();
       renderMissions(s.missions || []);
+      renderGreeting(s);
+      renderQuestCard(s);
       updateHomeHints();
       // help the second parent get in the first time (hidden once changed)
       $("gate-hint").classList.toggle("hidden", !s.pin_is_default);
@@ -115,10 +119,35 @@ function renderMissions(missions) {
     b.addEventListener("click", () => {
       state.mode = m.mode;
       state.assignment = m.id;
+      state.quest = false;
       startSession();
     });
     list.appendChild(b);
   });
+}
+
+// ---------- home greeting (walk in on evidence of competence) ----------
+function renderGreeting(s) {
+  const wrap = $("greeting-chips");
+  const chips = [];
+  // a streak of 2+ days is a real thing to celebrate ("Day 1" is just noise)
+  if ((s.streak_days || 0) >= 2) {
+    chips.push(`<span class="g-chip streak">🦕 Day ${s.streak_days}!</span>`);
+  }
+  // yesterday's win — only until he's practiced today (then it's stale)
+  if (s.yesterday && !s.practiced_today && (s.yesterday.points || 0) > 0) {
+    chips.push(`<span class="g-chip">Yesterday: ${s.yesterday.points} ⭐</span>`);
+  }
+  wrap.innerHTML = chips.join("");
+  wrap.classList.toggle("hidden", !chips.length);
+}
+
+// ---------- Today's Quest (one-tap 5-word warm-up) ----------
+function renderQuestCard(s) {
+  const done = !!s.quest_done_today;
+  $("quest-title").textContent = done ? "Quest done! ✅" : "Today's Quest";
+  $("quest-sub").textContent = done ? "Play again?" : "5 words — let's go!";
+  $("quest-card").classList.toggle("quest-done", done);
 }
 
 // ---------- notifications (kid side) ----------
@@ -470,6 +499,7 @@ function wireHome() {
     btn.addEventListener("click", () => {
       state.mode = btn.dataset.mode;
       state.assignment = null; // free play, not a mission
+      state.quest = false;
       if (["copy", "words", "listen"].includes(state.mode)) showPanel("goal");
       else startSession();
     });
@@ -484,6 +514,13 @@ function wireHome() {
   // every "⬅ Back" steps up to the panel named on it
   document.querySelectorAll(".back-link").forEach((b) =>
     b.addEventListener("click", () => showPanel(b.dataset.back)));
+  // Today's Quest: one tap, straight into a 5-word warm-up
+  $("quest-card").addEventListener("click", () => {
+    state.mode = "words";
+    state.assignment = null;
+    state.quest = true;
+    startSession();
+  });
   $("gear").addEventListener("click", openGate);
 
   $("install-hint-x").addEventListener("click", () => {
@@ -519,9 +556,12 @@ async function startSession() {
     : state.mode === "sentences" ? 6 : state.goal;
   let items = [];
   try {
-    const data = await api(`/api/session?mode=${state.mode}&count=${count}` +
-      `&child=${encodeURIComponent(state.childId)}` +
-      (state.assignment ? `&assignment=${encodeURIComponent(state.assignment)}` : ""));
+    const url = state.quest
+      ? `/api/session?quest=1&child=${encodeURIComponent(state.childId)}`
+      : `/api/session?mode=${state.mode}&count=${count}` +
+        `&child=${encodeURIComponent(state.childId)}` +
+        (state.assignment ? `&assignment=${encodeURIComponent(state.assignment)}` : "");
+    const data = await api(url);
     // the mission may have been finished on another device — play it plain
     if (state.assignment && !data.assignment) state.assignment = null;
     items = data.items || [];
@@ -555,12 +595,32 @@ function resetItemUI() {
   state.answered = false;
   state.locked = false;
   state.typedStarted = false; // fresh word: 🔊 spells it until he starts typing
+  state.peeked = false;
   $("feedback").textContent = "";
   $("feedback").className = "feedback";
   $("check").classList.remove("hidden");
   $("check").disabled = true;
   $("next").classList.add("hidden");
   $("next").textContent = "Next →";
+  // "Show me again" is a grace path for the hide-on-type games only (Copy It
+  // shows the word anyway; sentence modes have the sentence line to lean on)
+  const canPeek = state.mode === "words" || state.mode === "listen";
+  $("peek-btn").classList.toggle("hidden", !canPeek);
+}
+
+// Peek: re-show the word (or, in Listen & Spell, show it for the first time).
+// It hides again on the next keystroke via the normal hide-on-type path.
+// The deal is honest: a peek keeps the star but not the ladder climb — it's
+// aided, exactly like a retype after the reveal. Crucially it is NOT a miss:
+// no shake, no rung drop, no requeue. Blanking on a word shouldn't punish him.
+function doPeek() {
+  if (state.answered || state.locked) return;
+  state.peeked = true;
+  const pw = $("prompt-word");
+  pw.innerHTML = heartSpans(state.target, state.itemHeart);
+  sizePrompt();
+  pw.classList.remove("gone");
+  $("prompt-hint").textContent = "Peek! It still counts for a star ⭐";
 }
 
 function loadNext() {
@@ -738,6 +798,45 @@ function onType() {
   $("check").disabled = val.length !== state.target.length;
 }
 
+// How close was a wrong attempt? Every wrong try is the same length as the
+// target (the input is length-capped), so a positional diff tells us whether
+// he was one letter off, swapped two, or mostly right — each gets its own
+// encouraging line instead of a flat "wrong".
+function closenessMessage(val) {
+  const t = state.target;
+  if (state.caseSensitive && val.toLowerCase() === t.toLowerCase()) {
+    return "So close! Check the capital letter 🔠";
+  }
+  const cmp = state.caseSensitive ? val : val.toLowerCase();
+  const tgt = state.caseSensitive ? t : t.toLowerCase();
+  if (cmp.length !== tgt.length) return "Almost! Look again 👀";
+  const diff = [];
+  for (let i = 0; i < tgt.length; i++) if (cmp[i] !== tgt[i]) diff.push(i);
+  const n = diff.length;
+  if (n === 2) {
+    const [a, b] = diff;
+    if (b === a + 1 && cmp[a] === tgt[b] && cmp[b] === tgt[a]) {
+      return "Ooh! Two letters swapped places 🔀";
+    }
+  }
+  if (n === 1) return "SO close! Just ONE letter is different 🔍";
+  if (n && n <= tgt.length / 2) {
+    return `You got ${tgt.length - n} letters right! 💪`;
+  }
+  return "Almost! Look again 👀";
+}
+
+// Outline the letter boxes that are wrong so his eye lands on what to fix.
+function markOffBoxes(val) {
+  const cmp = state.caseSensitive ? val : val.toLowerCase();
+  const tgt = state.caseSensitive ? state.target : state.target.toLowerCase();
+  if (cmp.length !== tgt.length) return;
+  const boxes = $("boxes").children;
+  for (let i = 0; i < boxes.length && i < tgt.length; i++) {
+    if (cmp[i] !== tgt[i]) boxes[i].classList.add("box-off");
+  }
+}
+
 function doCheck() {
   if (state.answered || state.locked) return;
   const val = $("typed").value; // case matters in sentence modes
@@ -748,15 +847,16 @@ function doCheck() {
   // through the whole session instead of bouncing between words
   $("typed").focus();
 
+  $("peek-btn").classList.add("hidden");
   if (correct) {
     state.answered = true;
     boxes.classList.add("correct");
     $("prompt-word").classList.remove("gone");
     $("feedback").textContent = pick(["Yes! 🌟", "Perfect! 🎉", "You got it! ✅", "Nice! 👏"]);
     $("feedback").className = "feedback good";
-    // A retype right after the reveal is "aided": it earns the star but
-    // shouldn't count toward accuracy or mastery.
-    const aided = state.missedThisItem;
+    // A retype right after the reveal — or after a "Show me again" peek — is
+    // "aided": it earns the star but shouldn't count toward accuracy/mastery.
+    const aided = state.missedThisItem || state.peeked;
     // one line per completed word for the parent's session drill-down:
     // ok = right on the first try (a requeued word is its own line again)
     (state.sessionWords || (state.sessionWords = []))
@@ -784,13 +884,13 @@ function doCheck() {
     $("check").disabled = true; // no double-checking while the reveal loads
     boxes.classList.add("wrong");
     boxes.classList.add("shake");
-    // right letters, wrong capitals → say so instead of a generic miss
-    const caseOnly = state.caseSensitive &&
-      val.toLowerCase() === state.target.toLowerCase();
-    $("feedback").textContent = caseOnly
-      ? "So close! Check the capital letter 🔠"
-      : "Almost! Look again 👀";
+    // Tell him how CLOSE he was — "wrong" and "99% right" must FEEL different.
+    // The input is length-capped to the target, so every wrong attempt is the
+    // same length and a positional diff is trivial. Mark the off boxes coral
+    // so his eye jumps straight to what to fix.
+    $("feedback").textContent = closenessMessage(val);
     $("feedback").className = "feedback bad";
+    markOffBoxes(val);
     // re-queue this word once, later in the session, for extra practice.
     // Presentation is mode-driven (presentWordItem), so no stage is needed —
     // a requeued Hide & Spell word still hides on type like every other.
@@ -815,6 +915,13 @@ function doCheck() {
       $("check").classList.add("hidden");
       $("next").classList.remove("hidden");
       $("next").textContent = "Try again";
+      // Multisensory correction: hear-see-type is what works for him, so at
+      // the moment that matters most, say + spell the right answer (only when
+      // audio is already in play — autoplay on, or the audio-only listen game;
+      // the next keystroke calls stopSpeech() so it can't just be copied).
+      if (state.autoplayAudio || state.mode === "listen") {
+        speakWordAndSpell(state.target);
+      }
     }, 900);
   }
 }
@@ -1011,8 +1118,13 @@ function finishSession() {
   $("check").classList.add("hidden");
   $("next").classList.add("hidden");
   const wasMission = state.assignment;
+  const wasQuest = state.quest;
   const secs = Math.round((Date.now() - (state.sessionStart || Date.now())) / 1000);
   $("badge-earns").innerHTML = ""; // clear last session's celebration
+  // a Quest offers "one more game?" (nudges another go without a treadmill);
+  // a normal session offers "Play again" (same game, same goal)
+  $("more-games").classList.toggle("hidden", !wasQuest);
+  $("again").classList.toggle("hidden", !!wasQuest);
   postJSON("/api/session_end", {
     mode: state.mode,
     count: state.wordsDone,
@@ -1022,6 +1134,7 @@ function finishSession() {
     words: (state.sessionWords || []).slice(0, 60),
     child: state.childId,
     assignment: state.assignment || undefined,
+    quest: state.quest || undefined,
   }).then((r) => {
     if (typeof r.points === "number") { // badges may have added stars
       state.points = r.points;
@@ -1034,6 +1147,7 @@ function finishSession() {
     }
   }).catch(() => {});
   state.assignment = null;
+  state.quest = false;
   $("earned").textContent = state.earned;
   $("done-total").textContent = state.points;
   const lu = $("level-ups");
@@ -1060,6 +1174,7 @@ function wirePlay() {
   $("boxes").addEventListener("click", () => $("typed").focus());
   $("check").addEventListener("click", doCheck);
   $("next").addEventListener("click", advance);
+  $("peek-btn").addEventListener("click", doPeek);
   $("quit").addEventListener("click", () => { goHome(); });
   $("speaker").addEventListener("click", speakCurrent);
 
@@ -1068,7 +1183,7 @@ function wirePlay() {
   // closes the iOS keyboard — it then reopens on the next word and the screen
   // resizes each time. Preventing the default on pointer-down keeps focus in
   // #typed (the click still fires), so the keyboard stays up all session.
-  ["check", "next", "speaker", "boxes"].forEach((id) => {
+  ["check", "next", "speaker", "boxes", "peek-btn"].forEach((id) => {
     $(id).addEventListener("mousedown", (e) => e.preventDefault());
   });
 }
@@ -1219,6 +1334,14 @@ updateViewport();
 // ---------- DONE ----------
 function wireDone() {
   $("again").addEventListener("click", startSession); // same game, same goal
+  // "One more game?" after a Quest: go to the games menu (autonomy — let him
+  // pick, don't drop him straight back onto a treadmill)
+  $("more-games").addEventListener("click", () => {
+    goHome();
+    document.querySelectorAll(".game-set").forEach((g) =>
+      g.classList.toggle("hidden", g.dataset.set !== "words"));
+    showPanel("games");
+  });
   $("home-btn").addEventListener("click", goHome);
 }
 

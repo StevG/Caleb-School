@@ -50,7 +50,8 @@ The pieces already generalize; don't fork the app, extend it:
 
 ## Smaller ideas (unscheduled, sanity-checked)
 
-- **Daily streak** chip on the home screen (data exists in `sessions`).
+- ~~**Daily streak** chip on the home screen~~ — DONE 2026-07-12 (Phase 1,
+  docs/ENGAGEMENT_PLAN.md): 🦕 "Day N!" greeting chip from `state.streak_days`.
 - **Per-pattern parent insight** — "most misses are r-controlled vowels"
   (each word already carries a `group` tag).
 - **Mastery decay** — resurface long-mastered words after N weeks.
@@ -60,8 +61,9 @@ The pieces already generalize; don't fork the app, extend it:
 - **Months of the year** — a standard 3rd-grade unit, deliberately left out
   of the bank for now (long words, capital-letter convention); add as a
   theme group when he's ready.
-- **Word-reveal grace** — a "show me again" button that counts as aided,
-  for when he genuinely forgot mid-word.
+- ~~**Word-reveal grace** — a "show me again" button that counts as aided~~
+  — DONE 2026-07-12 (Phase 1): the "Show me again 👀" peek (aided, never a
+  miss — see docs/SCORING.md).
 - **Spend/adjust stars** — "Reset stars to 0" shipped 2026-07-02 alongside
   per-list ("start over") and per-child progress resets. Still open if
   wanted: decrementing a specific amount ("spent 30 min = −30 ⭐").

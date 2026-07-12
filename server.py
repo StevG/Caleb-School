@@ -258,6 +258,26 @@ def current_day_streak(state):
     return streak
 
 
+def quest_done_today(state):
+    """Whether the kid already finished today's one-tap Quest (the small
+    5-word warm-up). Reward only pays once/day; the card flips to a calm
+    'play again?' state after that."""
+    q = state.get("quest") or {}
+    return q.get("date") == time.strftime("%Y-%m-%d") and bool(q.get("done"))
+
+
+def yesterday_stats(state):
+    """The most recent PRACTICED day before today — used to greet the kid
+    with evidence of yesterday's competence ('Yesterday: 23 ⭐')."""
+    days = state.get("days", {})
+    today = time.strftime("%Y-%m-%d")
+    past = sorted(d for d in days if d < today)
+    if not past:
+        return None
+    d = days[past[-1]]
+    return {"points": d.get("points", 0), "correct": d.get("correct", 0)}
+
+
 def badge_metrics(state):
     """Every value the catalog measures against, from counters (live) plus a
     few derived straight from the word stats (always current)."""
@@ -729,6 +749,20 @@ def eligible_words(state):
     return pool
 
 
+def _recently_missed(s, days=2):
+    """True if this word was missed within the last `days` calendar days —
+    used to keep a lately-troublesome word out of the warm-start slot."""
+    if not s:
+        return False
+    cutoff = time.strftime("%Y-%m-%d",
+                           time.localtime(time.time() - days * 86400))
+    for day, tally in s.get("days", {}).items():
+        seen, ok = (tally + [0, 0])[:2]
+        if day >= cutoff and ok < seen:
+            return True
+    return False
+
+
 def build_word_session(state, count):
     """Choose `count` words, favouring not-yet-mastered/missed words (spaced
     repetition) while mixing in fresh words so it never feels repetitive."""
@@ -774,6 +808,25 @@ def build_word_session(state, count):
                 chosen.append(w)
     chosen = chosen[:count]
     random.shuffle(chosen)
+    # Warm start: lead with a near-certain win. The first 30 seconds decide
+    # the session's mood for a struggling speller, so the opening word (two
+    # for longer sets) is the easiest in the set — a word he already owns, or
+    # else the shortest fresh one, never a lately-missed struggle. The rest of
+    # the mix stays shuffled.
+    if chosen:
+        def warmth(w):
+            s = stats.get(w)
+            if s and s.get("streak", 0) >= 2 and not _recently_missed(s):
+                return (0, -s.get("streak", 0))   # proven, not lately missed
+            if not s:
+                return (1, len(w))                 # fresh: shortest first
+            return (2, s.get("missed", 0))         # never a struggle up top
+        lead = min(1 if count < 15 else 2, len(chosen))
+        front_idx = sorted(range(len(chosen)),
+                           key=lambda i: warmth(chosen[i]))[:lead]
+        front = {i: chosen[i] for i in front_idx}  # preserve warmth order
+        chosen = [front[i] for i in front_idx] + \
+                 [w for i, w in enumerate(chosen) if i not in front]
     out = []
     for w in chosen:
         item = {"w": w, "group": WORD_GROUP.get(w, "My words"),
@@ -1348,6 +1401,12 @@ class Handler(BaseHTTPRequestHandler):
             "spell_rate": p.get("spell_rate", 0.45),
             "badges_earned": badges_earned_count(state),
             "badges_total": len(badgebank.BADGES),
+            # home greeting: a streak chip + yesterday's win (walk in on
+            # evidence of competence, not a blank slate) + the one-tap Quest
+            "streak_days": current_day_streak(state),
+            "yesterday": yesterday_stats(state),
+            "quest_done_today": quest_done_today(state),
+            "practiced_today": time.strftime("%Y-%m-%d") in state.get("days", {}),
             # open missions land on the kid's home screen
             "missions": [{"id": a["id"], "mode": a["mode"],
                           "name": a.get("name", ""),
@@ -1375,6 +1434,13 @@ class Handler(BaseHTTPRequestHandler):
         count = max(1, min(count, 30))
         doc = load_doc()
         state = get_child(doc, self._query_child(query))
+        # Today's Quest: one tap, no choices — a tiny warm-started Hide & Spell
+        # set. Smallness is the feature (start-frustration is the enemy); it's
+        # otherwise a normal words session (same ladder, stats, badges).
+        if (query.get("quest", [""])[0] or "").strip() in ("1", "true"):
+            return self._send_json({
+                "mode": "words", "child": state["id"], "quest": True,
+                "items": build_word_session(state, 5)})
         aid = (query.get("assignment", [""])[0] or "").strip()
         if aid:
             a = find_assignment(state, aid)
@@ -1469,6 +1535,14 @@ class Handler(BaseHTTPRequestHandler):
             streak = current_day_streak(state)
             c["day_streak"] = streak
             c["best_day_streak"] = max(c.get("best_day_streak", 0), streak)
+            # Today's Quest: mark done + count it once per calendar day
+            if body.get("quest"):
+                today = time.strftime("%Y-%m-%d")
+                q = state.setdefault("quest", {})
+                if not (q.get("date") == today and q.get("done")):
+                    c["quests_done"] = c.get("quests_done", 0) + 1
+                q["date"] = today
+                q["done"] = True
             aid = str(body.get("assignment", "") or "")
             a = find_assignment(state, aid) if aid else None
             if a and a["status"] == "todo":
@@ -1479,8 +1553,12 @@ class Handler(BaseHTTPRequestHandler):
                 finished = (state["id"], state["profile"].get("name", "Kid"),
                             a)
             new_badges = evaluate_badges(state)  # awards stars, persists levels
+            resp = {"assignment_done": bool(finished),
+                    "new_badges": new_badges,
+                    "quest_done_today": quest_done_today(state)}
             save_doc(doc)
             points = state["profile"].get("points", 0)
+            resp["points"] = points
             cid = state["id"]
             kid_name = state["profile"].get("name", "Kid")
         if finished:
@@ -1492,8 +1570,7 @@ class Handler(BaseHTTPRequestHandler):
         for nb in new_badges:  # ping the parents for each new badge level
             notify("parent", cid, f"{kid_name} earned a badge! {nb['emoji']}",
                    f"{nb['name']} — Level {nb['level']}")
-        self._send_json({"points": points, "assignment_done": bool(finished),
-                         "new_badges": new_badges})
+        self._send_json(resp)
 
     def _api_parent_login(self, body):
         doc = load_doc()

@@ -29,8 +29,20 @@
     <div class="hello">Hi <span id="kid-name">Caleb</span>! 👋</div>
     <div id="who-row" class="who-row hidden"></div>
     <div class="points-big"><span id="home-points">0</span> <span class="star">⭐</span></div>
+    <div id="greeting-chips" class="greeting-chips"></div>
     <p class="tagline">Let's practice spelling!</p>
-    <button id="badges-btn" class="badges-chip">🎖️ <b id="badges-count">0</b> badges</button>
+    <div class="home-chips">
+      <button id="badges-btn" class="badges-chip">🎖️ <b id="badges-count">0</b> badges</button>
+    </div>
+
+    <!-- Today's Quest: one tap, five words, no decisions. The cheapest
+         possible door into practice — starting is the whole battle. -->
+    <button id="quest-card" class="quest-card">
+      <span class="quest-emoji">🚀</span>
+      <span class="quest-text"><b id="quest-title">Today's Quest</b>
+        <small id="quest-sub">5 words — let's go!</small></span>
+      <span class="quest-go">GO!</span>
+    </button>
 
     <div id="missions" class="missions hidden">
       <p class="missions-head">Your missions 📋</p>
@@ -124,6 +136,8 @@
            autocomplete="off" autocorrect="off" autocapitalize="none"
            spellcheck="false" enterkeyhint="go" aria-label="Type the word">
 
+    <button id="peek-btn" class="peek-btn hidden">Show me again 👀</button>
+
     <div id="feedback" class="feedback"></div>
   </div>
 
@@ -144,6 +158,7 @@
     <div class="done-total">Total: <span id="done-total">0</span> ⭐</div>
     <div class="done-actions">
       <button id="again" class="big-btn primary">Play again</button>
+      <button id="more-games" class="big-btn primary hidden">One more game? 🎮</button>
       <button id="home-btn" class="big-btn go">Home</button>
     </div>
   </div>

@@ -33,6 +33,13 @@ Rules (implemented in `server.record_answer`, constants at top of server.py):
   from sound alone", so only Listen & Spell can finish a word.
 - **Aided retypes never advance anything** — a copy of a just-revealed
   answer is stage-1-level evidence at best.
+- **A peek ("Show me again 👀") is aided, not a miss.** In Hide & Spell and
+  Listen & Spell the kid can re-show the word (it hides again on the next
+  keystroke). A correct answer after a peek earns the star but posts
+  `aided:true` — no ladder climb, no accuracy credit (same as a post-reveal
+  retype). Crucially it is NOT scored as a miss: no rung drop, no requeue.
+  Blanking mid-word is forgetting, not misspelling; the trade is "keep your
+  star, lose the climb", never a punishment (added 2026-07-12).
 - Stage-up news rides back on the `/api/answer` response
   (`{stage_up, stage}`) so the kid gets "⬆️ Level up!" in the moment and a
   level-up count on the done screen.

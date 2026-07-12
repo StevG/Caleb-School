@@ -92,9 +92,14 @@ child); `/api/state` + `/api/parent/report` return the roster; `POST
 /api/parent/children {action: add|rename|delete}` manages the kids. Legacy
 single-kid files migrate automatically.
 
-`GET /api/state` · `GET /api/session?mode=copy|words|listen|sentences|memory&count=N`
+`GET /api/state` (also returns `streak_days`, `yesterday`,
+`quest_done_today`, `practiced_today` for the home greeting chips + Quest
+card) · `GET /api/session?mode=copy|words|listen|sentences|memory&count=N`
 (presentation follows the mode: copy always visible, words always
 hides-on-type; `CLIMB_CAP` keeps copying from mastering words) ·
+`GET /api/session?quest=1` (Today's Quest: a 5-word warm-started Hide &
+Spell set, one tap, no choices — `session_end {quest}` marks it done once/
+day, `counters.quests_done`) ·
 `POST /api/answer {word, correct, aided, mode}` · `POST /api/session_end`
 (accepts `words: [{w, ok}]` — per-word first-try results, sanitized + capped
 60, stored in the session entry; the report tags each with its `group` +
