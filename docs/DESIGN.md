@@ -85,6 +85,21 @@ game can only prove skills up to its own rung; see docs/SCORING.md):
 - Not a game with an economy — points are minutes of iPad time, period.
 
 ## Decisions log
+- 2026-07-12 — Engagement Phase 3: the Dino Space Trip (owner: he loves the
+  dino-in-rocket icon — make it a journey). Full spec in ENGAGEMENT_PLAN.md.
+  (1) **In-session rocket** — a 🚀 rides the progress track one hop per word
+  (position, never a timer), making "10 words" feel finite and short.
+  (2) **Planet journey** — 12 planets (Stegos-4 … Dino Prime, names mixing
+  dinosaurs/space/LEGO) at cumulative thresholds `5,12,21,32,45,60,78,98,120,
+  145,172,200`. FUEL = lifetime level-ups (`counters.stage_ups`, reset-immune),
+  so the map is a picture of real learning, not a separate economy. Reaching a
+  planet pays **+10 ⭐** and a **bonus fact card** from the planet's theme deck
+  (cap-exempt). A "🚀 Space Trip" home chip opens a starfield journey screen
+  (`planetSVG` draws each planet deterministically; unvisited = dimmed ???).
+  The done screen celebrates a landing; the parent dashboard shows "N/12
+  planets" under the badges strip. `planets_seen` is sticky and baselined on
+  upgrade so no landing-dump. Server: `PLANETS`, `check_planet_landing()`,
+  `state.trip` / `GET /api/trip`, `session_end.new_planet`.
 - 2026-07-12 — Engagement Phase 2: fact cards + badge nudges (owner: Caleb
   loves dinosaurs, space, and LEGO — weave in fun facts). Full spec in
   docs/ENGAGEMENT_PLAN.md. Shipped:

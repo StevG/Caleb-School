@@ -354,10 +354,15 @@ function celebrateBadges(list) {
 }
 
 // the compact parent strip (rep.badges — same shape as /api/badges)
-function renderParentBadges(badges) {
+function renderParentBadges(badges, trip) {
   const strip = $("p-badge-strip");
   const earned = (badges || []).filter((b) => b.level > 0);
   $("p-badge-count").textContent = `${earned.length}/${(badges || []).length}`;
+  const line = $("p-trip-line");
+  if (line) {
+    const n = trip ? (trip.planet_idx ?? -1) + 1 : 0;
+    line.textContent = `🚀 Dino Space Trip — ${n}/12 planets visited`;
+  }
   strip.innerHTML = "";
   if (!badges || !badges.length) return;
   // earned first (by level desc), then the closest not-yet-earned
@@ -448,6 +453,90 @@ function showNextBadge(nb) {
   el.textContent = `🎖️ ${nb.name} Lv ${nb.level + 1} — ${togo} to go!`;
 }
 
+// ---------- Dino Space Trip (the ladder made visible in his iconography) ----
+// One generator draws every planet — a shaded circle with deterministic
+// craters (or LEGO studs) and maybe a ring, keyed off the index so it's
+// stable across renders. Unvisited planets are dimmed silhouettes.
+const PLANET_COLORS = [
+  ["#5bbf6a", "#49a457"], ["#4f9dde", "#3b86c4"], ["#f4b942", "#d99a1e"],
+  ["#e8705a", "#c85640"], ["#8e6fc4", "#6f4fb0"], ["#5bc4b8", "#3fa89c"],
+];
+function planetSVG(idx, cat, visited) {
+  const [c1, c2] = visited ? PLANET_COLORS[idx % PLANET_COLORS.length]
+                           : ["#d9cfc0", "#c3b8a6"];
+  const seed = (idx * 2654435761) >>> 0;
+  const stud = cat === "lego";
+  let feats = "";
+  const spots = 3 + (idx % 3);
+  for (let i = 0; i < spots; i++) {
+    const a = ((seed >> (i * 3)) % 360) * Math.PI / 180;
+    const dist = 6 + ((seed >> (i * 2)) % 9);
+    const cx = (40 + Math.cos(a) * dist).toFixed(1);
+    const cy = (40 + Math.sin(a) * dist).toFixed(1);
+    feats += stud
+      ? `<circle cx="${cx}" cy="${cy}" r="3.5" fill="#fff" opacity=".28"/>`
+      : `<circle cx="${cx}" cy="${cy}" r="${3 + (i % 3)}" fill="#000" opacity=".12"/>`;
+  }
+  const ring = (idx % 3 === 1)
+    ? `<ellipse cx="40" cy="40" rx="33" ry="10" fill="none" stroke="${c2}"` +
+      ` stroke-width="4" opacity="${visited ? .8 : .4}" transform="rotate(-18 40 40)"/>`
+    : "";
+  return `<svg viewBox="0 0 80 80" class="planet-svg">` +
+    `<defs><radialGradient id="pg${idx}" cx=".38" cy=".35">` +
+    `<stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/>` +
+    `</radialGradient></defs>` +
+    `<circle cx="40" cy="40" r="26" fill="url(#pg${idx})" stroke="#2d2a26"` +
+    ` stroke-width="${visited ? 2 : 1.5}"${visited ? "" : ' stroke-dasharray="4 4"'}/>` +
+    feats + ring + `</svg>`;
+}
+
+function wireTrip() {
+  $("trip-btn").addEventListener("click", openTrip);
+  $("trip-back").addEventListener("click", () => { resetHomeMenu(); show("home"); });
+}
+
+function openTrip() {
+  show("trip-screen");
+  api("/api/trip?child=" + encodeURIComponent(state.childId))
+    .then((d) => renderTrip(d)).catch(() => {});
+}
+
+function renderTrip(d) {
+  $("trip-visited").textContent = d.reached;
+  $("trip-total").textContent = d.total;
+  const nextP = d.planets.find((p) => !p.visited);
+  $("trip-fuel-note").textContent = nextP
+    ? `⬆️ ${d.fuel} level-ups — ${nextP.fuel - d.fuel} more to reach ${nextP.name}!`
+    : `🏆 ${d.fuel} level-ups — you've visited every planet!`;
+  const map = $("trip-map");
+  map.innerHTML = "";
+  // top (last) planet first, so the list reads as a journey upward
+  d.planets.slice().reverse().forEach((p) => {
+    const isNext = nextP && p.idx === nextP.idx;
+    const row = document.createElement("div");
+    row.className = "trip-planet" + (p.visited ? " visited" : "") +
+      (isNext ? " next" : "");
+    row.innerHTML = planetSVG(p.idx, p.cat, p.visited) +
+      `<div class="tp-info"><b>${p.visited || isNext ? esc(p.name) : "???"}</b>` +
+      `<small>${p.visited ? "Visited ✓" : p.fuel + " level-ups"}</small></div>` +
+      (isNext ? `<span class="tp-rocket">🦕🚀</span>` : "");
+    map.appendChild(row);
+  });
+}
+
+// done-screen: landing on a planet — banner + the planet + its bonus fact
+function celebratePlanet(p) {
+  const wrap = $("planet-reveal");
+  if (!p) { wrap.classList.add("hidden"); wrap.innerHTML = ""; return; }
+  wrap.classList.remove("hidden");
+  wrap.innerHTML =
+    `<div class="planet-head">🪐 You landed on ${esc(p.name)}!</div>` +
+    `<div class="planet-badge">${planetSVG(p.idx, "", true)}</div>` +
+    (p.stars ? `<div class="planet-stars">+${p.stars} ⭐</div>` : "") +
+    (p.fact ? `<div class="fact-card flip"><span class="fc-emoji">${p.fact.emoji}</span>` +
+      `<span class="fc-text">${esc(p.fact.text)}</span></div>` : "");
+}
+
 function boot() {
   // Wire everything first — buttons must work even if the network is slow.
   wireHome();
@@ -457,6 +546,7 @@ function boot() {
   wireParent();
   wireBadges();
   wireFacts();
+  wireTrip();
   initUpdates();
   state.childId = storedChild();
   refreshState().catch(() => {});
@@ -552,6 +642,12 @@ function showPanel(name) {
     p.classList.toggle("hidden", !on);
     if (on) { p.classList.remove("slide-in"); void p.offsetWidth; p.classList.add("slide-in"); }
   });
+  // The landing extras (Quest card, greeting, chips, missions) belong to the
+  // top level only. Tuck them away while drilling into a game/count so the
+  // panel keeps the whole screen — no scrolling on short (landscape) phones.
+  const landing = name === "sections";
+  document.querySelectorAll("[data-landing]").forEach((el) =>
+    el.classList.toggle("drilled-hide", !landing));
 }
 
 function wireHome() {
@@ -702,8 +798,16 @@ function loadNext() {
   resetItemUI();
 
   const doneCount = state.total - state.queue.length - 1;
-  $("progress-fill").style.width =
-    Math.round((doneCount / Math.max(state.total, 1)) * 100) + "%";
+  const pct = Math.round((doneCount / Math.max(state.total, 1)) * 100);
+  $("progress-fill").style.width = pct + "%";
+  // the dino-rocket hops along the track each word — position, never a timer;
+  // it makes "10 words" feel finite and short
+  const rocket = $("progress-rocket");
+  if (rocket) {
+    rocket.style.left = pct + "%";
+    rocket.classList.remove("hop"); void rocket.offsetWidth;
+    rocket.classList.add("hop");
+  }
 
   if (isSentenceMode()) {
     state.sentence = item;             // {s, tokens:[{display,answer}], wordIdx}
@@ -1201,6 +1305,7 @@ function finishSession() {
   const secs = Math.round((Date.now() - (state.sessionStart || Date.now())) / 1000);
   $("badge-earns").innerHTML = ""; // clear last session's celebration
   celebrateFact(null);             // clear last session's fact card
+  celebratePlanet(null);
   showNextBadge(null);
   // a Quest offers "one more game?" (nudges another go without a treadmill);
   // a normal session offers "Play again" (same game, same goal)
@@ -1224,9 +1329,11 @@ function finishSession() {
     }
     if (r.new_badges && r.new_badges.length) celebrateBadges(r.new_badges);
     else showNextBadge(r.next_badge); // nudge only when not celebrating
+    if (r.new_planet) celebratePlanet(r.new_planet);
     if (r.new_fact) celebrateFact(r.new_fact);
-    if (r.assignment_done || (r.new_badges || []).length || r.new_fact) {
-      refreshState().catch(() => {}); // mission/badge/fact counts refresh
+    if (r.assignment_done || (r.new_badges || []).length || r.new_fact ||
+        r.new_planet) {
+      refreshState().catch(() => {}); // mission/badge/fact/planet refresh
     }
   }).catch(() => {});
   state.assignment = null;
@@ -1686,7 +1793,7 @@ function renderReport(rep) {
 
   // word sources: the custom lists first (the bank's copy-target dropdown
   // needs them cached), then the bank with its grade bands
-  renderParentBadges(rep.badges);
+  renderParentBadges(rep.badges, rep.trip);
   renderAssignments(rep);
   renderProgress(rep.progress);
   renderLists(rep.lists || []);

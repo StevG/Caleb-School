@@ -108,6 +108,8 @@ body.has-update .screen{padding-top:calc(env(safe-area-inset-top) + 46px)}
 
 .home-chips{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;
   margin-bottom:16px}
+/* landing-only extras get out of the way while drilling into a game */
+.drilled-hide{display:none !important}
 
 /* Today's Quest — the cheapest door into practice, big and inviting */
 .quest-card{display:flex;align-items:center;gap:14px;width:100%;max-width:420px;
@@ -187,8 +189,16 @@ body.has-update .screen{padding-top:calc(env(safe-area-inset-top) + 46px)}
 
 /* ---------- PLAY ---------- */
 .play-top{display:flex;align-items:center;gap:14px;padding:16px 18px 8px}
-.progress{flex:1;height:14px;background:#eee3d0;border-radius:10px;overflow:hidden}
+.progress{flex:1;height:14px;background:#eee3d0;border-radius:10px;position:relative}
 .progress-fill{height:100%;width:0;background:var(--green);border-radius:10px;transition:width .3s ease}
+/* the dino-rocket rides the track (position, never a timer); it may poke above
+   the bar, so the track no longer clips its overflow */
+.progress-rocket{position:absolute;top:50%;left:0;transform:translate(-50%,-50%);
+  font-size:17px;pointer-events:none;transition:left .4s ease;
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.25))}
+.progress-rocket.hop{animation:rocket-hop .45s ease}
+@keyframes rocket-hop{0%,100%{transform:translate(-50%,-50%)}
+  45%{transform:translate(-50%,-95%) rotate(-8deg)}}
 .score-pill{background:#fff;box-shadow:var(--shadow);border-radius:20px;padding:7px 14px;font-weight:800;font-size:17px;white-space:nowrap}
 .ghost-btn{background:#fff;border:none;box-shadow:var(--shadow);border-radius:50%;
   width:42px;height:42px;font-size:18px;color:var(--muted);cursor:pointer;flex:none}
@@ -619,6 +629,35 @@ details.sess[open] summary .tri{transform:rotate(90deg)}
   box-shadow:none;min-height:56px}
 .fc-q{font-size:26px;opacity:.5}
 .fc-deck{font-size:22px;opacity:.35;margin-left:6px}
+
+/* ---------- Dino Space Trip ---------- */
+.trip-fuel-note{text-align:center;font-weight:800;color:var(--blue-d);
+  padding:6px 16px;max-width:440px;margin:0 auto}
+.trip-map{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  width:100%;max-width:520px;margin:8px auto;padding:14px;border-radius:18px;
+  background:
+    radial-gradient(1.5px 1.5px at 18% 12%, #fff, transparent),
+    radial-gradient(1px 1px at 68% 30%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 40% 60%, #fff, transparent),
+    radial-gradient(1px 1px at 85% 78%, #fff, transparent),
+    radial-gradient(1px 1px at 30% 88%, #fff, transparent),
+    linear-gradient(180deg,#0b1836,#1c2f57)}
+.trip-planet{display:flex;align-items:center;gap:14px;padding:8px 10px;color:#eaf0ff}
+.trip-planet.next{background:rgba(255,255,255,.08);border-radius:14px}
+.planet-svg{width:56px;height:56px;flex:none}
+.tp-info{flex:1;text-align:left}
+.tp-info b{font-size:17px;font-weight:800}
+.tp-info small{display:block;font-size:13px;color:#a9b6d8}
+.trip-planet:not(.visited):not(.next) .tp-info b{color:#7f8bb0}
+.tp-rocket{font-size:22px;flex:none}
+
+.p-trip-line{margin-top:10px;font-size:13px;font-weight:700;color:var(--muted)}
+
+/* done-screen: planet landing */
+.planet-reveal{display:flex;flex-direction:column;align-items:center;gap:4px;margin:8px 0}
+.planet-head{font-size:18px;font-weight:900;color:var(--blue-d)}
+.planet-badge .planet-svg{width:82px;height:82px;animation:badge-pop .5s ease backwards}
+.planet-stars{font-weight:800;color:var(--amber-d,#d99a1e);font-size:16px}
 
 /* parent dashboard strip */
 .badge-count-pill{font-size:13px;font-weight:700;color:var(--muted)}

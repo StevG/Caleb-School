@@ -128,7 +128,10 @@ tickle pushes + SW pull (no payload crypto); key + subs in gitignored
 facts (`factbank.py`); finishing a 5+-item session flips over one new card
 (`session_end.new_fact`), capped 3/day, sticky like badges; `session_end`
 also returns `next_badge` (the done-screen "what's next" nudge) ·
-`GET /api/badges?child=` (kid's trophy case) — 14 tiered
+`GET /api/trip?child=` (Dino Space Trip journey) — 12 planets fueled by
+lifetime level-ups (`counters.stage_ups`); a landing pays +10 ⭐ + a themed
+bonus fact (`session_end.new_planet`), `planets_seen` sticky; `state.trip`
+drives the home chip · `GET /api/badges?child=` (kid's trophy case) — 14 tiered
 badges (`badgebank.py`); lifetime per-child `counters` feed
 `badge_metrics`→`evaluate_badges` on `session_end` (returns `new_badges`,
 awards +5/10/15/25 ⭐/level, pushes parents); levels are STICKY (resets never

@@ -29,23 +29,24 @@
     <div class="hello">Hi <span id="kid-name">Caleb</span>! 👋</div>
     <div id="who-row" class="who-row hidden"></div>
     <div class="points-big"><span id="home-points">0</span> <span class="star">⭐</span></div>
-    <div id="greeting-chips" class="greeting-chips"></div>
+    <div id="greeting-chips" class="greeting-chips" data-landing></div>
     <p class="tagline">Let's practice spelling!</p>
-    <div class="home-chips">
+    <div class="home-chips" data-landing>
       <button id="badges-btn" class="badges-chip">🎖️ <b id="badges-count">0</b> badges</button>
       <button id="facts-btn" class="badges-chip">📚 <b id="facts-count">0</b>/<span id="facts-all">0</span> facts</button>
+      <button id="trip-btn" class="badges-chip">🚀 Space Trip</button>
     </div>
 
     <!-- Today's Quest: one tap, five words, no decisions. The cheapest
          possible door into practice — starting is the whole battle. -->
-    <button id="quest-card" class="quest-card">
+    <button id="quest-card" class="quest-card" data-landing>
       <span class="quest-emoji">🚀</span>
       <span class="quest-text"><b id="quest-title">Today's Quest</b>
         <small id="quest-sub">5 words — let's go!</small></span>
       <span class="quest-go">GO!</span>
     </button>
 
-    <div id="missions" class="missions hidden">
+    <div id="missions" class="missions hidden" data-landing>
       <p class="missions-head">Your missions 📋</p>
       <div id="mission-list"></div>
     </div>
@@ -119,7 +120,8 @@
 <section id="play" class="screen">
   <header class="play-top">
     <button id="quit" class="ghost-btn" aria-label="Home">✕</button>
-    <div class="progress"><div id="progress-fill" class="progress-fill"></div></div>
+    <div class="progress"><div id="progress-fill" class="progress-fill"></div>
+      <span id="progress-rocket" class="progress-rocket">🚀</span></div>
     <div class="score-pill"><span id="play-points">0</span> ⭐</div>
   </header>
 
@@ -157,6 +159,7 @@
     <div id="level-ups" class="done-levelups"></div>
     <div id="next-badge" class="next-badge"></div>
     <div id="badge-earns" class="badge-earns"></div>
+    <div id="planet-reveal" class="planet-reveal hidden"></div>
     <div id="fact-reveal" class="fact-reveal hidden"></div>
     <div class="done-total">Total: <span id="done-total">0</span> ⭐</div>
     <div class="done-actions">
@@ -196,6 +199,17 @@
   </header>
   <div id="facts-complete" class="facts-complete hidden">🏆 You collected every fact — you know them ALL!</div>
   <div id="facts-grid" class="facts-grid"></div>
+</section>
+
+<!-- DINO SPACE TRIP (kid) -->
+<section id="trip-screen" class="screen">
+  <header class="badges-top">
+    <button id="trip-back" class="ghost-btn" aria-label="Home">✕</button>
+    <div class="badges-title">Dino Space Trip 🚀</div>
+    <div class="badges-tally"><span id="trip-visited">0</span>/<span id="trip-total">0</span></div>
+  </header>
+  <div id="trip-fuel-note" class="trip-fuel-note"></div>
+  <div id="trip-map" class="trip-map"></div>
 </section>
 
 <!-- PARENT GATE -->
@@ -238,6 +252,7 @@
       <div class="card-head">Badges <span id="p-badge-count" class="badge-count-pill"></span></div>
       <p class="card-note">Trophies he's earned — each builds through four levels. They're never taken away, even by a reset.</p>
       <div id="p-badge-strip" class="p-badge-strip"></div>
+      <div id="p-trip-line" class="p-trip-line"></div>
     </div>
 
     <div class="card">
