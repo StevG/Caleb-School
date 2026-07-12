@@ -8,6 +8,13 @@ legal advice**; before an actual launch, spend one hour with a lawyer who
 does app/COPPA work — the whole point of the design below is to make that
 conversation short.
 
+**Pricing decision (owner, 2026-07-12): paid-upfront, ~$0.99–$1.99.** This
+is the best-case monetization for a kids' app — see §6a for what charging
+changes (banking/tax agreements, the 15% commission programs, a stronger
+LLC recommendation) and what it deliberately doesn't (the kids/COPPA
+story survives intact because the purchase happens on the *parent's* store
+account before the child ever opens the app).
+
 ---
 
 ## TL;DR
@@ -16,10 +23,11 @@ conversation short.
 |---|---|
 | Can this app ship to the stores as-is? | No — it's a self-hosted family PWA. It needs a **local-first port** (move the engine into the client, all data on-device) and a native wrapper (Capacitor). That port is the real work; the paperwork is easy. |
 | Parent controls: separate parent app/accounts? | **No — keep the PIN-gated parent area on the kid's device** (the owner's instinct). It's simpler, it's what the app already does, and it's the COPPA-cleanest design possible. Cross-device parent dashboards can come later via the family's own iCloud/Google accounts, never via our servers. |
-| Do I need a company (LLC)? | **Not required.** Both stores accept individual accounts. An LLC is worth ~$50–500/yr for liability separation and a nicer store listing, and a Google **organization** account skips the painful 12-tester rule — but you can launch without one. |
-| Legal exposure? | Low **if** the app stays free, ad-free, and collects zero data (all three are true today). The one real compliance regime is **COPPA + the stores' kids policies**, and a local-only app satisfies them almost by construction. |
+| Do I need a company (LLC)? | **Not required — but recommended once the app charges money.** Both stores accept individual accounts. With paid downloads, an LLC (~$50–500 + small annual fees) buys liability separation, clean books (EIN + business bank account for the payouts), a company name on the listing, and a Google **organization** account that skips the painful 12-tester rule. |
+| Legal exposure? | Still low. The compliance-critical properties are **ad-free, account-free, IAP-free, zero-data** — all kept. Charging $1–2 upfront adds tax/banking paperwork and ordinary business income, not a new privacy regime: the stores are the merchant of record and handle sales tax/VAT and refunds. |
 | Licensing problems with the content? | Essentially none, with one caution: the word **LEGO** (see Trademarks). Word lists are public-domain/factual, sentences and facts are original text. |
 | Cost to be on both stores | Apple **$99/year** + Google **$25 once** (+ optional LLC costs). |
+| What do I keep of a $1.99 sale? | **~$1.69** per sale on both stores at the 15% small-developer rates (enrollment required on both — §6a); 30%/$1.39 if you skip enrolling. |
 
 ---
 
@@ -176,17 +184,77 @@ apply regardless of what data it does or doesn't touch:
   and Google's 12-tester rule doesn't apply to organization accounts.
 - **What an LLC buys** (~$50–$500 to form depending on state, plus small
   annual fees): separation of personal assets from app liability, the
-  company name on the listings, cleaner banking if the app ever monetizes.
-  For a free, ad-free, zero-data app the realistic liability surface is
-  small; the honest framing is that the LLC is *cheap insurance plus
-  convenience*, not a necessity. If it ever becomes a paid app or adds
-  subscriptions, form the entity first (and get an EIN + separate bank
-  account; Apple/Google payout agreements want tax info either way).
+  company name on the listings, and clean banking for the payouts. With
+  the paid-upfront decision made (§6a), the recommendation firms up:
+  **form the LLC before launch** — commerce is exactly the point where the
+  entity earns its keep (an EIN + a business bank account keep the store
+  payouts and taxes cleanly separated from personal finances, and the
+  Google org account skips the 12-tester rule as a bonus). It remains
+  legally optional; individuals sell paid apps every day.
 - Sequence if you do want the entity: LLC in your home state → EIN (free,
   IRS online) → D-U-N-S (free) → Apple org account + Google org account.
   Add ~2–4 weeks of calendar time for verifications.
 - **Insurance**: general/media liability policies exist for app studios;
   overkill at this scale. Revisit only if downloads get serious.
+
+## 6a. Charging for the app (paid-upfront, ~$0.99–$1.99)
+
+**Why paid-upfront is the right model for THIS app.** Of every way to
+monetize a kids' app, a small one-time price is the cleanest:
+
+- The **purchase happens in the store, on the parent's account, before the
+  child ever opens the app** — so the kids-policy commerce rules (parental
+  gates before purchases, IAP restrictions) simply never trigger. Apple's
+  Kids Category and Google's Families policy govern *in-app* commerce; a
+  paid download has none.
+- **COPPA analysis is unchanged.** Apple/Google process the payment and
+  send aggregated payouts; the developer never receives a child's (or even
+  the parent's) payment details. Zero-data stays zero-data.
+- No ads, no subscriptions, no "free + unlock" IAP machinery to build,
+  gate, and defend in review. (The freemium alternative — free download +
+  one-time parent-gated unlock IAP — converts better commercially but adds
+  the exact compliance surface this plan avoids. Skip it unless downloads
+  someday justify the complexity.)
+- Parents *trust* paid-upfront in the kids' space — it signals "no ads, no
+  manipulation" better than any policy text. Teacher Approved and kids-app
+  review sites treat it as a positive.
+- Trade-off to accept: paid-upfront kills casual downloads. At $0.99–1.99
+  that's fine — this is a "worth-it" purchase driven by word of mouth and
+  store search, not a growth funnel.
+
+**Commissions — enroll in BOTH small-developer programs or lose 15 points:**
+
+| | Default | Reduced | How to get the reduced rate |
+|---|---|---|---|
+| Apple | 30% | **15%** | [App Store Small Business Program](https://developer.apple.com/app-store/small-business-program/) — must apply/enroll; eligibility is <$1M/yr proceeds (new developers qualify); accept the latest Paid Apps agreement first; the rate takes effect ~15 days after the fiscal month of approval. |
+| Google | 30% above $1M | **15% on the first $1M/yr** | [Enroll in the 15% service-fee tier](https://support.google.com/googleplay/android-developer/answer/10632485?hl=en) — create the Account Group in Play Console, declare associated accounts, accept the tier's Terms of Service. |
+
+Net on a $1.99 sale at 15%: **≈$1.69** (before income tax). On a $0.99
+sale: ≈$0.84. Price tiers are picked from each store's price schedule;
+both let you set per-country pricing or auto-derive it.
+
+**Paperwork charging adds (one-time, ~an afternoon plus waiting):**
+- Apple: accept the **Paid Applications agreement** (Schedule 2) in App
+  Store Connect, and complete **banking + tax forms** (W-9 for a US
+  individual/LLC) before a paid app can go live. Payouts arrive monthly
+  above a small minimum threshold.
+- Google: set up the **payments profile** (bank account, tax info) in the
+  Play Console. Same idea, monthly payouts.
+- Taxes: the stores act as **merchant of record** — they collect and remit
+  sales tax/VAT worldwide and handle refunds/chargebacks; what lands in
+  the bank is business income. As an individual that's Schedule C
+  (self-employment) income; with the LLC it flows through the entity.
+  Expect a 1099 from the platforms once payouts cross reporting
+  thresholds. At $1–2/download this is beer money until it very suddenly
+  isn't — which is exactly why the LLC + separate bank account from day
+  one keeps it painless.
+- Support: paid apps raise expectations — the listings need a working
+  support email/URL, and refund requests (handled by the stores) sometimes
+  arrive as support mail anyway.
+
+**Testing note:** charging doesn't complicate testing. TestFlight builds
+are always free for testers, and Google Play **license testing** lets the
+12 closed-track testers install a paid app without paying.
 
 ## 7. Content licensing & trademarks
 
@@ -224,15 +292,19 @@ code), so there are no license obligations to satisfy.
 |---|---|---|
 | Apple Developer Program | $99/year | required |
 | Google Play registration | $25 once | required |
-| LLC (optional) | ~$50–500 + annual | skips Google's 12-tester rule via org account |
+| LLC (recommended now that the app charges) | ~$50–500 + annual | liability separation + clean payout banking; org account skips Google's 12-tester rule |
 | D-U-N-S | free | only for org accounts |
 | Privacy-policy hosting | ~free | a static page |
 | Lawyer sanity check | ~1 hour billed | worth it once, before launch |
+| Commission programs (both stores) | free to enroll | 15% instead of 30% — see §6a; ~$1.69 net per $1.99 sale |
 
 Realistic effort, given the codebase (each phase shippable):
 
-1. **Phase 0 — decisions** (days): name search, entity yes/no, write the
-   one-page privacy policy.
+1. **Phase 0 — decisions & money plumbing** (days + verification waits):
+   name search, form the LLC (+ EIN + business bank account), write the
+   one-page privacy policy; open both developer accounts; accept Apple's
+   Paid Applications agreement + banking/tax forms and Google's payments
+   profile; enroll in both 15% commission programs (§6a).
 2. **Phase 1 — local-first port** (the real work): engine to JS, banks to
    generated JSON, on-device persistence, feature-flag out server-only
    bits. The Playwright suites port almost unchanged and are the safety
@@ -243,8 +315,9 @@ Realistic effort, given the codebase (each phase shippable):
    the 12 testers early if on a personal account — they must stay opted
    in 14 continuous days).
 5. **Phase 4 — submissions**: Kids Category + Families declarations,
-   privacy labels, screenshots; budget for one rejection-and-fix cycle
-   (4.2 wrapper or kids-gate nitpicks are the likely notes).
+   privacy labels, screenshots, pick the price tier (~$0.99–$1.99) per
+   store; budget for one rejection-and-fix cycle (4.2 wrapper or
+   kids-gate nitpicks are the likely notes).
 6. **Phase 5 — launch & upkeep**: store updates replace the HomeHub
    auto-pull for store users; opt into Teacher Approved.
 
@@ -252,17 +325,20 @@ Realistic effort, given the codebase (each phase shippable):
 
 - The HomeHub deployment: `server.py`, the hard rules in CLAUDE.md, the
   git-pull deploy loop — all continue untouched for Caleb's daily use.
-- The design identity: free of ads, accounts, analytics, and economies is
+- The design identity: **ad-free, account-free, IAP-free, zero-data** is
   not just the pedagogy stance — it is the entire compliance strategy.
-  Every store/legal obligation above gets dramatically harder the moment
-  any of those change. Keeping the app exactly this kind of app is what
-  makes shipping it tractable for one person.
+  A small upfront price doesn't dent any of it (the store handles the
+  money before the child ever appears); ads, in-app purchases, accounts,
+  or telemetry would. Every store/legal obligation above gets dramatically
+  harder the moment any of those change. Keeping the app exactly this kind
+  of app is what makes shipping it tractable for one person.
 
 ## Sources
 
 - [Apple Developer Program enrollment](https://developer.apple.com/programs/enroll/) · [memberships compared](https://developer.apple.com/support/compare-memberships/) · [D-U-N-S](https://developer.apple.com/help/account/membership/D-U-N-S/)
 - [Apple App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/) (1.3, 2.3.7, 4.2, 5.1.4) · [Apple kids guidance](https://developer.apple.com/kids/)
 - [Google Play closed-testing requirement for new personal accounts](https://support.google.com/googleplay/android-developer/answer/14151465?hl=en)
+- [Apple App Store Small Business Program (15%)](https://developer.apple.com/app-store/small-business-program/) · [Google Play 15% service-fee tier](https://support.google.com/googleplay/android-developer/answer/10632485?hl=en) · [Play service fees overview](https://support.google.com/googleplay/android-developer/answer/112622?hl=en)
 - [Google Play Families policies](https://support.google.com/googleplay/android-developer/answer/9893335?hl=en) · [Families program / Teacher Approved](https://play.google.com/console/about/programs/families/)
 - [FTC: Complying with COPPA — FAQ](https://www.ftc.gov/business-guidance/resources/complying-coppa-frequently-asked-questions) · [FTC six-step compliance plan](https://www.ftc.gov/business-guidance/resources/childrens-online-privacy-protection-rule-six-step-compliance-plan-your-business)
 - Webview/4.2 rejection field reports: [MobiLoud](https://www.mobiloud.com/blog/app-store-review-guidelines-webview-wrapper) · [Code2Native](https://code2native.com/blog/fix-app-store-rejection-42-webview)
