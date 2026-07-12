@@ -27,6 +27,7 @@ from main).
 | `facts.mjs` | Fact cards (Phase 2): 90-card dino/space/LEGO catalog, one award per 5+-word session, 3/day cap, no repeats, `facts_earned` count, `next_badge` nudge, stickiness through a reset, home chip + collection screen + done-screen reveal/nudge |
 | `trip.mjs` | Dino Space Trip (Phase 3): 12 planets fueled by level-ups, threshold crossing awards +10 ⭐ + a themed bonus fact once each, multi-crossing celebrates the top planet, no double-award, stickiness through a reset, home chip + journey screen (visited/next/???), done-screen landing celebration |
 | `games.mjs` | Which One? + Build It (Phase 4): pick session shape (3 choices incl. target, 2 misspellings), pick never moves the ladder (climb or drop) but records stats, Build It climbs 1→2 then caps + a miss drops a rung, both game cards in the Words grid, pick choice interaction, Build It tile-tap (word hides on first tile, correct build celebrated) |
+| `mapit.mjs` | Map It (Phase 5): the client `graphemeSplit` matches the table (b\|oa\|t, n\|igh\|t, r\|a\|bb\|i\|t…), chunks rejoin over sampled bank words, and a miss's reveal renders chunked boxes (chunk gaps + heart letters red) |
 
 ## Running
 

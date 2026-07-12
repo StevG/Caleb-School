@@ -34,9 +34,10 @@ The pieces already generalize; don't fork the app, extend it:
 - ~~**Heart-letter highlighting**~~ — DONE 2026-07-02: heart words render
   their irregular grapheme(s) in red in the prompt and the reveal, with a
   "learn it by heart ♥" hint, across all modes (data: `wordbank.HEART_WORDS`).
-- **"Map it" on misses (Elkonin boxes)** — after the reveal, show the word
-  segmented by grapheme (b|oa|t) before the aided retype, turning copying
-  into phoneme-grapheme mapping.
+- ~~**"Map it" on misses (Elkonin boxes)** — after the reveal, show the word
+  segmented by grapheme (b|oa|t)~~ — DONE 2026-07-12 (Phase 4/5): the reveal
+  chunks its boxes by grapheme (`wordbank.grapheme_split` / `graphemeSplit`
+  in app.js), turning the aided retype into phoneme-grapheme mapping.
 - **Feature-level miss analysis** — log *which grapheme* was wrong (vowel
   team vs consonant vs suffix) and report "most misses are long-o teams" —
   the same placement logic as a spelling inventory.

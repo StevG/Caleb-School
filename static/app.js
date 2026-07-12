@@ -1094,13 +1094,16 @@ function undoTile() {
   onType();
 }
 
-function renderBoxes(n, value) {
+function renderBoxes(n, value, reserve) {
   const wrap = $("boxes");
   wrap.className = "boxes";
   wrap.innerHTML = "";
   // The whole word must fit on ONE line — its shape is a memory cue.
-  // Shrink boxes (and gaps) for long words instead of wrapping.
-  const avail = wrap.clientWidth || wrap.parentElement.clientWidth || 340;
+  // Shrink boxes (and gaps) for long words instead of wrapping. `reserve` is
+  // extra horizontal space to leave for the Map-it chunk gaps on the reveal.
+  reserve = reserve || 0;
+  const avail = (wrap.clientWidth || wrap.parentElement.clientWidth || 340)
+    - reserve;
   let gap = 10;
   let size = Math.floor((avail - gap * (n - 1)) / n);
   if (size < 40) { gap = 6; size = Math.floor((avail - gap * (n - 1)) / n); }
@@ -1116,6 +1119,78 @@ function renderBoxes(n, value) {
     b.textContent = value[i] || "";
     wrap.appendChild(b);
   }
+}
+
+// ----- Map it: grapheme chunking on the reveal (Elkonin boxes) -----
+// A JS mirror of wordbank.grapheme_split — segment the word into the
+// sound-spellings a Within-Word-Pattern speller learns (b|oa|t, n|igh|t),
+// so the aided retype becomes phoneme-grapheme mapping, not letter-copying.
+// GUARANTEE: chunks rejoin to the word, else per-letter fallback.
+const GRAPHEMES = ["eigh", "tch", "dge", "igh", "air", "ear", "are", "ore",
+  "sh", "ch", "th", "wh", "ph", "ck", "ng", "kn", "wr", "qu",
+  "ai", "ay", "ee", "ea", "oa", "ow", "oo", "ue", "ew", "ie",
+  "oi", "oy", "ou", "au", "aw", "ar", "or", "er", "ir", "ur", "oe"]
+  .sort((a, b) => b.length - a.length);
+const VOWELS_SET = new Set(["a", "e", "i", "o", "u"]);
+
+function graphemeSplit(word) {
+  const w = word.toLowerCase();
+  const chunks = [];
+  let i = 0;
+  while (i < word.length) {
+    if (i + 1 < word.length && w[i] === w[i + 1] && !VOWELS_SET.has(w[i]) &&
+        /[a-z]/.test(w[i])) {
+      chunks.push(word.slice(i, i + 2)); i += 2; continue;
+    }
+    let matched = null;
+    for (const g of GRAPHEMES) {
+      if (w.startsWith(g, i)) { matched = g; break; }
+    }
+    if (matched) { chunks.push(word.slice(i, i + matched.length)); i += matched.length; }
+    else { chunks.push(word.slice(i, i + 1)); i += 1; }
+  }
+  return chunks.join("") === word ? chunks : word.split("");
+}
+
+// which letter indices are part of a heart grapheme (rendered red) — mirrors
+// heartSpans's left-to-right matching of "ai" / "o-e" style hints
+function heartIndices(target, heart) {
+  const set = new Set();
+  if (!heart) return set;
+  const lower = target.toLowerCase();
+  let from = 0;
+  for (const part of heart.toLowerCase().split("-")) {
+    if (!part) continue;
+    const idx = lower.indexOf(part, from);
+    if (idx === -1) return new Set(); // mapping doesn't fit — no red
+    for (let k = 0; k < part.length; k++) set.add(idx + k);
+    from = idx + part.length;
+  }
+  return set;
+}
+
+// The reveal: fill the boxes with the answer, grouped into grapheme chunks
+// (extra gap + alternating tint between chunks; heart letters stay red).
+function renderRevealBoxes(target, heart) {
+  const chunks = graphemeSplit(target);
+  const CHUNK_GAP = 12;
+  renderBoxes(target.length, target, (chunks.length - 1) * CHUNK_GAP);
+  const wrap = $("boxes");
+  wrap.style.setProperty("--chunk-gap", CHUNK_GAP + "px");
+  const heartIdx = heartIndices(target, heart);
+  const boxes = wrap.children;
+  let pos = 0;
+  chunks.forEach((ch, ci) => {
+    for (let k = 0; k < ch.length; k++) {
+      const box = boxes[pos];
+      if (box) {
+        if (ci > 0 && k === 0) box.classList.add("chunk-start");
+        if (ci % 2) box.classList.add("chunk-alt");
+        if (heartIdx.has(pos)) box.classList.add("heart-box");
+      }
+      pos++;
+    }
+  });
 }
 
 function onType() {
@@ -1254,13 +1329,15 @@ function doCheck() {
       state.total++;
     }
     setTimeout(() => {
-      renderBoxes(state.target.length, state.target); // resets .boxes class...
-      boxes.classList.add("reveal");                  // ...so add reveal after
+      // Map it: reveal the answer segmented into grapheme chunks (b|oa|t) so
+      // the retype is phoneme-grapheme mapping, not letter-copying.
+      renderRevealBoxes(state.target, state.itemHeart); // resets .boxes class...
+      boxes.classList.add("reveal");                    // ...so add reveal after
       $("prompt-word").innerHTML = heartSpans(state.target, state.itemHeart);
       $("prompt-word").classList.remove("gone");
       $("prompt-hint").textContent = state.itemHeart
         ? "The red part is the tricky bit — learn it by heart ♥"
-        : "This is how you spell it. Try again!";
+        : "See the chunks? Build it chunk by chunk 🧩";
       $("feedback").textContent = ""; // don't leave "Almost!" under the answer
       $("feedback").className = "feedback";
       $("check").classList.add("hidden");

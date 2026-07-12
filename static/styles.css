@@ -253,6 +253,11 @@ body.has-update .screen{padding-top:calc(env(safe-area-inset-top) + 46px)}
 .boxes.correct .box{border-color:var(--green);background:#eafaee}
 .boxes.wrong .box{border-color:var(--red);background:#fdeeea}
 .boxes.reveal .box{border-color:var(--amber);background:#fff8e8}
+/* Map it: grapheme chunks on the reveal — a gap + alternating tint groups
+   the boxes into sound-spellings (b|oa|t); heart letters stay red */
+.boxes.reveal .box.chunk-start{margin-left:var(--chunk-gap,12px)}
+.boxes.reveal .box.chunk-alt{background:#fff2d6}
+.boxes.reveal .box.heart-box{color:var(--red)}
 /* the exact letters that were wrong — his eye jumps straight to the fix */
 .box.box-off{border-color:var(--red);background:#fbdcd4;animation:box-wiggle .4s ease}
 @keyframes box-wiggle{0%,100%{transform:none}25%{transform:translateX(-3px)}

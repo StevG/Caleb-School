@@ -85,6 +85,17 @@ game can only prove skills up to its own rung; see docs/SCORING.md):
 - Not a game with an economy — points are minutes of iPad time, period.
 
 ## Decisions log
+- 2026-07-12 — Engagement Phase 5: Map It (Elkonin boxes on the reveal). After
+  a miss, the revealed answer's letter boxes group into grapheme chunks
+  (b|oa|t, n|igh|t, r|a|bb|i|t) — an extra gap + alternating tint between
+  chunks, heart letters still red — so the aided retype is phoneme-grapheme
+  mapping, not letter-copying (the strongest instructional item in
+  docs/RESEARCH.md). `wordbank.grapheme_split()` (greedy longest-match over a
+  taught-grapheme inventory + doubled-consonant merge; GUARANTEE: chunks
+  rejoin, else per-letter fallback) is mirrored by `graphemeSplit()` in app.js
+  for the client reveal; `renderRevealBoxes()` applies the chunk gaps (they're
+  reserved in `renderBoxes`'s one-line width math). Hint: "See the chunks?
+  Build it chunk by chunk 🧩".
 - 2026-07-12 — Engagement Phase 4: two lower-effort games (owner: give him a
   way to practice on bad days when typing a whole word feels like too much).
   Both are real modes (per-mode/per-day stats, missions, `MODE_LABELS`).

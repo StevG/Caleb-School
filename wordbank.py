@@ -894,8 +894,70 @@ def distractors(word, n=2, salt=0):
     return (cands[start:] + cands[:start])[:n]
 
 
+# --- Grapheme mapping (Elkonin "Map it" boxes on the reveal) -----------------
+# Longest-match-first inventory of the sound-spellings a Within-Word-Pattern
+# speller is taught. Order within a length doesn't matter; longer teams are
+# tried before shorter ones so "igh" wins over "i". Doubled consonants are
+# handled separately (they're one sound, e.g. rabbit -> r|a|bb|i|t).
+_GRAPHEMES = [
+    # 4
+    "eigh",
+    # 3
+    "tch", "dge", "igh", "air", "ear", "are", "ore",
+    # 2 — consonant digraphs
+    "sh", "ch", "th", "wh", "ph", "ck", "ng", "kn", "wr", "qu",
+    # 2 — vowel teams / r-controlled / diphthongs
+    "ai", "ay", "ee", "ea", "oa", "ow", "oo", "ue", "ew", "ie",
+    "oi", "oy", "ou", "au", "aw", "ar", "or", "er", "ir", "ur", "oe",
+]
+_GRAPHEMES.sort(key=len, reverse=True)
+_VOWEL_SET = set("aeiou")
+
+
+def grapheme_split(word, group=None, heart=None):
+    """Split a word into its grapheme chunks for the phoneme-grapheme "Map it"
+    reveal (b|oa|t, n|igh|t, r|a|bb|i|t). Greedy longest-match over the
+    inventory, plus doubled-consonant merging. GUARANTEE: the chunks always
+    rejoin to the exact word — any uncertainty falls back to per-letter, which
+    is indistinguishable from today's boxes. `group`/`heart` are accepted for
+    future refinement (currently the inventory already handles the taught
+    teams, and a heart grapheme in the inventory is kept whole automatically)."""
+    w = word.lower()
+    chunks, i, n = [], 0, len(word)
+    while i < n:
+        # doubled consonant (one sound): bb, tt, ll ... but NOT ee/oo (teams)
+        if (i + 1 < n and w[i] == w[i + 1] and w[i] not in _VOWEL_SET
+                and w[i].isalpha()):
+            chunks.append(word[i:i + 2])
+            i += 2
+            continue
+        for g in _GRAPHEMES:
+            if w.startswith(g, i):
+                chunks.append(word[i:i + len(g)])
+                i += len(g)
+                break
+        else:
+            chunks.append(word[i:i + 1])
+            i += 1
+    # invariant: rejoin must equal the word, or fall back to per-letter
+    if "".join(chunks) != word:
+        return list(word)
+    return chunks
+
+
 if __name__ == "__main__":
     words, sentences = build_pool()
+    # grapheme_split: table-driven checks + the rejoin invariant over the bank
+    _CASES = {"boat": ["b", "oa", "t"], "night": ["n", "igh", "t"],
+              "catch": ["c", "a", "tch"], "rabbit": ["r", "a", "bb", "i", "t"],
+              "said": ["s", "ai", "d"], "hope": ["h", "o", "p", "e"],
+              "queen": ["qu", "ee", "n"], "cat": ["c", "a", "t"]}
+    for wd, expect in _CASES.items():
+        got = grapheme_split(wd)
+        assert got == expect, f"grapheme_split({wd!r}) = {got}, want {expect}"
+    for item in words:
+        assert "".join(grapheme_split(item["w"])) == item["w"], item["w"]
+    print("grapheme_split: table cases pass + rejoin holds over the whole bank ✓")
     groups = {}
     for item in words:
         groups.setdefault(item["group"], 0)
