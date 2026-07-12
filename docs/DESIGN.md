@@ -6,7 +6,9 @@ earns stars, and goes to play. Parents glance at a dashboard from their phones.
 
 ## Purpose
 - Make daily spelling practice self-serve: no parent needs to sit with him.
-- Earn ⭐ points the parents convert to iPad time ("go earn 10 points").
+- Keep him engaged with ONE reward system — badges (his own idea) — plus
+  small in-session ⭐ feedback while he plays. (Stars were retired as a
+  lifetime currency 2026-07-12; see the decisions log.)
 - Tell the parents exactly which words to work on (most-missed list).
 
 ## Who it's for
@@ -82,9 +84,41 @@ game can only prove skills up to its own rung; see docs/SCORING.md):
 ## Non-goals
 - Not a general ed-tech platform; one kid, one family, one Mac mini.
 - No accounts, no cloud services, no analytics, no third-party anything.
-- Not a game with an economy — points are minutes of iPad time, period.
+- Not a game with an economy — no currencies, no shops, ONE trophy system
+  (badges). Stars exist only as in-the-moment feedback during a session.
 
 ## Decisions log
+- 2026-07-12 — **The great de-bloat** (owner, after reviewing the engagement
+  phases with screenshots + research): the app had grown THREE parallel
+  reward systems (badges + 90 fact cards + 12 planets), each with its own
+  chip, screen, and done-screen celebration — the worst-case done screen
+  measured 966px on a 780px phone with the Home button unreachable, and in a
+  seeded run 11 of 20 lifetime stars came from meta-bonuses instead of
+  spelling. Owner's calls, all implemented:
+  (1) **Badges are THE reward system** (Caleb's own idea, untouched — names,
+  tiers, screen, chip all stay). Badge levels no longer pay stars — the badge
+  is the trophy (`STAR_PER_LEVEL` removed).
+  (2) **Stars demoted to in-session feedback only.** The play pill still
+  counts +1s during a session (answers feel rewarded in the moment) but
+  there is no home-screen total, no done-screen tally ("You spelled N
+  words!" instead), no iPad-time economy, no parent Stars tile (replaced by
+  Day streak), no reset-stars button (the API keeps accepting
+  `reset_points`). The internal `points`/`lifetime_points` counters still
+  tick quietly to feed the Star Collector badge. The greeting chip now says
+  "Yesterday: N right ✅" instead of stars.
+  (3) **Dino Space Trip removed** (planets, journey screen, chip, +10 ⭐
+  landings, `/api/trip` — all gone). The little rocket riding the in-session
+  progress bar stays: it's presentation, not a reward system.
+  (4) **Fact cards → fact of the day.** No collection, no awards, no caps,
+  no screen: one dino/space/LEGO fact (`factbank.py`, deterministic daily
+  rotation via `server.daily_fact`) shows on the home screen every day with
+  a 🔊 — pure fun, zero mechanics, always visible (`state.daily_fact`).
+  (5) The done screen is scrollable as a safety net so stacked badge
+  celebrations can never push the buttons off-screen again.
+  Research basis: unified reward systems beat parallel ones (K-12
+  gamification meta-analyses; "When Gamification Spoils Your Learning");
+  the loved apps in this space are single-focus (Duolingo ABC, Khan Kids,
+  Squeebles = one collection/one currency).
 - 2026-07-12 — Engagement Phase 5: Map It (Elkonin boxes on the reveal). After
   a miss, the revealed answer's letter boxes group into grapheme chunks
   (b|oa|t, n|igh|t, r|a|bb|i|t) — an extra gap + alternating tint between

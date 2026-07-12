@@ -102,8 +102,9 @@ BADGES = [
 
 BADGE_IDS = [b["id"] for b in BADGES]
 
-# stars awarded when a badge reaches each level (small — a nudge, not the point)
-STAR_PER_LEVEL = {1: 5, 2: 10, 3: 15, 4: 25}
+# Badges pay no stars (owner 2026-07-12): stars are in-session feedback only,
+# and the badge itself is the trophy — mixing the two inflated the old
+# star economy and diluted both.
 
 
 def badge_tier(badge, value):

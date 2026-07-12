@@ -7,7 +7,7 @@ view answers one question a parent of a struggling speller actually asks.
 |---|---|---|
 | Words mastered ★ tile | "Is he actually learning?" | `summary.mastered` |
 | Still learning tile | "How much is in flight?" | `summary.learning` |
-| Stars earned tile | "How much effort?" (iPad-time currency) | `summary.points` |
+| Day streak 🦕 tile | "Is he showing up daily?" | `summary.streak_days` (replaced the Stars-earned tile 2026-07-12 — stars are in-session feedback only now, not a currency) |
 | Accuracy tile | "How is he doing overall?" | `summary.accuracy` (unaided only) |
 | Last practiced bar | "Did he do it today?" | `last_practice_ts` |
 | Learning journey card | "Where is everything on the ladder?" | `journey` {copy, memory, sound, mastered} + `summary.mastered_this_week` |

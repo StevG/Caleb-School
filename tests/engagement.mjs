@@ -78,13 +78,13 @@ check('quest: second finish same day still reports done', e1.quest_done_today ==
 
 // ---------- greeting chips (render logic) ----------
 const chips = await page.evaluate(() => {
-  renderGreeting({ streak_days: 4, yesterday: { points: 23 }, practiced_today: false });
+  renderGreeting({ streak_days: 4, yesterday: { correct: 23 }, practiced_today: false });
   return document.getElementById('greeting-chips').innerHTML;
 });
 check('greeting: streak chip shows on 2+ days', /Day 4/.test(chips), chips);
-check('greeting: yesterday chip shows when not practiced today', /23/.test(chips), chips);
+check('greeting: yesterday chip shows words right (not stars)', /23 right/.test(chips), chips);
 const chips2 = await page.evaluate(() => {
-  renderGreeting({ streak_days: 1, yesterday: { points: 9 }, practiced_today: true });
+  renderGreeting({ streak_days: 1, yesterday: { correct: 9 }, practiced_today: true });
   const el = document.getElementById('greeting-chips');
   return { html: el.innerHTML, hidden: el.classList.contains('hidden') };
 });

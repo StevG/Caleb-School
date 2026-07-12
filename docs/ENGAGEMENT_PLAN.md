@@ -1,5 +1,15 @@
 # Engagement plan — beating start-frustration (owner-approved direction, 2026-07-12)
 
+> **HISTORICAL — superseded in part, same day.** All five phases shipped
+> 2026-07-12; the owner then reviewed the result against the app's
+> "practice buddy, not a game" identity and pared the reward layer back
+> (**"the great de-bloat"**, DESIGN.md decisions log): badges are the ONE
+> reward system (no star payouts), stars are in-session feedback only (no
+> totals, no economy), the Dino Space Trip (Phase 3's planet journey) was
+> REMOVED (the progress-bar rocket stays), and Phase 2's fact-card
+> collection became a no-strings **fact of the day** on the home screen.
+> Do NOT re-implement the removed pieces from this document.
+
 Owner ask: Caleb gets **immediately frustrated and doesn't want to begin**
 spelling practice. He's ahead in every other subject; spelling makes him feel
 uniquely bad. What has worked: (a) hear-see-type-immediately (the autoplay

@@ -30,7 +30,8 @@ count) and memory (read/hear it, then type the whole thing from memory;
 capitals count). Word bank is graded 1st-9th in half-grade steps
 (`max_level` float, default 3). Parents get a PIN-gated dashboard
 (most-missed words, per-mode and per-day stats, custom school word lists).
-Points (⭐) are the reward currency — the parents trade them for iPad time.
+Badges are the ONE reward system (owner-decided 2026-07-12); stars (⭐) are
+in-session feedback only — no lifetime total, no economy (docs/SCORING.md).
 The exact mode behaviors are specified in `docs/DESIGN.md` — don't change
 them casually.
 
@@ -127,18 +128,16 @@ words first, cap 25, shuffle; kid sees them in `/api/state.missions`, plays
 via `/api/session?assignment=`, completion via `session_end {assignment}`) · Web Push: `GET /api/push/key`, `POST
 /api/push/subscribe|pull` — pure-stdlib VAPID (P-256 in server.py), EMPTY
 tickle pushes + SW pull (no payload crypto); key + subs in gitignored
-`data/push.json` · `GET /api/facts?child=` (kid's fact-card collection) — 90 dino/space/LEGO
-facts (`factbank.py`); finishing a 5+-item session flips over one new card
-(`session_end.new_fact`), capped 3/day, sticky like badges; `session_end`
-also returns `next_badge` (the done-screen "what's next" nudge) ·
-`GET /api/trip?child=` (Dino Space Trip journey) — 12 planets fueled by
-lifetime level-ups (`counters.stage_ups`); a landing pays +10 ⭐ + a themed
-bonus fact (`session_end.new_planet`), `planets_seen` sticky; `state.trip`
-drives the home chip · `GET /api/badges?child=` (kid's trophy case) — 14 tiered
-badges (`badgebank.py`); lifetime per-child `counters` feed
-`badge_metrics`→`evaluate_badges` on `session_end` (returns `new_badges`,
-awards +5/10/15/25 ⭐/level, pushes parents); levels are STICKY (resets never
-un-earn) · `GET /.hub/status`.
+`data/push.json` · fact of the day: `state.daily_fact` — one of 90
+dino/space/LEGO facts (`factbank.py`, deterministic daily rotation via
+`server.daily_fact`) shown unconditionally on the home screen (no
+collection, no awards); `session_end` also returns `next_badge` (the
+done-screen "what's next" nudge) · `GET /api/badges?child=` (kid's trophy
+case) — 14 tiered badges (`badgebank.py`), the ONE reward system; lifetime
+per-child `counters` feed `badge_metrics`→`evaluate_badges` on
+`session_end` (returns `new_badges`, pushes parents; NO star payout — the
+badge is the trophy); levels are STICKY (resets never un-earn) ·
+`GET /.hub/status`.
 
 "Aided" = a retype right after the answer was revealed: earns the point,
 does **not** count toward accuracy or the learning ladder. Words-mode words

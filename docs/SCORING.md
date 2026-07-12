@@ -1,14 +1,18 @@
 # Scoring & the learning ladder
 
-Two currencies, deliberately separate:
+Two signals, deliberately separate:
 
-- **Stars (⭐ points)** — effort currency. +1 for every correct answer,
-  *including* aided retypes (he fixed it; that deserves the star). Stars are
-  what the parents convert to iPad time. They only go up. Never make stars
-  contingent on being right the first time — for a struggling speller the
-  star has to reward showing up.
-- **The ladder** — the honest progress metric. Stars measure effort; the
-  ladder measures learning. Parents read the ladder, the kid feels the stars.
+- **Stars (⭐)** — in-the-moment effort feedback, IN-SESSION ONLY (owner
+  2026-07-12: stars were retired as a lifetime currency/economy). The play
+  pill counts +1 for every correct answer this session, *including* aided
+  retypes (he fixed it; that deserves the star) — then the count simply
+  ends with the session. No lifetime total is shown anywhere; the internal
+  `points`/`lifetime_points` counters keep ticking only to feed the Star
+  Collector badge. Never make the +1 contingent on being right the first
+  time — for a struggling speller the star has to reward showing up.
+- **The ladder** — the honest progress metric. Stars feel good in the
+  moment; the ladder measures learning. Parents read the ladder. Badges
+  (docs/BADGES.md) are the one lasting reward system.
 
 ## The ladder (per word)
 

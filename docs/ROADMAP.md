@@ -3,14 +3,17 @@
 Owner-stated direction: this repo will grow into Caleb's practice hub —
 **spelling first, math next**, possibly more subjects later.
 
-## Engagement plan (owner-approved 2026-07-12 — NEXT UP)
+## Engagement plan (implemented 2026-07-12, then consolidated same day)
 
-**`docs/ENGAGEMENT_PLAN.md`** fully maps the anti-frustration work the owner
-approved: Today's Quest one-tap sessions, warm-start ordering, the "Show me
-again" peek, closeness feedback, dino/space/LEGO fact cards, the Dino Space
-Trip, and two new games (Which One? / Build It). It subsumes several items
-below (daily streak chip, word-reveal grace, blind-sort practice, "Map it"
-Elkonin boxes) — implement from that plan, then mark them off here.
+**`docs/ENGAGEMENT_PLAN.md`** mapped the anti-frustration work; all five
+phases shipped 2026-07-12. The owner then reviewed the result and pared the
+reward layer back ("the great de-bloat" — DESIGN.md decisions log): badges
+stayed as the ONE reward system, stars became in-session-only feedback, the
+Dino Space Trip was removed, and fact cards became a no-strings fact of the
+day. What remains from the plan: Today's Quest, warm start, the peek,
+closeness feedback, spoken reveals, greeting chips, badge nudges, streak
+toasts, the progress-bar rocket, Which One?, Build It, and Map It. Read the
+plan as HISTORY — the decisions log is the current truth.
 
 ## Adding Math mode (the agreed next step)
 
@@ -66,9 +69,10 @@ The pieces already generalize; don't fork the app, extend it:
 - ~~**Word-reveal grace** — a "show me again" button that counts as aided~~
   — DONE 2026-07-12 (Phase 1): the "Show me again 👀" peek (aided, never a
   miss — see docs/SCORING.md).
-- **Spend/adjust stars** — "Reset stars to 0" shipped 2026-07-02 alongside
-  per-list ("start over") and per-child progress resets. Still open if
-  wanted: decrementing a specific amount ("spent 30 min = −30 ⭐").
+- ~~**Spend/adjust stars**~~ — SUPERSEDED 2026-07-12: stars were retired as
+  a lifetime currency (in-session feedback only; badges are the one reward
+  system — see DESIGN.md decisions log). The reset-stars UI is gone; the
+  `reset_points` API knob remains for the internal Star Collector counter.
 - **Ladder tuning** — if mastery proves too easy/hard, adjust `STAGE_UP`
   in server.py (see docs/SCORING.md) rather than adding mechanisms.
 

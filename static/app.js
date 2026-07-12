@@ -33,7 +33,6 @@ const state = {
   autoplayAudio: false, // per-child: auto-speak "word, then spell it" on show
   wordRate: 0.8,        // per-child TTS speeds (parent-tunable)
   spellRate: 0.45,
-  points: 0,
   parentPin: "",
   // multiple kids: this DEVICE remembers who practices on it; the parent
   // dashboard has its own independent selection (parentChild)
@@ -85,19 +84,16 @@ function refreshState() {
       state.childId = s.child;    // the server resolves stale/deleted ids
       storeChild(s.child);
       state.children = s.children || [];
-      state.points = s.points || 0;
       state.showSpeaker = s.show_speaker !== false;
       state.autoplayAudio = s.autoplay_audio === true;
       if (s.word_rate) state.wordRate = s.word_rate;
       if (s.spell_rate) state.spellRate = s.spell_rate;
       $("kid-name").textContent = s.name || "Caleb";
-      $("home-points").textContent = state.points;
       $("badges-count").textContent = s.badges_earned || 0;
-      $("facts-count").textContent = s.facts_earned || 0;
-      $("facts-all").textContent = s.facts_total || 0;
       renderWhoRow();
       renderMissions(s.missions || []);
       renderGreeting(s);
+      renderDailyFact(s.daily_fact);
       renderQuestCard(s);
       updateHomeHints();
       // help the second parent get in the first time (hidden once changed)
@@ -139,11 +135,20 @@ function renderGreeting(s) {
     chips.push(`<span class="g-chip streak">🦕 Day ${s.streak_days}!</span>`);
   }
   // yesterday's win — only until he's practiced today (then it's stale)
-  if (s.yesterday && !s.practiced_today && (s.yesterday.points || 0) > 0) {
-    chips.push(`<span class="g-chip">Yesterday: ${s.yesterday.points} ⭐</span>`);
+  if (s.yesterday && !s.practiced_today && (s.yesterday.correct || 0) > 0) {
+    chips.push(`<span class="g-chip">Yesterday: ${s.yesterday.correct} right ✅</span>`);
   }
   wrap.innerHTML = chips.join("");
   wrap.classList.toggle("hidden", !chips.length);
+}
+
+// ---------- fact of the day (pure fun, no strings, changes daily) ----------
+function renderDailyFact(f) {
+  const card = $("daily-fact");
+  if (!f || !f.text) { card.classList.add("hidden"); return; }
+  $("df-emoji").textContent = f.emoji || "🦕";
+  $("df-text").textContent = f.text;
+  card.classList.remove("hidden");
 }
 
 // ---------- Today's Quest (one-tap 5-word warm-up) ----------
@@ -343,27 +348,21 @@ function openBadgeDetail(b) {
   $("badge-detail").classList.remove("hidden");
 }
 
-// the done-screen celebration for freshly-earned levels
+// the done-screen celebration for freshly-earned levels (the badge IS the
+// reward — no star payout rides along)
 function celebrateBadges(list) {
   const wrap = $("badge-earns");
-  wrap.innerHTML = list.map((nb) => {
-    const b = { emoji: nb.emoji, level: nb.level };
-    return `<div class="badge-earn">${badgeSVG(nb.emoji, nb.level, "#f4b942", false)}` +
-      `<div class="be-text">${esc(nb.name)}<small>Level ${nb.level}` +
-      (nb.stars ? ` · +${nb.stars} ⭐` : "") + `</small></div></div>`;
-  }).join("");
+  wrap.innerHTML = list.map((nb) =>
+    `<div class="badge-earn">${badgeSVG(nb.emoji, nb.level, "#f4b942", false)}` +
+    `<div class="be-text">${esc(nb.name)}<small>Level ${nb.level}</small></div></div>`
+  ).join("");
 }
 
 // the compact parent strip (rep.badges — same shape as /api/badges)
-function renderParentBadges(badges, trip) {
+function renderParentBadges(badges) {
   const strip = $("p-badge-strip");
   const earned = (badges || []).filter((b) => b.level > 0);
   $("p-badge-count").textContent = `${earned.length}/${(badges || []).length}`;
-  const line = $("p-trip-line");
-  if (line) {
-    const n = trip ? (trip.planet_idx ?? -1) + 1 : 0;
-    line.textContent = `🚀 Dino Space Trip — ${n}/12 planets visited`;
-  }
   strip.innerHTML = "";
   if (!badges || !badges.length) return;
   // earned first (by level desc), then the closest not-yet-earned
@@ -388,154 +387,12 @@ function wireBadges() {
   });
 }
 
-// ---------- fact cards (dino / space / LEGO collectibles) ----------
-function wireFacts() {
-  $("facts-btn").addEventListener("click", openFacts);
-  $("facts-back").addEventListener("click", () => { resetHomeMenu(); show("home"); });
-}
-
-function openFacts() {
-  show("facts-screen");
-  api("/api/facts?child=" + encodeURIComponent(state.childId))
-    .then((d) => renderFactCollection(d)).catch(() => {});
-}
-
-// a single fact card's HTML — owned shows the fact (+ a 🔊 to read it),
-// un-owned stays face-down (❓ + the deck emoji as a teaser)
-function factCardHTML(card, deckEmoji) {
-  if (!card.owned) {
-    return `<div class="fact-card locked"><span class="fc-q">❓</span>` +
-      `<span class="fc-deck">${deckEmoji}</span></div>`;
-  }
-  return `<div class="fact-card"><span class="fc-emoji">${card.emoji}</span>` +
-    `<span class="fc-text">${esc(card.text)}</span>` +
-    `<button class="fc-say" data-say="${esc(card.text)}" aria-label="hear the fact">🔊</button></div>`;
-}
-
-function renderFactCollection(d) {
-  $("facts-earned").textContent = d.earned;
-  $("facts-total").textContent = d.total;
-  $("facts-complete").classList.toggle("hidden", d.earned < d.total);
-  const grid = $("facts-grid");
-  grid.innerHTML = "";
-  d.decks.forEach((deck) => {
-    const h = document.createElement("div");
-    h.className = "badge-cat";
-    h.textContent = `${deck.emoji} ${deck.label} — ${deck.owned}/${deck.total}`;
-    grid.appendChild(h);
-    const wrap = document.createElement("div");
-    wrap.className = "fact-deck";
-    wrap.innerHTML = deck.cards.map((c) => factCardHTML(c, deck.emoji)).join("");
-    grid.appendChild(wrap);
-  });
-  grid.querySelectorAll(".fc-say").forEach((b) =>
-    b.addEventListener("click", () => speakText(b.dataset.say)));
-}
-
-// done-screen: a fresh card flips over face-down -> revealed
-function celebrateFact(fact) {
-  const wrap = $("fact-reveal");
-  if (!fact) { wrap.classList.add("hidden"); wrap.innerHTML = ""; return; }
-  wrap.classList.remove("hidden");
-  wrap.innerHTML =
-    `<div class="fact-head">🃏 New fact card!</div>` +
-    `<div class="fact-card flip"><span class="fc-emoji">${fact.emoji}</span>` +
-    `<span class="fc-text">${esc(fact.text)}</span>` +
-    `<button class="fc-say" aria-label="hear the fact">🔊</button></div>`;
-  const say = wrap.querySelector(".fc-say");
-  if (say) say.addEventListener("click", () => speakText(fact.text));
-}
-
 // done-screen: the "what's next" badge nudge (skipped when a badge was earned)
 function showNextBadge(nb) {
   const el = $("next-badge");
   if (!nb) { el.textContent = ""; return; }
   const togo = Math.max(1, nb.need - nb.have);
   el.textContent = `🎖️ ${nb.name} Lv ${nb.level + 1} — ${togo} to go!`;
-}
-
-// ---------- Dino Space Trip (the ladder made visible in his iconography) ----
-// One generator draws every planet — a shaded circle with deterministic
-// craters (or LEGO studs) and maybe a ring, keyed off the index so it's
-// stable across renders. Unvisited planets are dimmed silhouettes.
-const PLANET_COLORS = [
-  ["#5bbf6a", "#49a457"], ["#4f9dde", "#3b86c4"], ["#f4b942", "#d99a1e"],
-  ["#e8705a", "#c85640"], ["#8e6fc4", "#6f4fb0"], ["#5bc4b8", "#3fa89c"],
-];
-function planetSVG(idx, cat, visited) {
-  const [c1, c2] = visited ? PLANET_COLORS[idx % PLANET_COLORS.length]
-                           : ["#d9cfc0", "#c3b8a6"];
-  const seed = (idx * 2654435761) >>> 0;
-  const stud = cat === "lego";
-  let feats = "";
-  const spots = 3 + (idx % 3);
-  for (let i = 0; i < spots; i++) {
-    const a = ((seed >> (i * 3)) % 360) * Math.PI / 180;
-    const dist = 6 + ((seed >> (i * 2)) % 9);
-    const cx = (40 + Math.cos(a) * dist).toFixed(1);
-    const cy = (40 + Math.sin(a) * dist).toFixed(1);
-    feats += stud
-      ? `<circle cx="${cx}" cy="${cy}" r="3.5" fill="#fff" opacity=".28"/>`
-      : `<circle cx="${cx}" cy="${cy}" r="${3 + (i % 3)}" fill="#000" opacity=".12"/>`;
-  }
-  const ring = (idx % 3 === 1)
-    ? `<ellipse cx="40" cy="40" rx="33" ry="10" fill="none" stroke="${c2}"` +
-      ` stroke-width="4" opacity="${visited ? .8 : .4}" transform="rotate(-18 40 40)"/>`
-    : "";
-  return `<svg viewBox="0 0 80 80" class="planet-svg">` +
-    `<defs><radialGradient id="pg${idx}" cx=".38" cy=".35">` +
-    `<stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/>` +
-    `</radialGradient></defs>` +
-    `<circle cx="40" cy="40" r="26" fill="url(#pg${idx})" stroke="#2d2a26"` +
-    ` stroke-width="${visited ? 2 : 1.5}"${visited ? "" : ' stroke-dasharray="4 4"'}/>` +
-    feats + ring + `</svg>`;
-}
-
-function wireTrip() {
-  $("trip-btn").addEventListener("click", openTrip);
-  $("trip-back").addEventListener("click", () => { resetHomeMenu(); show("home"); });
-}
-
-function openTrip() {
-  show("trip-screen");
-  api("/api/trip?child=" + encodeURIComponent(state.childId))
-    .then((d) => renderTrip(d)).catch(() => {});
-}
-
-function renderTrip(d) {
-  $("trip-visited").textContent = d.reached;
-  $("trip-total").textContent = d.total;
-  const nextP = d.planets.find((p) => !p.visited);
-  $("trip-fuel-note").textContent = nextP
-    ? `⬆️ ${d.fuel} level-ups — ${nextP.fuel - d.fuel} more to reach ${nextP.name}!`
-    : `🏆 ${d.fuel} level-ups — you've visited every planet!`;
-  const map = $("trip-map");
-  map.innerHTML = "";
-  // top (last) planet first, so the list reads as a journey upward
-  d.planets.slice().reverse().forEach((p) => {
-    const isNext = nextP && p.idx === nextP.idx;
-    const row = document.createElement("div");
-    row.className = "trip-planet" + (p.visited ? " visited" : "") +
-      (isNext ? " next" : "");
-    row.innerHTML = planetSVG(p.idx, p.cat, p.visited) +
-      `<div class="tp-info"><b>${p.visited || isNext ? esc(p.name) : "???"}</b>` +
-      `<small>${p.visited ? "Visited ✓" : p.fuel + " level-ups"}</small></div>` +
-      (isNext ? `<span class="tp-rocket">🦕🚀</span>` : "");
-    map.appendChild(row);
-  });
-}
-
-// done-screen: landing on a planet — banner + the planet + its bonus fact
-function celebratePlanet(p) {
-  const wrap = $("planet-reveal");
-  if (!p) { wrap.classList.add("hidden"); wrap.innerHTML = ""; return; }
-  wrap.classList.remove("hidden");
-  wrap.innerHTML =
-    `<div class="planet-head">🪐 You landed on ${esc(p.name)}!</div>` +
-    `<div class="planet-badge">${planetSVG(p.idx, "", true)}</div>` +
-    (p.stars ? `<div class="planet-stars">+${p.stars} ⭐</div>` : "") +
-    (p.fact ? `<div class="fact-card flip"><span class="fc-emoji">${p.fact.emoji}</span>` +
-      `<span class="fc-text">${esc(p.fact.text)}</span></div>` : "");
 }
 
 function boot() {
@@ -546,8 +403,6 @@ function boot() {
   wireGate();
   wireParent();
   wireBadges();
-  wireFacts();
-  wireTrip();
   initUpdates();
   state.childId = storedChild();
   refreshState().catch(() => {});
@@ -689,6 +544,9 @@ function wireHome() {
     state.quest = true;
     startSession();
   });
+  // fact of the day: 🔊 reads it aloud (reading it himself stays optional)
+  $("df-say").addEventListener("click", () =>
+    speakText($("df-text").textContent));
   $("gear").addEventListener("click", openGate);
 
   $("install-hint-x").addEventListener("click", () => {
@@ -991,7 +849,7 @@ function checkPick(choice, btn) {
       $("feedback").textContent += ` 🔥 ${state.sessionStreak} in a row!`;
     }
     state.wordsDone++;
-    state.points++; state.earned++;
+    state.earned++;
     updatePointsUI();
     setTimeout(loadNext, 800);
   } else {
@@ -1288,7 +1146,6 @@ function doCheck() {
       }
     }
     state.wordsDone++;
-    state.points++;
     state.earned++;
     updatePointsUI();
     $("check").classList.add("hidden");
@@ -1511,10 +1368,9 @@ function advanceSentenceWord() {
 
 // ----- results / finish -----
 function updatePointsUI() {
-  // during play the pill counts THIS session ("go earn 10 points" is the
-  // family workflow) — the running total lives on the home screen
+  // stars are IN-SESSION feedback only (owner 2026-07-12): the pill counts
+  // this session's +1s and that's the whole star system — no lifetime total
   $("play-points").textContent = "+" + state.earned;
-  $("home-points").textContent = state.points;
   const pill = document.querySelector(".score-pill");
   if (pill) {
     pill.classList.remove("pop");
@@ -1527,11 +1383,6 @@ function postAnswer(word, correct, aided) {
   postJSON("/api/answer",
     { word, correct, aided: !!aided, mode: state.mode, child: state.childId })
     .then((r) => {
-      // the server's count is the truth — adopt it so devices never drift
-      if (typeof r.points === "number") {
-        state.points = r.points;
-        $("home-points").textContent = state.points;
-      }
       // the word climbed the ladder — tell him while the glow is fresh
       if (r.stage_up) {
         state.levelUps++;
@@ -1551,8 +1402,6 @@ function finishSession() {
   const wasQuest = state.quest;
   const secs = Math.round((Date.now() - (state.sessionStart || Date.now())) / 1000);
   $("badge-earns").innerHTML = ""; // clear last session's celebration
-  celebrateFact(null);             // clear last session's fact card
-  celebratePlanet(null);
   showNextBadge(null);
   // a Quest offers "one more game?" (nudges another go without a treadmill);
   // a normal session offers "Play again" (same game, same goal)
@@ -1569,24 +1418,15 @@ function finishSession() {
     assignment: state.assignment || undefined,
     quest: state.quest || undefined,
   }).then((r) => {
-    if (typeof r.points === "number") { // badges may have added stars
-      state.points = r.points;
-      $("done-total").textContent = state.points;
-      $("home-points").textContent = state.points;
-    }
     if (r.new_badges && r.new_badges.length) celebrateBadges(r.new_badges);
     else showNextBadge(r.next_badge); // nudge only when not celebrating
-    if (r.new_planet) celebratePlanet(r.new_planet);
-    if (r.new_fact) celebrateFact(r.new_fact);
-    if (r.assignment_done || (r.new_badges || []).length || r.new_fact ||
-        r.new_planet) {
-      refreshState().catch(() => {}); // mission/badge/fact/planet refresh
+    if (r.assignment_done || (r.new_badges || []).length) {
+      refreshState().catch(() => {}); // mission card + badge count refresh
     }
   }).catch(() => {});
   state.assignment = null;
   state.quest = false;
-  $("earned").textContent = state.earned;
-  $("done-total").textContent = state.points;
+  $("done-words").textContent = state.wordsDone;
   const lu = $("level-ups");
   lu.textContent = wasMission
     ? "📋✅ Mission complete!"
@@ -1792,7 +1632,6 @@ function wireDone() {
 }
 
 function goHome() {
-  $("home-points").textContent = state.points;
   resetHomeMenu(); // full menu again, chips tucked away
   state.assignment = null; // quitting a mission leaves it on the list
   refreshState().catch(() => {});
@@ -1880,7 +1719,7 @@ function renderChildTabs(children, current) {
   (children || []).forEach((c) => {
     const b = document.createElement("button");
     b.className = "child-tab" + (c.id === current ? " active" : "");
-    b.innerHTML = `${esc(c.name)} <span class="ct-pts">${c.points}⭐</span>`;
+    b.textContent = c.name;
     b.addEventListener("click", () => {
       if (c.id === state.parentChild) return;
       state.parentChild = c.id;
@@ -1909,7 +1748,7 @@ function renderChildTabs(children, current) {
 
 function renderReport(rep) {
   renderChildTabs(rep.children, rep.child);
-  $("s-points").textContent = rep.summary.points;
+  $("s-streak").textContent = rep.summary.streak_days ?? 0;
   $("s-accuracy").textContent = rep.summary.accuracy + "%";
   $("s-words").textContent = rep.summary.words_practiced;
   $("s-sessions").textContent = rep.summary.sessions;
@@ -2694,23 +2533,10 @@ function wireParent() {
     }
   });
 
-  $("reset-stars").addEventListener("click", async () => {
-    const name = $("set-name").value || "this child";
-    if (!confirm(`Set ${name}'s stars back to 0? (Practice progress is kept.)`)) return;
-    try {
-      await postJSON("/api/parent/settings",
-        { pin: state.parentPin, child: state.parentChild, reset_points: true });
-      await openParent();
-      refreshState().catch(() => {});
-    } catch (_) {
-      $("settings-saved").textContent = "Could not reset.";
-    }
-  });
-
   $("reset-progress").addEventListener("click", async () => {
     const name = $("set-name").value || "this child";
     if (!confirm(`Reset ALL of ${name}'s practice progress? Every word starts over. ` +
-                 "Stars, word lists, and settings are kept. This can't be undone.")) return;
+                 "Word lists and settings are kept. This can't be undone.")) return;
     try {
       await postJSON("/api/parent/settings",
         { pin: state.parentPin, child: state.parentChild, reset_progress: true });

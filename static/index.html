@@ -28,14 +28,12 @@
   <div class="home-inner">
     <div class="hello">Hi <span id="kid-name">Caleb</span>! 👋</div>
     <div id="who-row" class="who-row hidden"></div>
-    <div class="points-big"><span id="home-points">0</span> <span class="star">⭐</span></div>
     <div id="greeting-chips" class="greeting-chips" data-landing></div>
     <p class="tagline">Let's practice spelling!</p>
     <div class="home-chips" data-landing>
       <button id="badges-btn" class="badges-chip">🎖️ <b id="badges-count">0</b> badges</button>
-      <button id="facts-btn" class="badges-chip">📚 <b id="facts-count">0</b>/<span id="facts-all">0</span> facts</button>
-      <button id="trip-btn" class="badges-chip">🚀 Space Trip</button>
     </div>
+
 
     <!-- Today's Quest: one tap, five words, no decisions. The cheapest
          possible door into practice — starting is the whole battle. -->
@@ -56,7 +54,7 @@
       <div class="home-panel" data-panel="sections">
         <button class="section-card sec-words" data-section="words">
           <span class="mc-emoji">🔤</span>
-          <span class="mc-title">Words<small>spell words 3 ways</small></span>
+          <span class="mc-title">Words<small>pick your game</small></span>
           <span class="sec-go">▶</span>
         </button>
         <button class="section-card sec-sent" data-section="sentences">
@@ -113,6 +111,14 @@
           <button class="chip" data-goal="20">20</button>
         </div>
       </div>
+    </div>
+
+    <!-- fact of the day: pure fun, no strings, changes daily. Below the
+         games on purpose — practice is the main event, the fact's dessert. -->
+    <div id="daily-fact" class="fact-card daily-fact hidden" data-landing>
+      <span id="df-emoji" class="fc-emoji">🦕</span>
+      <span id="df-text" class="fc-text"></span>
+      <button id="df-say" class="fc-say" aria-label="hear the fact">🔊</button>
     </div>
 
     <div id="install-hint" class="soft-hint hidden">
@@ -172,13 +178,10 @@
   <div class="done-inner">
     <div class="done-emoji">🎉</div>
     <div class="done-title">Great job!</div>
-    <div class="done-points">You earned <span id="earned">0</span> ⭐</div>
+    <div class="done-points">You spelled <span id="done-words">0</span> words!</div>
     <div id="level-ups" class="done-levelups"></div>
     <div id="next-badge" class="next-badge"></div>
     <div id="badge-earns" class="badge-earns"></div>
-    <div id="planet-reveal" class="planet-reveal hidden"></div>
-    <div id="fact-reveal" class="fact-reveal hidden"></div>
-    <div class="done-total">Total: <span id="done-total">0</span> ⭐</div>
     <div class="done-actions">
       <button id="again" class="big-btn primary">Play again</button>
       <button id="more-games" class="big-btn primary hidden">One more game? 🎮</button>
@@ -205,28 +208,6 @@
       <button id="bd-close" class="mini-btn wide">Close</button>
     </div>
   </div>
-</section>
-
-<!-- FACT CARDS (kid) -->
-<section id="facts-screen" class="screen">
-  <header class="badges-top">
-    <button id="facts-back" class="ghost-btn" aria-label="Home">✕</button>
-    <div class="badges-title">My Fact Cards 📚</div>
-    <div class="badges-tally"><span id="facts-earned">0</span>/<span id="facts-total">0</span></div>
-  </header>
-  <div id="facts-complete" class="facts-complete hidden">🏆 You collected every fact — you know them ALL!</div>
-  <div id="facts-grid" class="facts-grid"></div>
-</section>
-
-<!-- DINO SPACE TRIP (kid) -->
-<section id="trip-screen" class="screen">
-  <header class="badges-top">
-    <button id="trip-back" class="ghost-btn" aria-label="Home">✕</button>
-    <div class="badges-title">Dino Space Trip 🚀</div>
-    <div class="badges-tally"><span id="trip-visited">0</span>/<span id="trip-total">0</span></div>
-  </header>
-  <div id="trip-fuel-note" class="trip-fuel-note"></div>
-  <div id="trip-map" class="trip-map"></div>
 </section>
 
 <!-- PARENT GATE -->
@@ -258,7 +239,7 @@
     <div class="stat-grid">
       <div class="stat"><div class="stat-num good" id="s-mastered">0</div><div class="stat-lbl">Words mastered ★</div></div>
       <div class="stat"><div class="stat-num" id="s-learning">0</div><div class="stat-lbl">Still learning</div></div>
-      <div class="stat"><div class="stat-num" id="s-points">0</div><div class="stat-lbl">Stars earned</div></div>
+      <div class="stat"><div class="stat-num" id="s-streak">0</div><div class="stat-lbl">Day streak 🦕</div></div>
       <div class="stat"><div class="stat-num" id="s-accuracy">0%</div><div class="stat-lbl">Accuracy</div></div>
       <div class="stat"><div class="stat-num" id="s-words">0</div><div class="stat-lbl">Words practiced</div></div>
       <div class="stat"><div class="stat-num" id="s-sessions">0</div><div class="stat-lbl">Sessions</div></div>
@@ -269,7 +250,6 @@
       <div class="card-head">Badges <span id="p-badge-count" class="badge-count-pill"></span></div>
       <p class="card-note">Trophies he's earned — each builds through four levels. They're never taken away, even by a reset.</p>
       <div id="p-badge-strip" class="p-badge-strip"></div>
-      <div id="p-trip-line" class="p-trip-line"></div>
     </div>
 
     <div class="card">
@@ -399,8 +379,7 @@
       <div id="notif-note" class="saved-note"></div>
       <button id="save-settings" class="mini-btn wide">Save settings</button>
       <div id="settings-saved" class="saved-note"></div>
-      <button id="reset-stars" class="mini-btn danger wide">Reset stars to 0…</button>
-      <button id="reset-progress" class="mini-btn danger wide">Reset practice progress… (keeps stars, lists &amp; settings)</button>
+      <button id="reset-progress" class="mini-btn danger wide">Reset practice progress… (keeps lists &amp; settings)</button>
       <button id="remove-child" class="mini-btn danger wide hidden">Remove this child…</button>
     </div>
   </div>

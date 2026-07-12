@@ -57,29 +57,6 @@ CLIMB_CAP = {"copy": STAGE_MEMORY, "words": STAGE_SOUND, "build": STAGE_MEMORY}
 # docs/SCORING.md; enforced by record_answer skipping the stage block.
 NO_LADDER_MODES = {"pick"}
 
-# --- Dino Space Trip ---------------------------------------------------------
-# A meta-progression that makes the ladder visible in Caleb's own iconography
-# (his app icon is a dino in a rocket). FUEL = lifetime level-ups
-# (counters.stage_ups — reset-immune), so the map is a picture of real
-# learning, not a separate economy. Reaching a planet pays +10 ⭐ and a bonus
-# fact card from the planet's theme deck. Names mix his three loves; `cat` is
-# the deck a landing rewards. Thresholds: first lands in week one (quick hook),
-# the last is a school-year aspiration (the badge-tier pattern).
-PLANET_LANDING_STARS = 10
-PLANETS = [
-    {"name": "Stegos-4",     "emoji": "🦕", "fuel": 5,   "cat": "dino"},
-    {"name": "Bricktopia",   "emoji": "🧱", "fuel": 12,  "cat": "lego"},
-    {"name": "Roara",        "emoji": "🦖", "fuel": 21,  "cat": "dino"},
-    {"name": "Studlandia",   "emoji": "🧱", "fuel": 32,  "cat": "lego"},
-    {"name": "Comet Chomp",  "emoji": "☄️", "fuel": 45,  "cat": "space"},
-    {"name": "Rexalon",      "emoji": "🦖", "fuel": 60,  "cat": "dino"},
-    {"name": "Minifig Moon", "emoji": "🌙", "fuel": 78,  "cat": "lego"},
-    {"name": "Nebula Nest",  "emoji": "🥚", "fuel": 98,  "cat": "space"},
-    {"name": "Plateosphere", "emoji": "🪐", "fuel": 120, "cat": "dino"},
-    {"name": "Brickhole",    "emoji": "🕳️", "fuel": 145, "cat": "lego"},
-    {"name": "Dactyl Drift", "emoji": "🪽", "fuel": 172, "cat": "dino"},
-    {"name": "Dino Prime",   "emoji": "👑", "fuel": 200, "cat": "dino"},
-]
 
 WORDS, SENTENCES = wordbank.build_pool()
 WORD_GROUP = {item["w"]: item["group"] for item in WORDS}
@@ -190,11 +167,7 @@ def _default_child(name="Caleb"):
                               # immune to resets; seeded from history on first
                               # load (see _seed_counters)
         "badges": {},         # badge id -> earned level (0-4)
-        "facts": [],          # collected fact-card ids (factbank.py), in earn
-                              # order — STICKY, resets never clear them
-        "fact_daily": {},     # {date, n} — daily cap on fact rewards
         "quest": {},          # Today's Quest: {date, done}
-        "planets_seen": 0,    # highest Dino Space Trip planet reached (Phase 3)
     }
 
 
@@ -234,11 +207,6 @@ def _fill_child(child):
                            for b, m in (
                                (bd, badge_metrics(child).get(bd["metric"], 0))
                                for bd in badgebank.BADGES)}
-    # baseline the Dino Space Trip so an upgrade doesn't dump a pile of
-    # landings on the next session (planets already reached are his history)
-    if "_planets_seeded" not in child:
-        child["planets_seen"] = planets_reached(child)
-        child["_planets_seeded"] = True
     return child
 
 
@@ -362,16 +330,10 @@ def evaluate_badges(state):
         tier = max(old, badgebank.badge_tier(b, metrics.get(b["metric"], 0)))
         now[b["id"]] = tier
         if tier > old:
-            # award stars for EACH level newly crossed (e.g. 0 -> 2 pays both)
-            stars = sum(badgebank.STAR_PER_LEVEL.get(lv, 0)
-                        for lv in range(old + 1, tier + 1))
-            if stars:
-                state["profile"]["points"] = \
-                    state["profile"].get("points", 0) + stars
-                c = state.setdefault("counters", {})
-                c["lifetime_points"] = c.get("lifetime_points", 0) + stars
+            # the badge IS the reward — no star payout (owner 2026-07-12:
+            # stars are in-session feedback only, badges the one trophy system)
             newly.append({"id": b["id"], "name": b["name"],
-                          "emoji": b["emoji"], "level": tier, "stars": stars})
+                          "emoji": b["emoji"], "level": tier})
     state["badges"] = now
     return newly
 
@@ -403,64 +365,16 @@ def badges_earned_count(state):
     return sum(1 for lv in state.get("badges", {}).values() if lv > 0)
 
 
-# --- Fact cards (factbank.py catalog, per-child collection) ------------------
-# Finishing a session can reward one collectible dino/space/LEGO fact card —
-# the variable reward that pulls Caleb back. Cards are STICKY (resets never
-# clear them, like badges). One per session, capped per day so the deck lasts.
+# --- Fact of the day (factbank.py catalog) -----------------------------------
+# One dino/space/LEGO fact shows on the home screen each day, no strings
+# attached (owner 2026-07-12: fun content, not a collection to grind).
+# Deterministic daily rotation so every device shows the same fact all day
+# and the deck takes ~3 months to cycle.
 
-FACT_DAILY_CAP = 3
-FACT_MIN_SESSION = 5  # a 3-word mission can't farm cards
-
-
-def award_fact(state, cat=None, ignore_cap=False):
-    """Give the kid a new (un-owned) fact card and return it, or None.
-
-    `cat` restricts to one deck (planet landings pull a themed card); otherwise
-    a random deck that still has un-owned cards is chosen. `ignore_cap` is for
-    special rewards (a landing) that shouldn't count against the daily cap."""
-    owned = set(state.get("facts", []))
-    today = time.strftime("%Y-%m-%d")
-    fd = state.setdefault("fact_daily", {})
-    if fd.get("date") != today:
-        fd["date"], fd["n"] = today, 0
-    if not ignore_cap and fd.get("n", 0) >= FACT_DAILY_CAP:
-        return None
-    if cat:
-        pool = [i for i in factbank.IDS_BY_CAT.get(cat, []) if i not in owned]
-    else:
-        cats = [c for c in factbank.IDS_BY_CAT
-                if any(i not in owned for i in factbank.IDS_BY_CAT[c])]
-        if not cats:
-            return None  # collection complete — celebrate, never repeat-award
-        cat = random.choice(cats)
-        pool = [i for i in factbank.IDS_BY_CAT[cat] if i not in owned]
-    if not pool:
-        return None
-    fid = random.choice(pool)
-    state.setdefault("facts", []).append(fid)
-    if not ignore_cap:
-        fd["n"] = fd.get("n", 0) + 1
-    return factbank.FACT_BY_ID[fid]
-
-
-def facts_view(state):
-    """The whole catalog with owned flags, grouped by deck — the collection
-    screen. Owned cards show their text; the rest stay face-down."""
-    owned = set(state.get("facts", []))
-    decks = []
-    for cat, (label, emoji) in factbank.CATEGORIES.items():
-        cards = []
-        for fid in factbank.IDS_BY_CAT.get(cat, []):
-            f = factbank.FACT_BY_ID[fid]
-            got = fid in owned
-            cards.append({"id": fid, "emoji": f["emoji"], "owned": got,
-                          "text": f["text"] if got else ""})
-        decks.append({"cat": cat, "label": label, "emoji": emoji,
-                      "total": len(cards),
-                      "owned": sum(1 for c in cards if c["owned"]),
-                      "cards": cards})
-    return {"decks": decks, "earned": len(owned),
-            "total": len(factbank.FACTS)}
+def daily_fact():
+    day_number = int(time.strftime("%Y")) * 366 + int(time.strftime("%j"))
+    f = factbank.FACTS[day_number % len(factbank.FACTS)]
+    return {"emoji": f["emoji"], "text": f["text"]}
 
 
 def next_badge(state):
@@ -481,66 +395,6 @@ def next_badge(state):
             best = (key, {"name": b["name"], "emoji": b["emoji"],
                           "level": b["level"], "have": val, "need": need})
     return best[1] if best else None
-
-
-# --- Dino Space Trip (fuel = lifetime level-ups) -----------------------------
-
-def _trip_fuel(state):
-    return state.get("counters", {}).get("stage_ups", 0)
-
-
-def planets_reached(state):
-    """How many planets the current fuel (lifetime level-ups) has reached."""
-    fuel = _trip_fuel(state)
-    return sum(1 for p in PLANETS if fuel >= p["fuel"])
-
-
-def trip_status(state):
-    """The home chip: current planet index, next planet name, fuel + need."""
-    fuel = _trip_fuel(state)
-    reached = planets_reached(state)
-    if reached >= len(PLANETS):
-        return {"planet_idx": reached - 1, "fuel": fuel,
-                "next_name": None, "need": None, "complete": True}
-    nxt = PLANETS[reached]
-    return {"planet_idx": reached - 1, "fuel": fuel,
-            "next_name": nxt["name"], "need": nxt["fuel"], "complete": False}
-
-
-def trip_view(state):
-    """The journey screen: every planet with a visited flag."""
-    reached = planets_reached(state)
-    return {"planets": [{"idx": i, "name": p["name"], "emoji": p["emoji"],
-                         "fuel": p["fuel"], "cat": p["cat"],
-                         "visited": i < reached}
-                        for i, p in enumerate(PLANETS)],
-            "reached": reached, "fuel": _trip_fuel(state),
-            "total": len(PLANETS)}
-
-
-def check_planet_landing(state):
-    """At session_end, after the ladder has moved: if new planets were reached
-    since last time, award +10 ⭐ each and a themed bonus fact (cap-exempt),
-    mark them seen, and return the celebration for the HIGHEST new planet (or
-    None). planets_seen is sticky — resets can't un-visit a planet."""
-    reached = planets_reached(state)
-    seen = state.get("planets_seen", 0)
-    if reached <= seen:
-        return None
-    stars = 0
-    bonus_fact = None
-    for i in range(seen, reached):
-        stars += PLANET_LANDING_STARS
-        f = award_fact(state, cat=PLANETS[i]["cat"], ignore_cap=True)
-        if f:
-            bonus_fact = f  # the top planet's fact wins the single reveal slot
-    state["profile"]["points"] = state["profile"].get("points", 0) + stars
-    c = state.setdefault("counters", {})
-    c["lifetime_points"] = c.get("lifetime_points", 0) + stars
-    state["planets_seen"] = reached
-    top = PLANETS[reached - 1]
-    return {"idx": reached - 1, "name": top["name"], "emoji": top["emoji"],
-            "stars": stars, "fact": bonus_fact}
 
 
 def load_doc():
@@ -1483,10 +1337,9 @@ def parent_report(state):
         "assignments": assignments_status(state),
         "progress": source_progress(state),
         "badges": badges_view(state),
-        "trip": trip_status(state),  # "🚀 N/12 planets" on the badges strip
         "bank": bank_status(state),
         "summary": {
-            "points": state["profile"].get("points", 0),
+            "streak_days": current_day_streak(state),
             "words_practiced": practiced,
             "total_attempts": total_seen,
             "accuracy": accuracy,
@@ -1558,10 +1411,6 @@ class Handler(BaseHTTPRequestHandler):
             return self._send_json({"key": vapid_public_key(load_push())})
         if path == "/api/badges":
             return self._api_badges(parse_qs(parsed.query))
-        if path == "/api/facts":
-            return self._api_facts(parse_qs(parsed.query))
-        if path == "/api/trip":
-            return self._api_trip(parse_qs(parsed.query))
         if path == "/api/session":
             return self._api_session(parse_qs(parsed.query))
         if path == "/api/parent/report":
@@ -1615,9 +1464,7 @@ class Handler(BaseHTTPRequestHandler):
             "spell_rate": p.get("spell_rate", 0.45),
             "badges_earned": badges_earned_count(state),
             "badges_total": len(badgebank.BADGES),
-            "facts_earned": len(state.get("facts", [])),
-            "facts_total": len(factbank.FACTS),
-            "trip": trip_status(state),  # Dino Space Trip home chip
+            "daily_fact": daily_fact(),  # home-screen fact of the day
             # home greeting: a streak chip + yesterday's win (walk in on
             # evidence of competence, not a blank slate) + the one-tap Quest
             "streak_days": current_day_streak(state),
@@ -1641,22 +1488,6 @@ class Handler(BaseHTTPRequestHandler):
         self._send_json({"child": state["id"], "badges": badges_view(state),
                          "earned": badges_earned_count(state),
                          "total": len(badgebank.BADGES)})
-
-    def _api_facts(self, query):
-        # the kid's fact-card collection — no PIN, his own cards
-        doc = load_doc()
-        state = get_child(doc, self._query_child(query))
-        view = facts_view(state)
-        view["child"] = state["id"]
-        self._send_json(view)
-
-    def _api_trip(self, query):
-        # the kid's Dino Space Trip journey map — no PIN, his own trip
-        doc = load_doc()
-        state = get_child(doc, self._query_child(query))
-        view = trip_view(state)
-        view["child"] = state["id"]
-        self._send_json(view)
 
     def _api_session(self, query):
         mode = (query.get("mode", ["words"])[0] or "words").lower()
@@ -1779,10 +1610,6 @@ class Handler(BaseHTTPRequestHandler):
                     c["quests_done"] = c.get("quests_done", 0) + 1
                 q["date"] = today
                 q["done"] = True
-            # Fact card reward: one per real session (5+ items), daily-capped
-            new_fact = None
-            if count >= FACT_MIN_SESSION:
-                new_fact = award_fact(state)
             aid = str(body.get("assignment", "") or "")
             a = find_assignment(state, aid) if aid else None
             if a and a["status"] == "todo":
@@ -1792,16 +1619,10 @@ class Handler(BaseHTTPRequestHandler):
                 c["missions_done"] = c.get("missions_done", 0) + 1
                 finished = (state["id"], state["profile"].get("name", "Kid"),
                             a)
-            # Dino Space Trip: fuel (level-ups) may have crossed a planet
-            # this session — award before badges so its stars count toward
-            # Star Collector too
-            new_planet = check_planet_landing(state)
-            new_badges = evaluate_badges(state)  # awards stars, persists levels
+            new_badges = evaluate_badges(state)  # persists levels (no payout)
             resp = {"assignment_done": bool(finished),
                     "new_badges": new_badges,
-                    "quest_done_today": quest_done_today(state),
-                    "new_fact": new_fact,
-                    "new_planet": new_planet}
+                    "quest_done_today": quest_done_today(state)}
             # the "what's next" badge nudge — but not when we're already
             # celebrating a fresh badge (that moment owns the screen)
             resp["next_badge"] = None if new_badges else next_badge(state)

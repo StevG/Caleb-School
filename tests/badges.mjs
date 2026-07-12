@@ -29,13 +29,14 @@ const names = end.new_badges.map(b => b.name);
 check('earn: perfect fast game earns Bullseye + Hot Streak + Speed of Light',
   names.includes('Bullseye') && names.includes('Hot Streak') && names.includes('Speed of Light'),
   JSON.stringify(names));
-check('earn: response carries the star payout per level',
-  end.new_badges.every(b => typeof b.stars === 'number'), JSON.stringify(end.new_badges.map(b => [b.name, b.level, b.stars])));
+// badges pay NO stars (owner 2026-07-12) — the badge itself is the trophy
+check('earn: badge levels carry no star payout',
+  end.new_badges.every(b => !('stars' in b)), JSON.stringify(end.new_badges));
 const speed = end.new_badges.find(b => b.name === 'Speed of Light');
-check('earn: 9s/word crosses L1(15) L2(12) L3(9) -> Level 3, stars 5+10+15=30',
-  speed.level === 3 && speed.stars === 30, JSON.stringify(speed));
-check('earn: stars were added to points (10 answers + 40 badge stars = 50)',
-  end.points === 50, String(end.points));
+check('earn: 9s/word crosses L1(15) L2(12) L3(9) -> Level 3',
+  speed.level === 3, JSON.stringify(speed));
+check('earn: points reflect ONLY the spelling answers (10, no badge bonus)',
+  end.points === 10, String(end.points));
 
 // perfect games counter climbs Bullseye across sessions
 for (let s = 0; s < 4; s++) {

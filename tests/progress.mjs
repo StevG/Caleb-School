@@ -66,9 +66,12 @@ const bandsFold = await page.evaluate(() => ({
   n: document.querySelectorAll('#progress-bands .prog-entry').length }));
 check('card: grade-bands fold present with entries', !bandsFold.hidden && bandsFold.n >= 1, JSON.stringify(bandsFold));
 
-// "start over" on the list -> its words' progress is wiped (stars kept)
-const starsBefore = await page.evaluate(() =>
-  parseInt(document.querySelector('#s-points').textContent, 10));
+// "start over" on the list -> its words' progress is wiped (the internal
+// star counter — kept server-side for the Star Collector badge — survives)
+const starsBefore = await page.evaluate(async () => {
+  const r = await (await fetch('/api/parent/report', { headers: { 'X-Parent-Pin': '1234' } })).json();
+  return r.profile.points;
+});
 await page.click('#progress-lists .prog-reset');
 await page.waitForTimeout(800);
 const afterReset = await page.evaluate(async () => {
@@ -82,18 +85,21 @@ check('start over: list progress wiped, stars kept',
   JSON.stringify(afterReset).slice(0, 120));
 check('start over: entry shows "Not practiced yet"', afterReset.entryText.includes('Not practiced yet'));
 
-// settings: reset stars -> 0 (progress kept); reset progress -> all zero, list kept
+// settings: reset_points stays an API-level knob (the UI button is gone —
+// stars are session-only feedback now); reset progress -> all zero, list kept
 await page.evaluate(async () => {
   await fetch('/api/answer', { method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ word: 'said', correct: true, mode: 'words' }) });
 });
-await page.click('#reset-stars');
-await page.waitForTimeout(700);
+check('reset stars UI: the button is gone (stars retired as a currency)',
+  await page.evaluate(() => !document.getElementById('reset-stars')));
 const afterStars = await page.evaluate(async () => {
+  await fetch('/api/parent/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pin: '1234', reset_points: true }) });
   const r = await (await fetch('/api/parent/report', { headers: { 'X-Parent-Pin': '1234' } })).json();
   return { stars: r.profile.points, practiced: r.summary.words_practiced };
 });
-check('reset stars: 0 stars, practice kept', afterStars.stars === 0 && afterStars.practiced === 1,
+check('reset_points API: 0 stars, practice kept', afterStars.stars === 0 && afterStars.practiced === 1,
   JSON.stringify(afterStars));
 await page.click('#reset-progress');
 await page.waitForTimeout(700);

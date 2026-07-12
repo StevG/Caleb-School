@@ -1,9 +1,8 @@
-"""Fact-card catalog — pure data, edited like wordbank.py / badgebank.py.
+"""Fact catalog — pure data, edited like wordbank.py / badgebank.py.
 
-Caleb loves dinosaurs, space, and LEGO, so finishing a practice session can
-reward a collectible FACT CARD from one of those three decks. Cards are the
-variable reward that pulls him back; the collection screen shows what he's
-got and what's still hidden.
+Caleb loves dinosaurs, space, and LEGO, so the home screen shows one fact
+from these decks each day (server.daily_fact — a deterministic daily
+rotation, no collection, no strings attached; owner-simplified 2026-07-12).
 
 Rules for the content (keep them if you edit):
   - Every fact is TRUE and checkable. No myths, no "great wall from space"

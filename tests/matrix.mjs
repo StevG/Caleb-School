@@ -27,9 +27,9 @@ for (const [label, w, h] of VIEWPORTS) {
 
   await page.goto('http://127.0.0.1:9911', { waitUntil: 'networkidle' });
 
-  // HOME step 1: the two section cards + points in bounds (no scrolling now)
-  check(`${label} home: section cards + points visible`,
-    await inBounds('.points-big') && await inBounds('#gear') &&
+  // HOME step 1: greeting + the two section cards in bounds (no scrolling)
+  check(`${label} home: greeting + section cards visible`,
+    await inBounds('.hello') && await inBounds('#gear') &&
     await inBounds('.sec-words') && await inBounds('.sec-sent'));
   await page.screenshot({ path: `${OUT}/m-${label}-home.png` });
   // step 2: the word games all fit
