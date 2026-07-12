@@ -85,6 +85,23 @@ game can only prove skills up to its own rung; see docs/SCORING.md):
 - Not a game with an economy — points are minutes of iPad time, period.
 
 ## Decisions log
+- 2026-07-12 — Engagement Phase 2: fact cards + badge nudges (owner: Caleb
+  loves dinosaurs, space, and LEGO — weave in fun facts). Full spec in
+  docs/ENGAGEMENT_PLAN.md. Shipped:
+  (1) **Fact cards** — a new `factbank.py` deck of 90 true, kid-readable facts
+  (30 dinosaurs / 30 space / 30 LEGO). Finishing a real session (5+ items)
+  flips over one new card on the done screen (with a 🔊 to read it); capped at
+  3/day so the deck lasts months; never repeats. A "📚 N/90 facts" home chip
+  opens the collection screen (owned cards face-up, the rest face-down ❓);
+  all 90 shows a "you know them ALL" banner. Cards are STICKY (resets never
+  clear them, like badges). Server: `state.facts` / `fact_daily`,
+  `award_fact()`, `GET /api/facts`, `session_end.new_fact`,
+  `state.facts_earned/total`. Kid-only — the parent dashboard stays tidy.
+  (2) **Badge "what's next" nudge** — the done screen shows the badge nearest
+  its next level ("🎖️ Bullseye Lv 2 — 2 to go!", `session_end.next_badge`),
+  suppressed when a badge was actually earned (that moment owns the screen).
+  (3) **In-session streak toasts** — client-only "🔥 N in a row!" at 3/5/10
+  consecutive unaided corrects; a miss resets it silently (never a downer).
 - 2026-07-12 — Anti-frustration engagement pass, Phase 1 (owner: Caleb gets
   frustrated and won't *begin*; the enemy is activation energy and the miss
   spike). Full spec in `docs/ENGAGEMENT_PLAN.md`. Shipped:

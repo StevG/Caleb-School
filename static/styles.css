@@ -588,6 +588,38 @@ details.sess[open] summary .tri{transform:rotate(90deg)}
 .be-text{font-weight:800;font-size:16px;text-align:left}
 .be-text small{display:block;font-size:13px;font-weight:700;color:var(--muted)}
 
+/* done-screen: "what's next" badge nudge (a micro-goal for next time) */
+.next-badge{color:var(--amber-d,#d99a1e);font-size:15px;font-weight:800;
+  min-height:20px}
+
+/* ---------- fact cards (dino / space / LEGO collectibles) ---------- */
+/* done-screen reveal: a fresh card flips in */
+.fact-reveal{display:flex;flex-direction:column;align-items:center;gap:6px;margin:8px 0}
+.fact-head{font-size:16px;font-weight:800;color:var(--blue-d)}
+.fact-card{position:relative;display:flex;align-items:center;gap:12px;
+  background:linear-gradient(135deg,#fff,#f3f8ff);border:2px solid var(--blue);
+  border-radius:16px;padding:14px 16px;max-width:360px;text-align:left;
+  box-shadow:var(--shadow)}
+.fact-card.flip{animation:card-flip .5s ease backwards}
+@keyframes card-flip{from{opacity:0;transform:rotateY(90deg) scale(.8)}
+  60%{transform:rotateY(0) scale(1.05)}}
+.fc-emoji{font-size:34px;flex:none}
+.fc-text{flex:1;font-size:15px;font-weight:700;line-height:1.3}
+.fc-say{flex:none;background:none;border:none;font-size:22px;cursor:pointer;padding:2px}
+
+/* collection screen */
+.facts-grid{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:6px 16px 40px;
+  width:100%;max-width:672px;margin:0 auto}
+.facts-complete{text-align:center;font-weight:800;color:var(--green-d);
+  background:#f2fbf3;border:2px solid #cdeccf;border-radius:14px;
+  padding:10px 14px;margin:10px auto;max-width:420px}
+.fact-deck{display:flex;flex-direction:column;gap:8px}
+.fact-deck .fact-card{max-width:none;width:100%}
+.fact-card.locked{justify-content:center;background:#f6efe2;border:2px dashed #d9cfc0;
+  box-shadow:none;min-height:56px}
+.fc-q{font-size:26px;opacity:.5}
+.fc-deck{font-size:22px;opacity:.35;margin-left:6px}
+
 /* parent dashboard strip */
 .badge-count-pill{font-size:13px;font-weight:700;color:var(--muted)}
 .p-badge-strip{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}

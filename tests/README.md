@@ -24,6 +24,7 @@ from main).
 | `types.mjs` | Targeted spelling: per-word session results (requeued word = own line, ✗ tagged with category), clickable Recent-sessions drill-down, `by_type` needs-work analysis + Word-types card with one-tap assign, category & whole-grade missions (only that group's words, misses picked first), category-first bank (tri-state toggle, grey remembered checkmarks, per-category copy), session-words sanitization |
 | `assign.mjs` | Assignments + push: assign via the dashboard (list picker, every-child), mission card on kid home, list-words-only test session, completion score + done row, VAPID tickles to a local push sink + `/api/push/pull` messages, cancel |
 | `engagement.mjs` | Anti-frustration Phase 1 (docs/ENGAGEMENT_PLAN.md): Today's Quest one-tap 5-word session + done-state flip + once/day reward, warm-start ordering (proven word leads), home greeting chips (streak / yesterday render logic), the "Show me again" peek (aided, no ladder climb, never a miss), closeness feedback (one-off / swap / mostly-right messages) |
+| `facts.mjs` | Fact cards (Phase 2): 90-card dino/space/LEGO catalog, one award per 5+-word session, 3/day cap, no repeats, `facts_earned` count, `next_badge` nudge, stickiness through a reset, home chip + collection screen + done-screen reveal/nudge |
 
 ## Running
 

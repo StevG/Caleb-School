@@ -33,6 +33,7 @@
     <p class="tagline">Let's practice spelling!</p>
     <div class="home-chips">
       <button id="badges-btn" class="badges-chip">🎖️ <b id="badges-count">0</b> badges</button>
+      <button id="facts-btn" class="badges-chip">📚 <b id="facts-count">0</b>/<span id="facts-all">0</span> facts</button>
     </div>
 
     <!-- Today's Quest: one tap, five words, no decisions. The cheapest
@@ -154,7 +155,9 @@
     <div class="done-title">Great job!</div>
     <div class="done-points">You earned <span id="earned">0</span> ⭐</div>
     <div id="level-ups" class="done-levelups"></div>
+    <div id="next-badge" class="next-badge"></div>
     <div id="badge-earns" class="badge-earns"></div>
+    <div id="fact-reveal" class="fact-reveal hidden"></div>
     <div class="done-total">Total: <span id="done-total">0</span> ⭐</div>
     <div class="done-actions">
       <button id="again" class="big-btn primary">Play again</button>
@@ -182,6 +185,17 @@
       <button id="bd-close" class="mini-btn wide">Close</button>
     </div>
   </div>
+</section>
+
+<!-- FACT CARDS (kid) -->
+<section id="facts-screen" class="screen">
+  <header class="badges-top">
+    <button id="facts-back" class="ghost-btn" aria-label="Home">✕</button>
+    <div class="badges-title">My Fact Cards 📚</div>
+    <div class="badges-tally"><span id="facts-earned">0</span>/<span id="facts-total">0</span></div>
+  </header>
+  <div id="facts-complete" class="facts-complete hidden">🏆 You collected every fact — you know them ALL!</div>
+  <div id="facts-grid" class="facts-grid"></div>
 </section>
 
 <!-- PARENT GATE -->

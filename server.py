@@ -29,6 +29,7 @@ from urllib.parse import urlparse, parse_qs, urlsplit
 
 import wordbank
 import badgebank
+import factbank
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(HERE, "static")
@@ -160,6 +161,11 @@ def _default_child(name="Caleb"):
                               # immune to resets; seeded from history on first
                               # load (see _seed_counters)
         "badges": {},         # badge id -> earned level (0-4)
+        "facts": [],          # collected fact-card ids (factbank.py), in earn
+                              # order — STICKY, resets never clear them
+        "fact_daily": {},     # {date, n} — daily cap on fact rewards
+        "quest": {},          # Today's Quest: {date, done}
+        "planets_seen": 0,    # highest Dino Space Trip planet reached (Phase 3)
     }
 
 
@@ -361,6 +367,86 @@ def badges_view(state):
 
 def badges_earned_count(state):
     return sum(1 for lv in state.get("badges", {}).values() if lv > 0)
+
+
+# --- Fact cards (factbank.py catalog, per-child collection) ------------------
+# Finishing a session can reward one collectible dino/space/LEGO fact card —
+# the variable reward that pulls Caleb back. Cards are STICKY (resets never
+# clear them, like badges). One per session, capped per day so the deck lasts.
+
+FACT_DAILY_CAP = 3
+FACT_MIN_SESSION = 5  # a 3-word mission can't farm cards
+
+
+def award_fact(state, cat=None, ignore_cap=False):
+    """Give the kid a new (un-owned) fact card and return it, or None.
+
+    `cat` restricts to one deck (planet landings pull a themed card); otherwise
+    a random deck that still has un-owned cards is chosen. `ignore_cap` is for
+    special rewards (a landing) that shouldn't count against the daily cap."""
+    owned = set(state.get("facts", []))
+    today = time.strftime("%Y-%m-%d")
+    fd = state.setdefault("fact_daily", {})
+    if fd.get("date") != today:
+        fd["date"], fd["n"] = today, 0
+    if not ignore_cap and fd.get("n", 0) >= FACT_DAILY_CAP:
+        return None
+    if cat:
+        pool = [i for i in factbank.IDS_BY_CAT.get(cat, []) if i not in owned]
+    else:
+        cats = [c for c in factbank.IDS_BY_CAT
+                if any(i not in owned for i in factbank.IDS_BY_CAT[c])]
+        if not cats:
+            return None  # collection complete — celebrate, never repeat-award
+        cat = random.choice(cats)
+        pool = [i for i in factbank.IDS_BY_CAT[cat] if i not in owned]
+    if not pool:
+        return None
+    fid = random.choice(pool)
+    state.setdefault("facts", []).append(fid)
+    if not ignore_cap:
+        fd["n"] = fd.get("n", 0) + 1
+    return factbank.FACT_BY_ID[fid]
+
+
+def facts_view(state):
+    """The whole catalog with owned flags, grouped by deck — the collection
+    screen. Owned cards show their text; the rest stay face-down."""
+    owned = set(state.get("facts", []))
+    decks = []
+    for cat, (label, emoji) in factbank.CATEGORIES.items():
+        cards = []
+        for fid in factbank.IDS_BY_CAT.get(cat, []):
+            f = factbank.FACT_BY_ID[fid]
+            got = fid in owned
+            cards.append({"id": fid, "emoji": f["emoji"], "owned": got,
+                          "text": f["text"] if got else ""})
+        decks.append({"cat": cat, "label": label, "emoji": emoji,
+                      "total": len(cards),
+                      "owned": sum(1 for c in cards if c["owned"]),
+                      "cards": cards})
+    return {"decks": decks, "earned": len(owned),
+            "total": len(factbank.FACTS)}
+
+
+def next_badge(state):
+    """The badge closest to its next level — the done-screen 'what's next'
+    nudge that turns each session into a micro-goal (BADGES.md: the progress
+    hint IS the mechanism). Skips maxed badges, speed (lower-better, no clean
+    fraction), and ones with no progress yet; ranks by fraction-to-next then
+    fewest remaining."""
+    best = None
+    for b in badges_view(state):
+        if b["level"] >= 4 or b["next_at"] is None or b.get("lower_better"):
+            continue
+        val, prev, need = b["value"], (b["prev_at"] or 0), b["next_at"]
+        if val <= prev or need <= prev:
+            continue  # no progress toward the next level yet
+        key = ((val - prev) / (need - prev), -(need - val))
+        if best is None or key > best[0]:
+            best = (key, {"name": b["name"], "emoji": b["emoji"],
+                          "level": b["level"], "have": val, "need": need})
+    return best[1] if best else None
 
 
 def load_doc():
@@ -1348,6 +1434,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send_json({"key": vapid_public_key(load_push())})
         if path == "/api/badges":
             return self._api_badges(parse_qs(parsed.query))
+        if path == "/api/facts":
+            return self._api_facts(parse_qs(parsed.query))
         if path == "/api/session":
             return self._api_session(parse_qs(parsed.query))
         if path == "/api/parent/report":
@@ -1401,6 +1489,8 @@ class Handler(BaseHTTPRequestHandler):
             "spell_rate": p.get("spell_rate", 0.45),
             "badges_earned": badges_earned_count(state),
             "badges_total": len(badgebank.BADGES),
+            "facts_earned": len(state.get("facts", [])),
+            "facts_total": len(factbank.FACTS),
             # home greeting: a streak chip + yesterday's win (walk in on
             # evidence of competence, not a blank slate) + the one-tap Quest
             "streak_days": current_day_streak(state),
@@ -1424,6 +1514,14 @@ class Handler(BaseHTTPRequestHandler):
         self._send_json({"child": state["id"], "badges": badges_view(state),
                          "earned": badges_earned_count(state),
                          "total": len(badgebank.BADGES)})
+
+    def _api_facts(self, query):
+        # the kid's fact-card collection — no PIN, his own cards
+        doc = load_doc()
+        state = get_child(doc, self._query_child(query))
+        view = facts_view(state)
+        view["child"] = state["id"]
+        self._send_json(view)
 
     def _api_session(self, query):
         mode = (query.get("mode", ["words"])[0] or "words").lower()
@@ -1543,6 +1641,10 @@ class Handler(BaseHTTPRequestHandler):
                     c["quests_done"] = c.get("quests_done", 0) + 1
                 q["date"] = today
                 q["done"] = True
+            # Fact card reward: one per real session (5+ items), daily-capped
+            new_fact = None
+            if count >= FACT_MIN_SESSION:
+                new_fact = award_fact(state)
             aid = str(body.get("assignment", "") or "")
             a = find_assignment(state, aid) if aid else None
             if a and a["status"] == "todo":
@@ -1555,7 +1657,11 @@ class Handler(BaseHTTPRequestHandler):
             new_badges = evaluate_badges(state)  # awards stars, persists levels
             resp = {"assignment_done": bool(finished),
                     "new_badges": new_badges,
-                    "quest_done_today": quest_done_today(state)}
+                    "quest_done_today": quest_done_today(state),
+                    "new_fact": new_fact}
+            # the "what's next" badge nudge — but not when we're already
+            # celebrating a fresh badge (that moment owns the screen)
+            resp["next_badge"] = None if new_badges else next_badge(state)
             save_doc(doc)
             points = state["profile"].get("points", 0)
             resp["points"] = points

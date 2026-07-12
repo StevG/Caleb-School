@@ -124,7 +124,11 @@ words first, cap 25, shuffle; kid sees them in `/api/state.missions`, plays
 via `/api/session?assignment=`, completion via `session_end {assignment}`) · Web Push: `GET /api/push/key`, `POST
 /api/push/subscribe|pull` — pure-stdlib VAPID (P-256 in server.py), EMPTY
 tickle pushes + SW pull (no payload crypto); key + subs in gitignored
-`data/push.json` · `GET /api/badges?child=` (kid's trophy case) — 14 tiered
+`data/push.json` · `GET /api/facts?child=` (kid's fact-card collection) — 90 dino/space/LEGO
+facts (`factbank.py`); finishing a 5+-item session flips over one new card
+(`session_end.new_fact`), capped 3/day, sticky like badges; `session_end`
+also returns `next_badge` (the done-screen "what's next" nudge) ·
+`GET /api/badges?child=` (kid's trophy case) — 14 tiered
 badges (`badgebank.py`); lifetime per-child `counters` feed
 `badge_metrics`→`evaluate_badges` on `session_end` (returns `new_badges`,
 awards +5/10/15/25 ⭐/level, pushes parents); levels are STICKY (resets never

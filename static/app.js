@@ -62,6 +62,7 @@ const state = {
   itemHeart: null,   // irregular grapheme(s) of the current heart word
   keepVisible: false, // stage 1 "copy it": word stays visible while typing
   levelUps: 0,       // stage-ups this session (celebrated on the done screen)
+  sessionStreak: 0,  // consecutive unaided corrects this session (🔥 toasts)
   // ignore typing while a result is showing. We use this flag instead of
   // disabling the input: disabling blurs it, which closes the iOS keyboard
   // between every word and forces an extra tap to bring it back.
@@ -91,6 +92,8 @@ function refreshState() {
       $("kid-name").textContent = s.name || "Caleb";
       $("home-points").textContent = state.points;
       $("badges-count").textContent = s.badges_earned || 0;
+      $("facts-count").textContent = s.facts_earned || 0;
+      $("facts-all").textContent = s.facts_total || 0;
       renderWhoRow();
       renderMissions(s.missions || []);
       renderGreeting(s);
@@ -379,6 +382,72 @@ function wireBadges() {
   });
 }
 
+// ---------- fact cards (dino / space / LEGO collectibles) ----------
+function wireFacts() {
+  $("facts-btn").addEventListener("click", openFacts);
+  $("facts-back").addEventListener("click", () => { resetHomeMenu(); show("home"); });
+}
+
+function openFacts() {
+  show("facts-screen");
+  api("/api/facts?child=" + encodeURIComponent(state.childId))
+    .then((d) => renderFactCollection(d)).catch(() => {});
+}
+
+// a single fact card's HTML — owned shows the fact (+ a 🔊 to read it),
+// un-owned stays face-down (❓ + the deck emoji as a teaser)
+function factCardHTML(card, deckEmoji) {
+  if (!card.owned) {
+    return `<div class="fact-card locked"><span class="fc-q">❓</span>` +
+      `<span class="fc-deck">${deckEmoji}</span></div>`;
+  }
+  return `<div class="fact-card"><span class="fc-emoji">${card.emoji}</span>` +
+    `<span class="fc-text">${esc(card.text)}</span>` +
+    `<button class="fc-say" data-say="${esc(card.text)}" aria-label="hear the fact">🔊</button></div>`;
+}
+
+function renderFactCollection(d) {
+  $("facts-earned").textContent = d.earned;
+  $("facts-total").textContent = d.total;
+  $("facts-complete").classList.toggle("hidden", d.earned < d.total);
+  const grid = $("facts-grid");
+  grid.innerHTML = "";
+  d.decks.forEach((deck) => {
+    const h = document.createElement("div");
+    h.className = "badge-cat";
+    h.textContent = `${deck.emoji} ${deck.label} — ${deck.owned}/${deck.total}`;
+    grid.appendChild(h);
+    const wrap = document.createElement("div");
+    wrap.className = "fact-deck";
+    wrap.innerHTML = deck.cards.map((c) => factCardHTML(c, deck.emoji)).join("");
+    grid.appendChild(wrap);
+  });
+  grid.querySelectorAll(".fc-say").forEach((b) =>
+    b.addEventListener("click", () => speakText(b.dataset.say)));
+}
+
+// done-screen: a fresh card flips over face-down -> revealed
+function celebrateFact(fact) {
+  const wrap = $("fact-reveal");
+  if (!fact) { wrap.classList.add("hidden"); wrap.innerHTML = ""; return; }
+  wrap.classList.remove("hidden");
+  wrap.innerHTML =
+    `<div class="fact-head">🃏 New fact card!</div>` +
+    `<div class="fact-card flip"><span class="fc-emoji">${fact.emoji}</span>` +
+    `<span class="fc-text">${esc(fact.text)}</span>` +
+    `<button class="fc-say" aria-label="hear the fact">🔊</button></div>`;
+  const say = wrap.querySelector(".fc-say");
+  if (say) say.addEventListener("click", () => speakText(fact.text));
+}
+
+// done-screen: the "what's next" badge nudge (skipped when a badge was earned)
+function showNextBadge(nb) {
+  const el = $("next-badge");
+  if (!nb) { el.textContent = ""; return; }
+  const togo = Math.max(1, nb.need - nb.have);
+  el.textContent = `🎖️ ${nb.name} Lv ${nb.level + 1} — ${togo} to go!`;
+}
+
 function boot() {
   // Wire everything first — buttons must work even if the network is slow.
   wireHome();
@@ -387,6 +456,7 @@ function boot() {
   wireGate();
   wireParent();
   wireBadges();
+  wireFacts();
   initUpdates();
   state.childId = storedChild();
   refreshState().catch(() => {});
@@ -574,6 +644,7 @@ async function startSession() {
   state.correctCount = 0;
   state.earned = 0;
   state.levelUps = 0;
+  state.sessionStreak = 0;
   state.finished = false;
   state.sessionStart = Date.now(); // for the Speed of Light badge (secs/word)
   state.sessionWords = []; // per-word first-try results for the parent view
@@ -862,7 +933,14 @@ function doCheck() {
     (state.sessionWords || (state.sessionWords = []))
       .push({ w: state.target, ok: !aided });
     postAnswer(state.target, true, aided);
-    if (!aided) state.correctCount++;
+    if (!aided) {
+      state.correctCount++;
+      // in-session streak toast — a live micro-goal beyond the star
+      state.sessionStreak++;
+      if ([3, 5, 10].includes(state.sessionStreak)) {
+        $("feedback").textContent += ` 🔥 ${state.sessionStreak} in a row!`;
+      }
+    }
     state.wordsDone++;
     state.points++;
     state.earned++;
@@ -881,6 +959,7 @@ function doCheck() {
     // wrong: reveal the word, let them study and try again
     if (!state.missedThisItem) postAnswer(state.target, false);
     state.missedThisItem = true;
+    state.sessionStreak = 0; // a miss quietly resets the streak (no downer)
     $("check").disabled = true; // no double-checking while the reveal loads
     boxes.classList.add("wrong");
     boxes.classList.add("shake");
@@ -1121,6 +1200,8 @@ function finishSession() {
   const wasQuest = state.quest;
   const secs = Math.round((Date.now() - (state.sessionStart || Date.now())) / 1000);
   $("badge-earns").innerHTML = ""; // clear last session's celebration
+  celebrateFact(null);             // clear last session's fact card
+  showNextBadge(null);
   // a Quest offers "one more game?" (nudges another go without a treadmill);
   // a normal session offers "Play again" (same game, same goal)
   $("more-games").classList.toggle("hidden", !wasQuest);
@@ -1142,8 +1223,10 @@ function finishSession() {
       $("home-points").textContent = state.points;
     }
     if (r.new_badges && r.new_badges.length) celebrateBadges(r.new_badges);
-    if (r.assignment_done || (r.new_badges || []).length) {
-      refreshState().catch(() => {}); // mission card + badge count refresh
+    else showNextBadge(r.next_badge); // nudge only when not celebrating
+    if (r.new_fact) celebrateFact(r.new_fact);
+    if (r.assignment_done || (r.new_badges || []).length || r.new_fact) {
+      refreshState().catch(() => {}); // mission/badge/fact counts refresh
     }
   }).catch(() => {});
   state.assignment = null;
