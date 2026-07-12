@@ -24,6 +24,18 @@ game, and each game can only prove skills up to its own rung
 | 3 | From sound 🔊 | Listen & Spell (`listen`): audio only, never shown | 2 unaided corrects | uncapped (can master) |
 | 4 | Mastered ★ | — | (records `mastered_ts`) | |
 
+Two extra games (added 2026-07-12) sit off to the side of this ladder:
+- **Build It 🧱** (`build`): tap scrambled letter tiles to spell the word
+  (it hides on the first tile). The constrained letter set makes it *aided*
+  recall, so `CLIMB_CAP["build"] = 2` — it climbs copy→memory only, never
+  further, and a miss drops a rung like everywhere (one word, one truth).
+- **Which One? 🕵️** (`pick`): hear the word, tap the right spelling of three.
+  Recognition is weaker evidence than recall in BOTH directions, so `pick`
+  answers **never move the ladder** — no climb, no drop (`NO_LADDER_MODES` in
+  server.py). They still record seen/correct/missed + per-mode/per-day stats,
+  so most-missed and the by-type analysis keep working; stars pay +1 per
+  first-try correct (no aided path — a wrong tap just moves on).
+
 Rules (implemented in `server.record_answer`, constants at top of server.py):
 - **Any miss drops the word one rung** (min stage 1) and resets its
   stage streak — in every game. Rebuilding from a lower rung is the

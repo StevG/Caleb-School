@@ -168,7 +168,16 @@ body.has-update .screen{padding-top:calc(env(safe-area-inset-top) + 46px)}
 .mode-card.listen{background:linear-gradient(135deg,#fdf3e7,#fae5cd)}
 .mode-card.sentences{background:linear-gradient(135deg,#e9f8ec,#d6f0da)}
 .mode-card.memory{background:linear-gradient(135deg,#f7effb,#ecdff5)}
+.mode-card.pick{background:linear-gradient(135deg,#fdeef0,#f8dbe0)}
+.mode-card.build{background:linear-gradient(135deg,#fbeee2,#f4dcc4)}
 .mc-emoji{font-size:34px}
+/* the Words section now has 5 games — a 2-column grid keeps them all on one
+   screen (no scrolling) even on a short landscape phone */
+.game-set[data-set="words"]{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.game-set[data-set="words"] .mode-card{flex-direction:column;gap:6px;
+  text-align:center;padding:14px 10px}
+.game-set[data-set="words"] .mode-card .mc-title{font-size:19px}
+.game-set[data-set="words"] .mode-card:last-child:nth-child(odd){grid-column:1/-1}
 
 /* the "⬅ Back" step-up link atop steps 2 & 3 */
 .back-link{align-self:flex-start;background:none;border:none;color:var(--muted);
@@ -263,6 +272,36 @@ body.has-update .screen{padding-top:calc(env(safe-area-inset-top) + 46px)}
   color:var(--muted);cursor:pointer;margin:2px 0}
 .peek-btn:active{border-color:var(--blue);color:var(--blue-d)}
 .peek-btn.hidden{display:none}
+
+/* Which One?: three big spelling choices */
+.choices{display:flex;flex-direction:column;gap:12px;width:100%;max-width:420px;
+  margin:8px auto}
+.choices.hidden{display:none}
+.choice{padding:18px 20px;border:3px solid var(--blue);border-radius:18px;
+  background:#fff;color:var(--ink);font-size:26px;font-weight:800;cursor:pointer;
+  letter-spacing:.02em;transition:transform .08s ease}
+.choice:active{transform:scale(.97)}
+.choice:disabled{cursor:default}
+.choice.right{border-color:var(--green);background:#eafaee;color:var(--green-d)}
+.choice.wrong-choice{border-color:var(--red);background:#fdeeea;
+  animation:box-wiggle .4s ease}
+
+/* Build It: scrambled LEGO-stud letter tiles */
+.tiles-wrap{display:flex;flex-direction:column;align-items:center;gap:8px;
+  width:100%;max-width:420px;margin:6px auto}
+.tiles-wrap.hidden{display:none}
+.tiles{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.tile{position:relative;width:46px;height:46px;border:none;border-radius:9px;
+  background:linear-gradient(160deg,#f4b942,#e39a1e);color:#3a2c08;
+  font-size:24px;font-weight:900;cursor:pointer;box-shadow:0 3px 0 #c9871a;
+  padding-top:6px;transition:transform .08s ease}
+.tile:active{transform:translateY(2px);box-shadow:0 1px 0 #c9871a}
+.tile .stud{position:absolute;top:4px;left:50%;transform:translateX(-50%);
+  width:14px;height:6px;border-radius:6px;background:rgba(255,255,255,.55)}
+.tile.used{visibility:hidden}
+.tile-undo{background:none;border:2px solid var(--line);border-radius:14px;
+  padding:6px 14px;font-size:14px;font-weight:700;color:var(--muted);cursor:pointer}
+.tile-undo:active{border-color:var(--blue);color:var(--blue-d)}
 
 .feedback{min-height:30px;font-size:22px;font-weight:800}
 .feedback.good{color:var(--green-d)}

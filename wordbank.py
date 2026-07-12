@@ -820,6 +820,80 @@ def build_pool():
     return order, sentences
 
 
+# The set of real words in the bank — used to reject plausible-misspelling
+# distractors that happen to be real words (see distractors()).
+REAL_WORDS = {item["w"] for item in build_pool()[0]}
+
+# Pattern-aware spelling confusions for the "Which One?" recognition game.
+# vowel/consonant-team swaps a Within-Word-Pattern speller actually makes.
+_TEAM_SWAPS = {
+    "ai": ["ay", "a"], "ay": ["ai", "ey"], "ee": ["ea", "e"],
+    "ea": ["ee", "e"], "oa": ["ow", "o"], "ow": ["oa", "ou"],
+    "igh": ["y", "ie"], "ie": ["y", "igh"], "oo": ["ou", "u"],
+    "ou": ["ow", "oo"], "oi": ["oy"], "oy": ["oi"], "ir": ["er", "ur"],
+    "er": ["ir", "ur"], "ur": ["er", "ir"], "or": ["er"], "ar": ["er"],
+}
+_CONS_SWAPS = [("ck", "k"), ("ck", "c"), ("k", "ck"), ("tch", "ch"),
+               ("ch", "tch"), ("dge", "ge"), ("ge", "dge"), ("ph", "f")]
+_VOWELS = "aeiou"
+_CONFUSE_VOWEL = {"a": "e", "e": "a", "i": "e", "o": "u", "u": "o"}
+
+
+def distractors(word, n=2, salt=0):
+    """Up to `n` plausible MISSPELLINGS of `word` for the blind-sort game —
+    the kind a Within-Word-Pattern speller actually produces (vowel-team
+    swaps, double/single consonant, ck/k/c, silent-e, close-vowel). Any
+    candidate that is a real bank word (or the target) is rejected, so the
+    kid is choosing between the right spelling and clear non-words.
+    Deterministic given (word, salt) so tests can assert; sessions vary the
+    salt by day."""
+    word = word.lower()
+    cands, seen = [], {word}
+
+    def add(c):
+        if (c and c != word and c not in seen and c not in REAL_WORDS
+                and c.replace("'", "").replace("-", "").isalpha()):
+            seen.add(c)
+            cands.append(c)
+
+    # 1. vowel/consonant-team swaps
+    for team, alts in _TEAM_SWAPS.items():
+        i = word.find(team)
+        if i != -1:
+            for alt in alts:
+                add(word[:i] + alt + word[i + len(team):])
+    # 2. double -> single consonant (rabbit -> rabit)
+    for i in range(1, len(word)):
+        if word[i] == word[i - 1] and word[i] not in _VOWELS:
+            add(word[:i] + word[i + 1:])
+    # 3. single -> double consonant (later -> latter)
+    for i in range(1, len(word) - 1):
+        if (word[i].isalpha() and word[i] not in _VOWELS
+                and word[i] != word[i - 1]):
+            add(word[:i + 1] + word[i] + word[i + 1:])
+    # 4. ck/k/c, ch/tch, dge/ge, ph/f
+    for a, b in _CONS_SWAPS:
+        i = word.find(a)
+        if i != -1:
+            add(word[:i] + b + word[i + len(a):])
+    # 5. silent-e drop
+    if word.endswith("e") and len(word) > 3:
+        add(word[:-1])
+    # 6. close-vowel confusion (a<->e, i->e, o<->u)
+    for i, ch in enumerate(word):
+        if ch in _CONFUSE_VOWEL:
+            add(word[:i] + _CONFUSE_VOWEL[ch] + word[i + 1:])
+    # 7. last resort: adjacent transposition (always yields a non-word-ish form)
+    if len(cands) < n:
+        for i in range(len(word) - 1):
+            if word[i] != word[i + 1]:
+                add(word[:i] + word[i + 1] + word[i] + word[i + 2:])
+    if not cands:
+        return []
+    start = salt % len(cands)
+    return (cands[start:] + cands[:start])[:n]
+
+
 if __name__ == "__main__":
     words, sentences = build_pool()
     groups = {}

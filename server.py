@@ -51,7 +51,11 @@ STAGE_NAMES = {1: "copy", 2: "memory", 3: "sound", 4: "mastered"}
 # own rung: copying a word can never mark it "spells it from memory", and
 # only Listen & Spell (true from-sound recall) can finish a word off as
 # mastered. Modes not listed (listen, sentences, memory) climb uncapped.
-CLIMB_CAP = {"copy": STAGE_MEMORY, "words": STAGE_SOUND}
+CLIMB_CAP = {"copy": STAGE_MEMORY, "words": STAGE_SOUND, "build": STAGE_MEMORY}
+# "pick" (Which One?) is recognition, not recall — weaker evidence in BOTH
+# directions, so it never moves the ladder (no climb, no drop). See
+# docs/SCORING.md; enforced by record_answer skipping the stage block.
+NO_LADDER_MODES = {"pick"}
 
 # --- Dino Space Trip ---------------------------------------------------------
 # A meta-progression that makes the ladder visible in Caleb's own iconography
@@ -155,7 +159,8 @@ MIME = {
 
 # --- persistence -----------------------------------------------------------
 
-VALID_MODES = ("copy", "words", "listen", "sentences", "memory")
+VALID_MODES = ("copy", "words", "listen", "sentences", "memory",
+               "pick", "build")
 
 
 def _default_child(name="Caleb"):
@@ -1013,6 +1018,29 @@ def build_word_session(state, count):
     return out
 
 
+def build_pick_session(state, count):
+    """Which One? items: the same spaced-repetition word pool, each paired
+    with two plausible misspellings (wordbank.distractors). Words that can't
+    produce two clean distractors are skipped, so we over-fetch and trim."""
+    salt = int(time.strftime("%j"))  # day-of-year — choices vary daily
+    base = build_word_session(state, max(count * 2, count + 4))
+    out = []
+    for item in base:
+        ds = wordbank.distractors(item["w"], 2, salt=salt)
+        if len(ds) < 2:
+            continue
+        choices = [item["w"]] + ds
+        random.shuffle(choices)
+        pick = {"w": item["w"], "group": item.get("group", "My words"),
+                "choices": choices}
+        if item.get("heart"):
+            pick["heart"] = item["heart"]
+        out.append(pick)
+        if len(out) >= count:
+            break
+    return out
+
+
 def build_sentence_session(state, count):
     max_level = float(state["profile"].get("max_level", 3))
     pool = [s for s in SENTENCES if s["level"] <= max_level] or SENTENCES
@@ -1037,7 +1065,8 @@ def build_sentence_session(state, count):
 
 MODE_LABELS = {"copy": "Copy It", "words": "Hide & Spell",
                "listen": "Listen & Spell",
-               "sentences": "Fill In", "memory": "Remember It"}
+               "sentences": "Fill In", "memory": "Remember It",
+               "pick": "Which One?", "build": "Build It"}
 
 
 def find_assignment(state, aid):
@@ -1186,7 +1215,10 @@ def record_answer(state, word, correct, aided=False, mode="words"):
         # (CLIMB_CAP): copying never advances a from-memory word, and only
         # from-sound games push a word to mastered. Streaks don't bank while
         # capped, so an easy game can't pre-pay a harder one's climb.
-        if stage < min(STAGE_MASTERED, CLIMB_CAP.get(mode, STAGE_MASTERED)):
+        # Which One? (pick) is recognition, not recall — it never climbs.
+        if (mode not in NO_LADDER_MODES
+                and stage < min(STAGE_MASTERED,
+                                CLIMB_CAP.get(mode, STAGE_MASTERED))):
             s["stage_streak"] = s.get("stage_streak", 0) + 1
             if s["stage_streak"] >= STAGE_UP[stage]:
                 s["stage"] = stage + 1
@@ -1201,9 +1233,11 @@ def record_answer(state, word, correct, aided=False, mode="words"):
         m["missed"] += 1
         d["missed"] += 1
         c["answer_streak"] = 0  # a miss breaks the Hot Streak
-        # slide one rung down and rebuild from there
-        s["stage"] = max(STAGE_COPY, stage - 1)
-        s["stage_streak"] = 0
+        # slide one rung down and rebuild from there — but recognition
+        # (pick) never drops the ladder either, only recall does
+        if mode not in NO_LADDER_MODES:
+            s["stage"] = max(STAGE_COPY, stage - 1)
+            s["stage_streak"] = 0
     return (stage_up, s.get("stage"))
 
 
@@ -1652,15 +1686,18 @@ class Handler(BaseHTTPRequestHandler):
             # session — the client's next state refresh clears its card
         if mode in ("sentences", "memory"):
             items = build_sentence_session(state, max(1, min(count, 12)))
+        elif mode == "pick":
+            # Which One? — recognition: each word paired with 2 misspellings
+            items = build_pick_session(state, count)
         else:
             items = build_word_session(state, count)
             # presentation follows the GAME, not the ladder: Copy It always
-            # shows the word, Hide & Spell always hides it on the first
-            # keystroke (listen ignores stage — it's audio-only anyway)
+            # shows the word, Hide & Spell (and Build It) always hide it on the
+            # first keystroke/tile (listen ignores stage — it's audio-only)
             if mode == "copy":
                 for it in items:
                     it["stage"] = STAGE_COPY
-            elif mode == "words":
+            elif mode in ("words", "build"):
                 for it in items:
                     it["stage"] = STAGE_MEMORY
         self._send_json({"mode": mode, "child": state["id"], "items": items})

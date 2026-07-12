@@ -18,7 +18,8 @@ const cleanChars = (s) => s.replace(/[^a-zA-Z'-]/g, "");
 const toTarget = (s) => cleanChars(s).toLowerCase();
 const MODE_LABELS = { copy: "Copy It", words: "Hide & Spell",
                       listen: "Listen & Spell",
-                      sentences: "Fill In", memory: "Remember It" };
+                      sentences: "Fill In", memory: "Remember It",
+                      pick: "Which One?", build: "Build It" };
 function show(screenId) {
   document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
   $(screenId).classList.add("active");
@@ -666,7 +667,8 @@ function wireHome() {
       state.mode = btn.dataset.mode;
       state.assignment = null; // free play, not a mission
       state.quest = false;
-      if (["copy", "words", "listen"].includes(state.mode)) showPanel("goal");
+      if (["copy", "words", "listen", "pick", "build"].includes(state.mode))
+        showPanel("goal");
       else startSession();
     });
   });
@@ -745,12 +747,12 @@ async function startSession() {
   state.sessionStart = Date.now(); // for the Speed of Light badge (secs/word)
   state.sessionWords = []; // per-word first-try results for the parent view
   $("play-points").textContent = "+0";
-  // memory (dictation) and listen (audio-only) NEED the speaker; so does
-  // auto-play (so he can replay the word+spelling). Otherwise it follows the
+  // memory (dictation), listen (audio-only) and Which One? (recognition by
+  // sound) NEED the speaker; so does auto-play. Otherwise it follows the
   // parent's "show speaker" setting.
   $("speaker").classList.toggle("hidden",
     !state.showSpeaker && !state.autoplayAudio &&
-    state.mode !== "memory" && state.mode !== "listen");
+    !["memory", "listen", "pick"].includes(state.mode));
   show("play");
   loadNext();
 }
@@ -769,9 +771,14 @@ function resetItemUI() {
   $("check").disabled = true;
   $("next").classList.add("hidden");
   $("next").textContent = "Next →";
-  // "Show me again" is a grace path for the hide-on-type games only (Copy It
-  // shows the word anyway; sentence modes have the sentence line to lean on)
-  const canPeek = state.mode === "words" || state.mode === "listen";
+  // the new games' widgets are hidden by default; their begin* funcs show them
+  $("choices").classList.add("hidden");
+  $("tiles-wrap").classList.add("hidden");
+  $("typed").removeAttribute("readonly"); // Build It re-adds it; others type
+  // "Show me again" is a grace path for the hide-on-type games (Copy It shows
+  // the word anyway; sentence modes lean on the sentence line; Which One? is
+  // recognition — the choices already show the answer)
+  const canPeek = ["words", "listen", "build"].includes(state.mode);
   $("peek-btn").classList.toggle("hidden", !canPeek);
 }
 
@@ -820,6 +827,14 @@ function loadNext() {
     state.itemStage = 3;
     beginListenWord(item.w);
     state.itemHeart = item.heart || null; // for the reveal after a miss
+  } else if (state.mode === "pick") {
+    state.sentence = null;
+    $("sentence-line").classList.add("hidden");
+    beginPickItem(item);
+  } else if (state.mode === "build") {
+    state.sentence = null;
+    $("sentence-line").classList.add("hidden");
+    beginBuildItem(item);
   } else {
     state.sentence = null;
     $("sentence-line").classList.add("hidden");
@@ -925,6 +940,158 @@ function beginListenWord(w) {
   inp.maxLength = state.target.length;
   setTimeout(() => inp.focus(), 30);
   speakCurrent(); // say it right away; the 🔊 button repeats it
+}
+
+// ----- WHICH ONE? (pick): recognition — hear it, tap the right spelling -----
+// The word is spoken and never shown except as the three choices. A tap ends
+// the item (no typing, no retype). Recognition is weaker than recall, so pick
+// answers never move the ladder (server-side, NO_LADDER_MODES).
+function beginPickItem(item) {
+  state.target = toTarget(item.w);
+  state.itemHeart = item.heart || null;
+  state.lastChoices = item.choices || [item.w];
+  state.caseSensitive = false;
+  $("prompt-word").textContent = "";
+  $("prompt-word").classList.remove("gone");
+  $("prompt-hint").textContent = "Listen 🔊 — which spelling is right?";
+  $("boxes").innerHTML = "";
+  $("typed").value = "";
+  $("typed").blur();               // no keyboard in this game
+  $("check").classList.add("hidden");
+  $("peek-btn").classList.add("hidden");
+  const wrap = $("choices");
+  wrap.classList.remove("hidden");
+  wrap.innerHTML = "";
+  (item.choices || []).forEach((c) => {
+    const b = document.createElement("button");
+    b.className = "choice";
+    b.textContent = c;
+    b.addEventListener("click", () => checkPick(c, b));
+    b.addEventListener("mousedown", (e) => e.preventDefault());
+    wrap.appendChild(b);
+  });
+  speakText(state.target); // say the word; 🔊 repeats it
+}
+
+function checkPick(choice, btn) {
+  if (state.answered) return;
+  const correct = choice === state.target;
+  state.answered = true;
+  const wrap = $("choices");
+  wrap.querySelectorAll(".choice").forEach((b) => { b.disabled = true; });
+  if (correct) {
+    btn.classList.add("right");
+    $("feedback").textContent = pick(["Yes! 🌟", "You got it! ✅", "Nice! 👏"]);
+    $("feedback").className = "feedback good";
+    (state.sessionWords || (state.sessionWords = [])).push({ w: state.target, ok: true });
+    postAnswer(state.target, true, false);
+    state.correctCount++;
+    state.sessionStreak++;
+    if ([3, 5, 10].includes(state.sessionStreak)) {
+      $("feedback").textContent += ` 🔥 ${state.sessionStreak} in a row!`;
+    }
+    state.wordsDone++;
+    state.points++; state.earned++;
+    updatePointsUI();
+    setTimeout(loadNext, 800);
+  } else {
+    if (btn) btn.classList.add("wrong-choice");
+    // highlight the RIGHT one so the study value lands
+    wrap.querySelectorAll(".choice").forEach((b) => {
+      if (b.textContent === state.target) b.classList.add("right");
+    });
+    $("feedback").textContent = "That one's tricky! This is the real one 👉";
+    $("feedback").className = "feedback bad";
+    (state.sessionWords || (state.sessionWords = [])).push({ w: state.target, ok: false });
+    postAnswer(state.target, false, false);
+    state.sessionStreak = 0;
+    state.wordsDone++;
+    // missed words come back once, later in the session
+    if (!state.requeued) {
+      state.requeued = true;
+      const back = { w: state.target, group: "",
+                     heart: state.itemHeart || undefined,
+                     choices: shuffle((state.lastChoices || [state.target]).slice()) };
+      const pos = Math.min(state.queue.length, 2 + Math.floor(Math.random() * 3));
+      state.queue.splice(pos, 0, back);
+      state.total++;
+    }
+    setTimeout(loadNext, 1500);
+  }
+}
+
+// ----- BUILD IT (build): tap scrambled LEGO tiles to spell the word --------
+// Look–cover–build–check: the word shows, then hides on the first tile tap.
+// Tiles write into the hidden #typed input and call onType(), so check /
+// reveal / aided-retype / requeue all come free. No keyboard (readonly).
+function beginBuildItem(item, retry) {
+  state.buildItem = item;
+  state.caseSensitive = false;
+  state.keepVisible = false;
+  state.itemHeart = item.heart || null;
+  state.target = toTarget(item.w);
+  const pw = $("prompt-word");
+  pw.innerHTML = heartSpans(item.w, item.heart);
+  sizePrompt();
+  pw.classList.remove("gone");
+  $("prompt-hint").textContent = item.heart
+    ? "Heart word! Tap the blocks to build it 🧱"
+    : "Build the word — tap the blocks!";
+  const inp = $("typed");
+  inp.value = "";
+  inp.setAttribute("readonly", "readonly"); // no on-screen keyboard
+  inp.blur();
+  renderBoxes(state.target.length, "");
+  // scramble the target's letters into tiles (never the correct order)
+  let letters = state.target.split("");
+  do { shuffle(letters); }
+  while (letters.join("") === state.target && state.target.length > 1);
+  state.buildTiles = letters.map((ch) => ({ ch, used: false }));
+  renderTiles();
+  $("tiles-wrap").classList.remove("hidden");
+  if (!retry) maybeAutoplayWord();
+}
+
+function renderTiles() {
+  const wrap = $("tiles");
+  wrap.innerHTML = "";
+  state.buildTiles.forEach((t, i) => {
+    const b = document.createElement("button");
+    b.className = "tile" + (t.used ? " used" : "");
+    b.innerHTML = `<span class="stud"></span>${esc(t.ch)}`;
+    b.disabled = t.used;
+    b.addEventListener("click", () => tapTile(i));
+    b.addEventListener("mousedown", (e) => e.preventDefault());
+    wrap.appendChild(b);
+  });
+}
+
+function tapTile(i) {
+  if (state.answered || state.locked) return;
+  const t = state.buildTiles[i];
+  if (t.used) return;
+  const inp = $("typed");
+  if (inp.value.length >= state.target.length) return;
+  t.used = true;
+  inp.value += t.ch;
+  renderTiles();
+  onType(); // hides the word on the first tile, fills boxes, enables Check
+}
+
+function undoTile() {
+  if (state.answered || state.locked) return;
+  const inp = $("typed");
+  if (!inp.value.length) return;
+  const last = inp.value[inp.value.length - 1];
+  inp.value = inp.value.slice(0, -1);
+  // free the most-recently-used matching tile
+  for (let i = state.buildTiles.length - 1; i >= 0; i--) {
+    if (state.buildTiles[i].used && state.buildTiles[i].ch === last) {
+      state.buildTiles[i].used = false; break;
+    }
+  }
+  renderTiles();
+  onType();
 }
 
 function renderBoxes(n, value) {
@@ -1077,7 +1244,8 @@ function doCheck() {
     // re-queue this word once, later in the session, for extra practice.
     // Presentation is mode-driven (presentWordItem), so no stage is needed —
     // a requeued Hide & Spell word still hides on type like every other.
-    if (!state.requeued && (state.mode === "words" || state.mode === "listen")) {
+    if (!state.requeued &&
+        ["words", "listen", "build"].includes(state.mode)) {
       state.requeued = true;
       const back = { w: state.target, group: "",
                      heart: state.itemHeart || undefined };
@@ -1115,7 +1283,9 @@ function advance() {
   // if this was a "try again" retry, re-present the same word
   if (state.missedThisItem && !state.answered) {
     resetItemUI();
-    if (state.sentence) {
+    if (state.mode === "build") {
+      beginBuildItem(state.buildItem, true); // fresh scramble for the retype
+    } else if (state.sentence) {
       const tok = state.sentence.tokens[state.sentence.wordIdx];
       // after a reveal the word is no secret — show it for the retype
       state.curHidden = false;
@@ -1365,6 +1535,7 @@ function wirePlay() {
   $("check").addEventListener("click", doCheck);
   $("next").addEventListener("click", advance);
   $("peek-btn").addEventListener("click", doPeek);
+  $("tile-undo").addEventListener("click", undoTile);
   $("quit").addEventListener("click", () => { goHome(); });
   $("speaker").addEventListener("click", speakCurrent);
 
@@ -1373,7 +1544,7 @@ function wirePlay() {
   // closes the iOS keyboard — it then reopens on the next word and the screen
   // resizes each time. Preventing the default on pointer-down keeps focus in
   // #typed (the click still fires), so the keyboard stays up all session.
-  ["check", "next", "speaker", "boxes", "peek-btn"].forEach((id) => {
+  ["check", "next", "speaker", "boxes", "peek-btn", "tile-undo"].forEach((id) => {
     $(id).addEventListener("mousedown", (e) => e.preventDefault());
   });
 }
@@ -1463,7 +1634,7 @@ function stopSpeech() {
 // instant he types so it can't be used to copy.
 function maybeAutoplayWord() {
   if (!state.autoplayAudio) return;
-  if (state.mode !== "copy" && state.mode !== "words") return;
+  if (!["copy", "words", "build"].includes(state.mode)) return;
   if (!("speechSynthesis" in window) || !state.target) return;
   speakWordAndSpell(state.target);
 }
@@ -1475,17 +1646,25 @@ function speakCurrent() {
   } else if (state.mode === "sentences" && state.sentence) {
     const tok = state.sentence.tokens[state.sentence.wordIdx];
     if (tok) speakText(tok.answer);
-  } else if (state.mode === "copy" || state.mode === "words") {
-    // spell it out ONLY before he's started typing this word; once he's
-    // begun (the word has hidden), just say the name so it can't be copied
+  } else if (state.mode === "copy" || state.mode === "words" ||
+             state.mode === "build") {
+    // spell it out ONLY before he's started building/typing this word; once
+    // he's begun (the word has hidden), just say the name so it can't be copied
     if (state.typedStarted) speakText(state.target);
     else speakWordAndSpell(state.target);
   } else {
-    speakText(state.target); // listen mode: word only, never spelled
+    speakText(state.target); // listen / pick: word only, never spelled
   }
 }
 
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
 // ---------- viewport / keyboard management ----------
 // iOS overlays the keyboard on the page instead of resizing it. We track

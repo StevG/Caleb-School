@@ -85,6 +85,23 @@ game can only prove skills up to its own rung; see docs/SCORING.md):
 - Not a game with an economy — points are minutes of iPad time, period.
 
 ## Decisions log
+- 2026-07-12 — Engagement Phase 4: two lower-effort games (owner: give him a
+  way to practice on bad days when typing a whole word feels like too much).
+  Both are real modes (per-mode/per-day stats, missions, `MODE_LABELS`).
+  (1) **Which One? 🕵️** (`pick`) — hear the word, tap the right spelling of
+  three. `wordbank.distractors()` builds two pattern-aware misspellings
+  (vowel-team swaps, double/single consonant, ck/k/c, silent-e, close-vowel;
+  rejects real bank words). Recognition, not recall → it **never moves the
+  ladder** (no climb, no drop; `NO_LADDER_MODES`), but still feeds stats.
+  Needs audio like Listen & Spell (force-shows the speaker). Missed words
+  requeue once; no typing, no retype. (`GET /api/session?mode=pick`.)
+  (2) **Build It 🧱** (`build`) — tap scrambled LEGO-stud letter tiles (no
+  keyboard) to spell the word; it hides on the first tile (look–cover–build–
+  check). Tiles write into the hidden `#typed` input and call `onType()`, so
+  check/reveal/aided-retype/requeue all reuse the existing flow; the peek
+  works too. Constrained letters = aided recall, so `CLIMB_CAP["build"] = 2`
+  (climbs copy→memory only); misses drop a rung. The Words section is now a
+  2-column grid of 5 games so they still fit without scrolling.
 - 2026-07-12 — Engagement Phase 3: the Dino Space Trip (owner: he loves the
   dino-in-rocket icon — make it a journey). Full spec in ENGAGEMENT_PLAN.md.
   (1) **In-session rocket** — a 🚀 rides the progress track one hop per word

@@ -27,14 +27,14 @@ check('start: two section cards, no games yet', JSON.stringify(start.sections) =
 check('start: home fits without scrolling', await fits());
 check('start: on the sections panel', JSON.stringify(await panel()) === '["sections"]');
 
-// STEP 2: Words -> only the three word games (no sentence games), still fits
+// STEP 2: Words -> the five word games (no sentence games), still fits
 await page.click('.section-card.sec-words');
 await page.waitForTimeout(300);
 const wordGames = await page.evaluate(() => ({
   panel: document.querySelector('.home-panel:not(.hidden)').dataset.panel,
   games: [...document.querySelectorAll('.mode-card')].filter(c => c.offsetParent).map(c => c.dataset.mode),
   back: !!document.querySelector('.home-panel:not(.hidden) .back-link') }));
-check('Words -> the three word games only', JSON.stringify(wordGames.games) === '["copy","words","listen"]', JSON.stringify(wordGames.games));
+check('Words -> the five word games only', JSON.stringify(wordGames.games) === '["copy","words","listen","pick","build"]', JSON.stringify(wordGames.games));
 check('Words -> games panel with a Back button', wordGames.panel === 'games' && wordGames.back);
 check('Words -> fits without scrolling', await fits());
 

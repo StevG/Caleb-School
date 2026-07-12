@@ -82,6 +82,14 @@
             <span class="mc-emoji">🔊</span>
             <span class="mc-title">Listen &amp; Spell<small>no peeking — just sound</small></span>
           </button>
+          <button class="mode-card pick" data-mode="pick">
+            <span class="mc-emoji">🕵️</span>
+            <span class="mc-title">Which One?<small>hear it, pick the spelling</small></span>
+          </button>
+          <button class="mode-card build" data-mode="build">
+            <span class="mc-emoji">🧱</span>
+            <span class="mc-title">Build It<small>tap the letter blocks</small></span>
+          </button>
         </div>
         <div class="game-set hidden" data-set="sentences">
           <button class="mode-card sentences" data-mode="sentences">
@@ -138,6 +146,15 @@
     <input id="typed" class="typed-input" type="text" inputmode="text"
            autocomplete="off" autocorrect="off" autocapitalize="none"
            spellcheck="false" enterkeyhint="go" aria-label="Type the word">
+
+    <!-- Build It: scrambled LEGO-stud letter tiles + an undo -->
+    <div id="tiles-wrap" class="tiles-wrap hidden">
+      <div id="tiles" class="tiles"></div>
+      <button id="tile-undo" class="tile-undo">⌫ Undo</button>
+    </div>
+
+    <!-- Which One?: three spelling choices to tap -->
+    <div id="choices" class="choices hidden"></div>
 
     <button id="peek-btn" class="peek-btn hidden">Show me again 👀</button>
 

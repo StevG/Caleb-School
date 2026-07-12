@@ -99,7 +99,10 @@ card) · `GET /api/session?mode=copy|words|listen|sentences|memory&count=N`
 hides-on-type; `CLIMB_CAP` keeps copying from mastering words) ·
 `GET /api/session?quest=1` (Today's Quest: a 5-word warm-started Hide &
 Spell set, one tap, no choices — `session_end {quest}` marks it done once/
-day, `counters.quests_done`) ·
+day, `counters.quests_done`) · `mode=pick` (Which One?: recognition — each
+word + 2 misspellings from `wordbank.distractors`; never moves the ladder,
+`NO_LADDER_MODES`) · `mode=build` (Build It: LEGO letter tiles, `CLIMB_CAP`
+2) ·
 `POST /api/answer {word, correct, aided, mode}` · `POST /api/session_end`
 (accepts `words: [{w, ok}]` — per-word first-try results, sanitized + capped
 60, stored in the session entry; the report tags each with its `group` +

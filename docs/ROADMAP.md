@@ -40,9 +40,10 @@ The pieces already generalize; don't fork the app, extend it:
 - **Feature-level miss analysis** — log *which grapheme* was wrong (vowel
   team vs consonant vs suffix) and report "most misses are long-o teams" —
   the same placement logic as a spelling inventory.
-- **Blind-sort practice** — a contrast interaction: hear a word, choose
-  between plausible spellings (coat/cote/cott). Replicates the
-  highest-value classroom sort.
+- ~~**Blind-sort practice** — hear a word, choose between plausible
+  spellings~~ — DONE 2026-07-12 (Phase 4): the **Which One? 🕵️** game
+  (`mode=pick`, `wordbank.distractors`); recognition, so it never moves the
+  ladder (docs/SCORING.md).
 - **Day-spanning mastery** — require ladder stage-ups to span different
   days (spacing effect: gains show at the 28-day delay, not Friday).
 - **Transfer checks** — occasionally test an *unpracticed* word from a
