@@ -76,6 +76,16 @@ The pieces already generalize; don't fork the app, extend it:
 - **Ladder tuning** — if mastery proves too easy/hard, adjust `STAGE_UP`
   in server.py (see docs/SCORING.md) rather than adding mechanisms.
 
+## App Store / Google Play (researched 2026-07-12, not scheduled)
+
+**`docs/STORE_DEPLOYMENT.md`** holds the full research and phased plan for
+ever shipping this to the Apple App Store / Google Play: the local-first
+port it would require, the Capacitor packaging, kids/COPPA compliance (the
+zero-data design IS the compliance strategy), the company/LLC question
+(not required), content/trademark notes (LEGO stays out of all store
+metadata), and costs. Nothing is implemented; the HomeHub deployment is
+unaffected.
+
 ## Deployment reminders
 
 - Registered in HomeHub `projects.json` as `spelling`, dev-first
