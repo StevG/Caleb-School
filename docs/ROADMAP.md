@@ -3,6 +3,15 @@
 Owner-stated direction: this repo will grow into Caleb's practice hub —
 **spelling first, math next**, possibly more subjects later.
 
+## Engagement plan (owner-approved 2026-07-12 — NEXT UP)
+
+**`docs/ENGAGEMENT_PLAN.md`** fully maps the anti-frustration work the owner
+approved: Today's Quest one-tap sessions, warm-start ordering, the "Show me
+again" peek, closeness feedback, dino/space/LEGO fact cards, the Dino Space
+Trip, and two new games (Which One? / Build It). It subsumes several items
+below (daily streak chip, word-reveal grace, blind-sort practice, "Map it"
+Elkonin boxes) — implement from that plan, then mark them off here.
+
 ## Adding Math mode (the agreed next step)
 
 The pieces already generalize; don't fork the app, extend it:
