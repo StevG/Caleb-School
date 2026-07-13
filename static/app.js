@@ -403,9 +403,100 @@ function boot() {
   wireGate();
   wireParent();
   wireBadges();
+  wireFeedback();
   initUpdates();
   state.childId = storedChild();
   refreshState().catch(() => {});
+}
+
+// ---------- parent feedback (→ server logs) ----------
+// A multiline note + up to 3 screenshots. Screenshots are downscaled in the
+// browser (no libraries — a canvas) so the upload stays small, then POSTed to
+// /api/parent/feedback where the server logs them for review.
+let fbShots = []; // [{name, dataURL}]
+
+function downscaleImage(file, maxDim, quality) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const c = document.createElement("canvas");
+        c.width = w; c.height = h;
+        c.getContext("2d").drawImage(img, 0, 0, w, h);
+        resolve(c.toDataURL("image/jpeg", quality));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderFbThumbs() {
+  const wrap = $("fb-thumbs");
+  wrap.innerHTML = "";
+  fbShots.forEach((s, i) => {
+    const t = document.createElement("div");
+    t.className = "fb-thumb";
+    t.innerHTML = `<img src="${s.dataURL}" alt="screenshot">` +
+      `<button class="fb-rm" aria-label="remove">✕</button>`;
+    t.querySelector(".fb-rm").addEventListener("click", () => {
+      fbShots.splice(i, 1); renderFbThumbs();
+    });
+    wrap.appendChild(t);
+  });
+  $("fb-shot-note").textContent = fbShots.length
+    ? `${fbShots.length}/3 attached` : "";
+}
+
+function wireFeedback() {
+  $("fb-file").addEventListener("change", async (e) => {
+    const files = [...(e.target.files || [])];
+    for (const f of files) {
+      if (fbShots.length >= 3) break;
+      try {
+        const dataURL = await downscaleImage(f, 1200, 0.6);
+        fbShots.push({ name: f.name, dataURL });
+      } catch (_) { /* skip a file we can't read */ }
+    }
+    e.target.value = ""; // let the same file be re-picked later
+    renderFbThumbs();
+  });
+
+  $("fb-send").addEventListener("click", async () => {
+    const text = $("fb-text").value.trim();
+    if (!text && !fbShots.length) {
+      $("fb-saved").textContent = "Write something (or add a screenshot) first.";
+      return;
+    }
+    $("fb-send").disabled = true;
+    $("fb-saved").textContent = "Sending…";
+    try {
+      const r = await postJSON("/api/parent/feedback", {
+        pin: state.parentPin,
+        child: state.parentChild,
+        text,
+        screenshots: fbShots.map((s) => s.dataURL),
+        device: navigator.userAgent.slice(0, 120),
+      });
+      if (r && r.ok) {
+        $("fb-text").value = "";
+        fbShots = []; renderFbThumbs();
+        $("fb-saved").textContent = "Thanks! Sent to the server logs ✅";
+      } else {
+        $("fb-saved").textContent = "Could not send — try again.";
+      }
+    } catch (_) {
+      $("fb-saved").textContent = "Could not send — check your connection.";
+    } finally {
+      $("fb-send").disabled = false;
+    }
+  });
 }
 
 // ---------- keeping the installed app fresh ----------

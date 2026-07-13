@@ -117,6 +117,14 @@ or one category via `group`); settings accepts
 `enabled_grades` list — legacy `max_level` maps onto it — plus
 `hearts_only` to narrow word/listen practice to heart words, plus
 `autoplay_audio` to say+spell each shown word in copy/words modes) ·
+`POST /api/parent/feedback {pin, text, screenshots?[dataURL], device?}`
+(parent "Report a problem / feedback" card → the **server-notes loop**:
+`server_note()` prints a `[spelling][FEEDBACK]` line to stdout — which
+HomeHub captures as the app's logs, so it surfaces when the logs are
+reviewed — and appends to durable gitignored `data/notes.jsonl` (last 500);
+screenshots save to `data/feedback/`; `GET /.hub/status` glances the
+feedback count + latest snippet. Same channel carries other notes, e.g.
+unexpected server errors as `[spelling][ERROR]`) ·
 `GET /api/parent/report` (PIN in `X-Parent-Pin` header; includes `by_type`
 per-category accuracy — `needs_work` = 6+ tries <80% → the Word types card
 with one-tap assign — plus the `type_groups` catalog, and `bank.bands[]`

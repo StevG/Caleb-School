@@ -27,6 +27,7 @@ from main).
 | `facts.mjs` | Fact of the day: `state.daily_fact` (deterministic, same all day), no collection mechanics (`facts_earned`/`new_fact`/`new_planet` gone), the home card renders + 🔊 reads it aloud + tucks away while drilling into a game |
 | `games.mjs` | Which One? + Build It (Phase 4): pick session shape (3 choices incl. target, 2 misspellings), pick never moves the ladder (climb or drop) but records stats, Build It climbs 1→2 then caps + a miss drops a rung, both game cards in the Words grid, pick choice interaction, Build It tile-tap (word hides on first tile, correct build celebrated) |
 | `mapit.mjs` | Map It (Phase 5): the client `graphemeSplit` matches the table (b\|oa\|t, n\|igh\|t, r\|a\|bb\|i\|t…), chunks rejoin over sampled bank words, and a miss's reveal renders chunked boxes (chunk gaps + heart letters red) |
+| `feedback.mjs` | Parent feedback → server-notes loop: PIN gate (403) + empty reject (400), text + screenshot submission (`data/feedback/`), the note on `/.hub/status` (count + snippet), the dashboard card (textarea + speech-to-text hint), in-browser screenshot downscale to JPEG, send + confirm + form clear |
 
 ## Running
 

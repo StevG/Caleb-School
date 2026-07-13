@@ -36,6 +36,12 @@ STATIC_DIR = os.path.join(HERE, "static")
 DATA_DIR = os.path.join(HERE, "data")
 DATA_FILE = os.path.join(DATA_DIR, "progress.json")
 PUSH_FILE = os.path.join(DATA_DIR, "push.json")
+# Server notes: a durable, greppable record of things the home-server operator
+# should see — parent feedback, and any other note the app wants to surface.
+# The mechanism is the HomeHub loop (see server_note): stdout is captured as
+# the app's logs, and GET /.hub/status glances at it.
+NOTES_FILE = os.path.join(DATA_DIR, "notes.jsonl")
+FEEDBACK_DIR = os.path.join(DATA_DIR, "feedback")  # parent screenshots
 
 DEFAULT_PIN = "1234"
 
@@ -431,6 +437,80 @@ def save_doc(doc):
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(doc, f, indent=2)
         os.replace(tmp, DATA_FILE)
+
+
+# --- Server notes (the HomeHub review loop) ---------------------------------
+# One channel for anything the home-server operator should see — parent
+# feedback first, but general on purpose ("other server notes that should be
+# communicated"). Two sinks, both the way HomeHub already works:
+#   1. stdout — HomeHub captures the app's stdout as its logs, so a one-line
+#      `[spelling][KIND]` entry is right there when the logs are reviewed.
+#   2. data/notes.jsonl — a durable copy in the sacred (gitignored) data dir
+#      that survives deploys; GET /.hub/status glances at it for the dashboard.
+
+def server_note(kind, text, **meta):
+    """Record + surface a note. `kind` is a short tag (feedback, error, …)."""
+    entry = {"ts": int(time.time()), "kind": str(kind), "text": str(text)}
+    if meta:
+        entry["meta"] = meta
+    oneline = " ".join(str(text).split())[:300]
+    extra = (" " + json.dumps(meta, ensure_ascii=False)) if meta else ""
+    print(f"[spelling][{str(kind).upper()}] "
+          f"{time.strftime('%Y-%m-%dT%H:%M:%S')} {oneline}{extra}", flush=True)
+    with _lock:
+        os.makedirs(DATA_DIR, exist_ok=True)
+        try:
+            with open(NOTES_FILE, "r", encoding="utf-8") as f:
+                lines = [ln for ln in f.read().splitlines() if ln.strip()]
+        except (FileNotFoundError, ValueError):
+            lines = []
+        lines.append(json.dumps(entry, ensure_ascii=False))
+        lines = lines[-500:]  # keep the most recent 500 notes, never unbounded
+        tmp = NOTES_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines) + "\n")
+        os.replace(tmp, NOTES_FILE)
+    return entry
+
+
+def recent_notes(kind=None, limit=500):
+    """The last notes (optionally of one kind), oldest→newest."""
+    try:
+        with open(NOTES_FILE, "r", encoding="utf-8") as f:
+            rows = []
+            for ln in f:
+                ln = ln.strip()
+                if not ln:
+                    continue
+                try:
+                    rows.append(json.loads(ln))
+                except ValueError:
+                    continue
+    except FileNotFoundError:
+        return []
+    if kind:
+        rows = [r for r in rows if r.get("kind") == kind]
+    return rows[-limit:]
+
+
+def save_screenshot(dataurl, name):
+    """Decode a `data:image/…;base64,…` URL to a file in data/feedback/.
+    Returns the repo-relative path, or None if it isn't a plausible image."""
+    if not isinstance(dataurl, str) or not dataurl.startswith("data:image/"):
+        return None
+    try:
+        header, b64 = dataurl.split(",", 1)
+        raw = base64.b64decode(b64, validate=True)
+    except Exception:
+        return None
+    if not 0 < len(raw) <= 3_000_000:  # 3 MB decoded cap per screenshot
+        return None
+    ext = "png" if "png" in header[:30] else "jpg"
+    os.makedirs(FEEDBACK_DIR, exist_ok=True)
+    path = os.path.join(FEEDBACK_DIR, f"{name}.{ext}")
+    with open(path, "wb") as f:
+        f.write(raw)
+    return os.path.relpath(path, HERE)
 
 
 def get_child(doc, cid):
@@ -1378,12 +1458,13 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def _read_body(self):
+    def _read_body(self, max_bytes=65536):
+        # default cap 64 KB; feedback (screenshots) reads with a larger cap
         try:
             length = int(self.headers.get("Content-Length", 0) or 0)
         except (ValueError, TypeError):
             return {}
-        if length <= 0 or length > 65536:  # cap request bodies at 64 KB
+        if length <= 0 or length > max_bytes:
             return {}
         try:
             body = json.loads(self.rfile.read(length).decode("utf-8"))
@@ -1419,7 +1500,11 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = urlparse(self.path).path
-        body = self._read_body()
+        # feedback can carry screenshots — allow a larger body than the default
+        body = self._read_body(10_000_000
+                               if path == "/api/parent/feedback" else 65536)
+        if path == "/api/parent/feedback":
+            return self._api_feedback(body)
         if path == "/api/answer":
             return self._api_answer(body)
         if path == "/api/session_end":
@@ -1652,6 +1737,33 @@ class Handler(BaseHTTPRequestHandler):
             "ok": supplied == actual,
             "final": len(supplied) >= len(actual),
         })
+
+    def _api_feedback(self, body):
+        """Parent feedback → the server-notes loop. PIN-gated (it's behind the
+        parent dashboard). Text + up to 3 screenshots; screenshots are saved
+        to data/feedback/ and referenced from the note."""
+        doc = load_doc()
+        if not self._pin_ok(doc, body):
+            return self._send_json({"error": "bad pin"}, 403)
+        text = str(body.get("text", "")).strip()[:4000]
+        shots = body.get("screenshots")
+        if not text and not shots:
+            return self._send_json({"error": "empty"}, 400)
+        state = get_child(doc, body.get("child"))
+        saved = []
+        if isinstance(shots, list):
+            stamp = int(time.time())
+            for i, dataurl in enumerate(shots[:3]):
+                p = save_screenshot(dataurl, f"{stamp}-{i}")
+                if p:
+                    saved.append(p)
+        meta = {"child": state["profile"].get("name", "Kid"),
+                "child_id": state["id"],
+                "device": str(body.get("device", ""))[:120]}
+        if saved:
+            meta["screenshots"] = saved
+        server_note("feedback", text or "(screenshot only)", **meta)
+        self._send_json({"ok": True, "screenshots": len(saved)})
 
     def _api_parent_report(self, query):
         # Report endpoint is GET; PIN passed via header so it can be linked.
@@ -2078,6 +2190,18 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 last = f"{ago // 86400} day(s) ago"
         fields.append({"label": "Last practice", "value": last})
+        # Surface server notes to the HomeHub dashboard glance — parent
+        # feedback first, then a count of any other communicable notes.
+        notes = recent_notes()
+        fb = [n for n in notes if n.get("kind") == "feedback"]
+        if fb:
+            snippet = " ".join((fb[-1].get("text") or "").split())[:60]
+            fields.append({"label": "📣 Feedback",
+                           "value": f"{len(fb)} · latest: \"{snippet}\""})
+        other = [n for n in notes if n.get("kind") != "feedback"]
+        if other:
+            fields.append({"label": "📝 Server notes",
+                           "value": f"{len(other)} logged (see server logs)"})
         self._send_json({"summary": " · ".join(summaries), "fields": fields})
 
     def _serve_sw(self):
@@ -2202,6 +2326,11 @@ class QuietServer(ThreadingHTTPServer):
         if isinstance(exc, (ConnectionResetError, BrokenPipeError,
                             ConnectionAbortedError, TimeoutError)):
             return
+        # a genuine server-side bug is a note worth communicating, too
+        try:
+            server_note("error", f"{type(exc).__name__}: {exc}")
+        except Exception:
+            pass
         super().handle_error(request, client_address)
 
 

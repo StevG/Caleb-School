@@ -80,6 +80,35 @@ systemctl --user enable --now spelling
 loginctl enable-linger $USER   # keep it running when you're not logged in
 ```
 
+## Server notes & parent feedback (the review loop)
+
+The app surfaces things the operator (Steven) should see through **one
+channel with two sinks**, using the way HomeHub already works — nothing
+bespoke:
+
+- **stdout → the server logs.** `server_note(kind, text, **meta)` (server.py)
+  prints a single greppable line, e.g.
+  `[spelling][FEEDBACK] 2026-07-13T… the listen audio stopped {"child":"Caleb",…}`.
+  HomeHub (and the Pi under systemd/journal) capture the process's stdout as
+  the app's logs, so these show up wherever you read the spelling app's logs.
+  **To review:** read the spelling app's logs and grep `\[spelling\]\[` —
+  `FEEDBACK` = a parent message, `ERROR` = an unexpected server-side error.
+- **`data/notes.jsonl` → durable copy.** The same notes append to this
+  gitignored file (last 500, newest kept), so they survive deploys/log
+  rotation. One JSON object per line: `{ts, kind, text, meta}`. Parent
+  screenshots are saved as image files in `data/feedback/` and referenced by
+  path in the note's `meta.screenshots`.
+- **`GET /.hub/status` → the HomeHub dashboard glance.** The status card
+  gains a `📣 Feedback` field (count + latest snippet) and a `📝 Server
+  notes` field (count of other notes) so unreviewed feedback is visible at a
+  glance on the HomeHub home page without opening logs.
+
+**Parent side:** the dashboard's "Report a problem / feedback 📣" card takes
+a multi-line note (with a nudge to use the keyboard's 🎤 dictation) plus up
+to 3 screenshots (downscaled in-browser to keep the upload small). It POSTs
+to `/api/parent/feedback` (PIN-gated). Everything stays on the home server —
+no third party, consistent with the zero-data design.
+
 ## What each host is responsible for
 
 | Concern | Standalone (Pi) | HomeHub |

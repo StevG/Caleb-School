@@ -350,6 +350,24 @@
     </div>
 
     <div class="card">
+      <div class="card-head">Report a problem / feedback 📣</div>
+      <p class="card-note">Found a bug or have an idea? Write it here — it's saved
+        to the app's server logs for review. <b>Tip:</b> tap the 🎤 microphone on
+        your keyboard to talk instead of type.</p>
+      <textarea id="fb-text" rows="4"
+        placeholder="What happened? What were you doing when it broke? (tap 🎤 to talk)"
+        autocomplete="off" autocapitalize="sentences"></textarea>
+      <div class="fb-row">
+        <label class="mini-btn fb-add">📷 Add screenshot
+          <input id="fb-file" type="file" accept="image/*" multiple hidden></label>
+        <span id="fb-shot-note" class="saved-note"></span>
+      </div>
+      <div id="fb-thumbs" class="fb-thumbs"></div>
+      <button id="fb-send" class="mini-btn wide">Send feedback</button>
+      <div id="fb-saved" class="saved-note"></div>
+    </div>
+
+    <div class="card">
       <div class="card-head">Settings</div>
       <label class="setting"><span>Child's name</span>
         <input id="set-name" type="text" autocomplete="off"></label>
