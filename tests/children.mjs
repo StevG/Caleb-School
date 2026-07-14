@@ -1,5 +1,6 @@
-// Multiple children: per-child word lists/settings/stats, kid picker on the
-// home screen, child tabs on the parent dashboard, add/rename/remove.
+// Multiple children: per-child word lists/settings/stats, parent-only device
+// pick in dashboard Settings (NO kid-facing switcher), child tabs on the
+// parent dashboard, add/rename/remove.
 import pw from '/opt/node22/lib/node_modules/playwright/index.js';
 const { chromium } = pw;
 const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
@@ -14,9 +15,8 @@ page.on('dialog', d => d.type() === 'prompt' ? d.accept(promptAnswer) : d.accept
 
 await page.goto('http://127.0.0.1:9911', { waitUntil: 'networkidle' });
 
-// single child -> no picker on the home screen
-const pickerHidden = await page.$eval('#who-row', el => el.classList.contains('hidden'));
-check('one child: no picker on the home screen', pickerHidden);
+// the kid home screen has NO child switcher at all (parent-only, in Settings)
+check('kid home screen has no child switcher', (await page.$$('#who-row, .who-chip')).length === 0);
 
 // open the dashboard: one tab (Caleb) + Add child
 await page.click('#gear');
@@ -26,6 +26,8 @@ let tabs = await page.$$eval('#child-tabs .child-tab', els => els.map(e => e.tex
 check('dashboard shows the child tab + Add child',
   tabs.length === 2 && tabs[0].startsWith('Caleb') && tabs[1].includes('Add child'), JSON.stringify(tabs));
 check('one child: no Remove button', await page.$eval('#remove-child', el => el.classList.contains('hidden')));
+check('one child: device selector hidden',
+  await page.$eval('#device-setting', el => el.classList.contains('hidden')));
 
 // add Maya via the + tab (prompt is auto-answered)
 await page.click('#child-tabs .child-tab.add');
@@ -68,17 +70,27 @@ check('tab switch: dashboard shows Caleb (his settings, no Maya list)',
   calebView.name === 'Caleb' && !calebView.hearts && calebView.lists.length === 0,
   JSON.stringify(calebView));
 
-// home screen now has the picker; sessions/answers are per child
+// two children: the DEVICE pick appears in Settings — parent-only territory
+const readChips = () => page.$$eval('#device-chips .device-chip', els =>
+  els.map(e => ({ name: e.textContent.trim(), active: e.classList.contains('active') })));
+let chips = await readChips();
+check('two children: device selector chips, Caleb is the device kid',
+  chips.length === 2 && chips.find(c => c.name === 'Caleb')?.active === true
+    && chips.find(c => c.name === 'Maya')?.active === false, JSON.stringify(chips));
+
+// the parent points this device at Maya
+await page.click('#device-chips .device-chip:has-text("Maya")');
+await page.waitForTimeout(500);
+chips = await readChips();
+check('device pick: Maya chip becomes active', chips.find(c => c.name === 'Maya')?.active === true,
+  JSON.stringify(chips));
+
+// back home: the device now belongs to Maya, and a kid has no way to switch
 await page.click('#parent [data-home]');
 await page.waitForTimeout(400);
-const chips = await page.$$eval('#who-row .who-chip', els => els.map(e => e.textContent.trim()));
-check('two children: picker chips on the home screen', chips.length === 2 && chips.includes('Maya'), JSON.stringify(chips));
-
-// practice as Maya: her session draws from HER sources (hearts-only pool)
-await page.click('.who-chip:has-text("Maya")');
-await page.waitForTimeout(400);
 const kidName = (await page.textContent('#kid-name')).trim();
-check('picker switch: greeting shows Maya', kidName === 'Maya', kidName);
+check('home greets the parent-picked child', kidName === 'Maya', kidName);
+check('still no switcher on the kid home screen', (await page.$$('#who-row, .who-chip')).length === 0);
 const mayaSession = await page.evaluate(async () => {
   const r = await (await fetch('/api/session?mode=words&count=10&child=c2')).json();
   return r.items.every(i => i.heart);
@@ -115,16 +127,17 @@ const renamed = await page.evaluate(async () => {
 });
 check('rename via settings sticks to that child', renamed === 'Maya Rose', renamed);
 
-// remove Maya (confirm auto-accepted) -> back to one child, picker gone
+// remove Maya (confirm auto-accepted) -> back to one child, selector gone
 await page.click('#remove-child');
 await page.waitForTimeout(700);
 const afterDelete = await page.evaluate(async () => {
   const s = await (await fetch('/api/state')).json();
   return { children: s.children.map(c => c.name),
-           pickerHidden: document.querySelector('#who-row').classList.contains('hidden') };
+           deviceHidden: document.querySelector('#device-setting').classList.contains('hidden') };
 });
 check('remove child: only Caleb remains', JSON.stringify(afterDelete.children) === '["Caleb"]',
   JSON.stringify(afterDelete.children));
+check('one child again: device selector hidden', afterDelete.deviceHidden);
 const lastDelete = await page.evaluate(async () => {
   const r = await fetch('/api/parent/children', { method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ pin: '1234', action: 'delete', child: 'c1' }) });

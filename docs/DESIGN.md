@@ -88,6 +88,13 @@ game can only prove skills up to its own rung; see docs/SCORING.md):
   (badges). Stars exist only as in-the-moment feedback during a session.
 
 ## Decisions log
+- 2026-07-14 — Device pick is parent-only (owner-specified): the home-screen
+  "who's spelling?" chip row is GONE — a kid can no longer switch the app to
+  a sibling and do their practice. Which child a device practices as is set
+  in the PIN-gated dashboard Settings ("Who practices on this device", shown
+  with 2+ kids; applies instantly, stored on the device exactly as before).
+  Per-child settings are unchanged: the dashboard child tabs still edit each
+  kid's own world, independent of the device pick.
 - 2026-07-12 — **The great de-bloat** (owner, after reviewing the engagement
   phases with screenshots + research): the app had grown THREE parallel
   reward systems (badges + 90 fact cards + 12 planets), each with its own

@@ -15,7 +15,7 @@ from main).
 | `updates.mjs` | The PWA update prompt: `/api/version` change → "Update" bar appears → tap reloads (touches a static file to simulate a deploy) |
 | `lists.mjs` | Word-lists manager: create/toggle lists, per-word switches, on:total counts, pool filtering, bank checkbox, everything-off fallback |
 | `hearts.mjs` | Heart words: heart fields on session items/tokens, red grapheme spans in prompt + reveal, heart hints, `heartSpans()` edge cases, ♥ list markers + the hearts-only filter |
-| `children.mjs` | Multiple children: per-child lists/settings/points, home-screen picker, dashboard child tabs, add/rename/remove, device pick persistence |
+| `children.mjs` | Multiple children: per-child lists/settings/points, parent-only device pick in dashboard Settings (no kid-facing switcher), dashboard child tabs, add/rename/remove, device pick persistence |
 | `progress.mjs` | Results by list: per-list/band mastery + accuracy + daily trend + trouble words, per-list "start over", settings resets (stars / progress), reset scoping per child |
 | `audio.mjs` | Speech: iOS-safe speak path (cancel→settle→speak, resume, last-tap-wins), session-start audio unlock, speaker pulse, memory-mode whole-sentence dictation in both phases, quit cancels |
 | `autoplay.mjs` | Per-child auto-play-on-show: off by default, says word then spells it in Copy It / Hide & Spell, stops on typing, never spells in Listen & Spell, setting persists per child |

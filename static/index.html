@@ -27,7 +27,6 @@
   <button id="gear" class="gear" aria-label="Grown-ups">⚙️</button>
   <div class="home-inner">
     <div class="hello">Hi <span id="kid-name">Caleb</span>! 👋</div>
-    <div id="who-row" class="who-row hidden"></div>
     <div id="greeting-chips" class="greeting-chips" data-landing></div>
     <p class="tagline">Let's practice spelling!</p>
     <div class="home-chips" data-landing>
@@ -369,6 +368,10 @@
 
     <div class="card">
       <div class="card-head">Settings</div>
+      <div id="device-setting" class="setting device-setting hidden">
+        <span>Who practices on this device<small>the home screen and all practice here belong to this child — kids can't switch it, only you can (takes effect right away)</small></span>
+        <div id="device-chips" class="device-chips"></div>
+      </div>
       <label class="setting"><span>Child's name</span>
         <input id="set-name" type="text" autocomplete="off"></label>
       <label class="setting toggle"><span>Show speaker button (tap to hear a word)</span>

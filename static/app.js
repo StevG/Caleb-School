@@ -34,8 +34,10 @@ const state = {
   wordRate: 0.8,        // per-child TTS speeds (parent-tunable)
   spellRate: 0.45,
   parentPin: "",
-  // multiple kids: this DEVICE remembers who practices on it; the parent
-  // dashboard has its own independent selection (parentChild)
+  // multiple kids: this DEVICE remembers who practices on it. Only a parent
+  // can change the pick (dashboard Settings) — the kid's home screen has no
+  // switcher, so one kid can't do another kid's practice. The dashboard has
+  // its own independent selection (parentChild).
   childId: "",
   children: [],      // roster from the server: [{id, name, points}]
   parentChild: "",   // the child the dashboard is showing/editing
@@ -90,7 +92,6 @@ function refreshState() {
       if (s.spell_rate) state.spellRate = s.spell_rate;
       $("kid-name").textContent = s.name || "Caleb";
       $("badges-count").textContent = s.badges_earned || 0;
-      renderWhoRow();
       renderMissions(s.missions || []);
       renderGreeting(s);
       renderDailyFact(s.daily_fact);
@@ -203,29 +204,6 @@ async function enablePush(role) {
   await postJSON("/api/push/subscribe", body);
   lsSet("push-" + role, "1");
   return { ok: true };
-}
-
-// the "Who's spelling?" chips — only when there is more than one kid
-function renderWhoRow() {
-  const row = $("who-row");
-  row.innerHTML = "";
-  if (!state.children || state.children.length < 2) {
-    row.classList.add("hidden");
-    return;
-  }
-  row.classList.remove("hidden");
-  state.children.forEach((c) => {
-    const b = document.createElement("button");
-    b.className = "who-chip" + (c.id === state.childId ? " active" : "");
-    b.textContent = c.name;
-    b.addEventListener("click", () => {
-      if (c.id === state.childId) return;
-      state.childId = c.id;
-      storeChild(c.id);
-      refreshState().catch(() => {});
-    });
-    row.appendChild(b);
-  });
 }
 
 // ---------- badges ----------
@@ -1988,6 +1966,7 @@ function renderReport(rep) {
   updateHeartsNote(rep.hearts_in_pool);
   updateNoWordsNote(rep.sources_empty);
 
+  renderDeviceChips(rep.children);
   $("set-name").value = rep.profile.name || "";
   $("set-speaker").checked = rep.profile.show_speaker !== false;
   $("set-autoplay").checked = rep.profile.autoplay_audio === true;
@@ -2000,6 +1979,32 @@ function renderReport(rep) {
   const rc = $("remove-child");
   rc.classList.toggle("hidden", (rep.children || []).length < 2);
   rc.textContent = `Remove ${rep.profile.name || "this child"}…`;
+}
+
+// Which child does THIS DEVICE practice as? Parent-only (the kid's home
+// screen has no switcher, so kids can't do each other's work). The pick is
+// stored on the device and applies the moment it's tapped — independent of
+// the dashboard tab above, which only chooses what the PARENT is looking at.
+function renderDeviceChips(children) {
+  const block = $("device-setting");
+  const wrap = $("device-chips");
+  wrap.innerHTML = "";
+  const kids = children || [];
+  block.classList.toggle("hidden", kids.length < 2);
+  kids.forEach((c) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "device-chip" + (c.id === state.childId ? " active" : "");
+    b.textContent = c.name;
+    b.addEventListener("click", () => {
+      if (c.id === state.childId) return;
+      state.childId = c.id;
+      storeChild(c.id);
+      refreshState().catch(() => {});  // home greeting follows immediately
+      renderDeviceChips(kids);
+    });
+    wrap.appendChild(b);
+  });
 }
 
 // ---------- Word types (targeted instruction: results by category) ----------
