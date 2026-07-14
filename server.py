@@ -2,12 +2,13 @@
 """Spelling Practice — tiny standard-library server.
 
 Serves the kid + parent front-end from ./static and a small JSON API backed by
-a single JSON file (data/progress.json). No third-party packages.
+a single JSON file (progress.json in the data dir). No third-party packages.
 
 HomeHub contract:
   - reads the listen port from $PORT (defaults to 8013 for local dev),
   - binds 127.0.0.1 (loopback only),
   - runs in the foreground,
+  - keeps all mutable state under $HUB_DATA_DIR (falls back to ./data),
   - exposes GET /.hub/status for the dashboard.
 
 Run locally:   PORT=9999 python3 server.py   then open http://127.0.0.1:9999
@@ -19,6 +20,7 @@ import json
 import os
 import random
 import secrets
+import shutil
 import subprocess
 import sys
 import threading
@@ -33,7 +35,12 @@ import factbank
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(HERE, "static")
-DATA_DIR = os.path.join(HERE, "data")
+# Mutable state. Under HomeHub, $HUB_DATA_DIR is the per-env tree the hub
+# snapshots nightly (HomeHub's BACKUPS.md) — the checkout itself is disposable
+# (re-cloned at will), so state must not live in it. The ./data fallback keeps
+# the Pi and local dev working exactly as before.
+LEGACY_DATA_DIR = os.path.join(HERE, "data")
+DATA_DIR = os.environ.get("HUB_DATA_DIR") or LEGACY_DATA_DIR
 DATA_FILE = os.path.join(DATA_DIR, "progress.json")
 PUSH_FILE = os.path.join(DATA_DIR, "push.json")
 # Server notes: a durable, greppable record of things the home-server operator
@@ -42,6 +49,36 @@ PUSH_FILE = os.path.join(DATA_DIR, "push.json")
 # the app's logs, and GET /.hub/status glances at it.
 NOTES_FILE = os.path.join(DATA_DIR, "notes.jsonl")
 FEEDBACK_DIR = os.path.join(DATA_DIR, "feedback")  # parent screenshots
+
+
+def _migrate_legacy_data():
+    """One-time adoption of the HomeHub backup convention (BACKUPS.md): when
+    $HUB_DATA_DIR points somewhere new and empty but the old in-checkout
+    ./data holds state, COPY it across — never move; the originals stay put
+    as the fallback. Must run before anything reads DATA_FILE, so real data
+    can't be shadowed by freshly-created empty state."""
+    if os.path.abspath(DATA_DIR) == os.path.abspath(LEGACY_DATA_DIR):
+        return
+    try:
+        if os.listdir(DATA_DIR):
+            return  # destination already has data — never clobber it
+    except FileNotFoundError:
+        pass
+    try:
+        legacy = sorted(os.listdir(LEGACY_DATA_DIR))
+    except FileNotFoundError:
+        legacy = []
+    if not legacy:
+        print(f"[spelling] data dir {DATA_DIR}: fresh start "
+              f"(no legacy data in {LEGACY_DATA_DIR})", flush=True)
+        return
+    shutil.copytree(LEGACY_DATA_DIR, DATA_DIR, dirs_exist_ok=True)
+    print(f"[spelling] migrated legacy data: copied {', '.join(legacy)} "
+          f"from {LEGACY_DATA_DIR} to {DATA_DIR} "
+          f"(originals left in place as fallback)", flush=True)
+
+
+_migrate_legacy_data()
 
 DEFAULT_PIN = "1234"
 
