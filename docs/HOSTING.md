@@ -8,8 +8,9 @@ migrate. This doc is the map of which knobs belong to which host.
 ## TL;DR — moving to HomeHub
 
 Nothing in the code needs removing. To deploy on HomeHub you only:
-1. Register the app in HomeHub's `projects.json` (dev-first) — slug `spelling`,
-   type `command`, start `PORT=$PORT python3 server.py`, prod 8013 / dev 8113.
+1. Register the app in HomeHub's `projects.json` (dev-first) — slug `spelling`
+   (→ `spelling.smacgray.com` / `dev-spelling.smacgray.com`), type `command`,
+   start `PORT=8013 python3 server.py` (dev: `PORT=8113 python3 server.py`).
 2. Do **not** set `HOST` or `AUTO_UPDATE` in that start command.
 
 That's it. With those env vars unset, the server binds loopback and never
@@ -18,12 +19,21 @@ process management itself. (Belt and suspenders: even if `AUTO_UPDATE=1`
 leaked in, the server detects HomeHub via the `HUB_SLUG`/`HUB_ENV` vars
 HomeHub exports and disables self-update anyway.)
 
+Data follows HomeHub's backup convention automatically: when HomeHub exports
+`HUB_DATA_DIR`, all mutable state (progress, notes, push subs, feedback
+screenshots) lives there — the tree the hub snapshots nightly (HomeHub's
+`BACKUPS.md`). On first boot under the hub, a copy-once shim
+(`_migrate_legacy_data` in server.py) copies any legacy in-checkout `./data`
+into `$HUB_DATA_DIR` (copy, never move — the originals stay as a fallback).
+Standalone, with the var unset, everything stays in `./data` as before.
+
 ## The standalone-only knobs (env vars)
 
 | Env var | Default | What it does | Use on… |
 |---|---|---|---|
 | `HOST` | `127.0.0.1` | `0.0.0.0` exposes the server on the LAN so phones/iPads can reach it. | Pi only. **Never** on HomeHub (it must stay loopback behind the tunnel). |
 | `PORT` | `8013` | Listen port. | Both (HomeHub injects it). |
+| `HUB_DATA_DIR` | unset → `./data` | Where all mutable state lives (progress, notes, push, feedback). | HomeHub injects it; leave unset on the Pi. |
 | `AUTO_UPDATE` | off | `1`/`true` → self-update from git (see below). | Pi only. Off/absent on HomeHub. |
 | `AUTO_UPDATE_INTERVAL` | `15` | Seconds between update checks (min 15). | Pi only. |
 | `AUTO_UPDATE_BRANCH` | current branch | Branch to track. | Pi only. |

@@ -21,7 +21,7 @@ Read these before changing anything significant:
 ## What this app is
 
 A PWA served by a stdlib-Python server, deployed on **HomeHub**
-(`StevG/HomeHub`) as the `spelling` app. Kid practices spelling in five
+(`StevG/HomeHub`) as the `spelling` app (`spelling.smacgray.com`). Kid practices spelling in five
 games across two home sections. Words: copy (stays visible), words/"Hide &
 Spell" (hides at the first keystroke), listen (audio only, never shown) —
 one ladder rung each, climb-capped per game (docs/SCORING.md). Sentences:
@@ -41,7 +41,8 @@ them casually.
   end is plain HTML/CSS/JS — no frameworks, no build step, no node_modules.
 - **HomeHub contract** (see HomeHub's `INTEGRATING_NEW_APPS.md`): bind
   `127.0.0.1`, read `$PORT`, run in the foreground, keep `GET /.hub/status`
-  working. Prod port 8013, dev 8113. Standalone-only behavior (`HOST=0.0.0.0`,
+  working, keep mutable state under `$HUB_DATA_DIR` (falls back to `./data`
+  off-hub; see HomeHub's `BACKUPS.md`). Prod port 8013, dev 8113. Standalone-only behavior (`HOST=0.0.0.0`,
   `AUTO_UPDATE` git self-update) is env-gated and auto-disables under HomeHub
   — see `docs/HOSTING.md`. Don't make it default-on.
 - **Version/refresh**: the server derives a content hash of `static/`
@@ -49,9 +50,13 @@ them casually.
   `sw.js` so every deploy is a new service worker. The client polls
   `/api/version` and shows an "Update" bar → tap reloads. Don't cache
   `/api/*`; keep `sw.js` served no-store.
-- **`data/` is gitignored and sacred.** Progress lives in
-  `data/progress.json`; HomeHub auto-pulls `main` every ~30 s, so anything not
-  gitignored gets clobbered. Never commit data; never write outside `data/`.
+- **The data dir is gitignored and sacred.** Progress lives in
+  `progress.json` inside the data dir — `$HUB_DATA_DIR` under HomeHub (the
+  tree the hub snapshots nightly), `./data` standalone; a copy-once shim in
+  `server.py` (`_migrate_legacy_data`) moves old `./data` state onto the hub
+  convention. HomeHub auto-pulls `main` every ~30 s and re-clones checkouts
+  at will, so anything not gitignored gets clobbered. Never commit data;
+  never write outside the data dir.
 - **The kid never sees an error, a stack trace, or a dead end.** Every state
   needs a way forward and a calm message.
 - HomeHub deploys from **`main`** — merging there is deploying.
