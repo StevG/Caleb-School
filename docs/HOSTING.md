@@ -8,8 +8,8 @@ migrate. This doc is the map of which knobs belong to which host.
 ## TL;DR — moving to HomeHub
 
 Nothing in the code needs removing. To deploy on HomeHub you only:
-1. Register the app in HomeHub's `projects.json` (dev-first) — slug `school`
-   (→ `school.smacgray.com` / `dev-school.smacgray.com`), type `command`,
+1. Register the app in HomeHub's `projects.json` (dev-first) — slug `spelling`
+   (→ `spelling.smacgray.com` / `dev-spelling.smacgray.com`), type `command`,
    start `PORT=8013 python3 server.py` (dev: `PORT=8113 python3 server.py`).
 2. Do **not** set `HOST` or `AUTO_UPDATE` in that start command.
 

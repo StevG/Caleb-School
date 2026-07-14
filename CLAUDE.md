@@ -21,7 +21,7 @@ Read these before changing anything significant:
 ## What this app is
 
 A PWA served by a stdlib-Python server, deployed on **HomeHub**
-(`StevG/HomeHub`) as the `school` app (`school.smacgray.com`). Kid practices spelling in five
+(`StevG/HomeHub`) as the `spelling` app (`spelling.smacgray.com`). Kid practices spelling in five
 games across two home sections. Words: copy (stays visible), words/"Hide &
 Spell" (hides at the first keystroke), listen (audio only, never shown) —
 one ladder rung each, climb-capped per game (docs/SCORING.md). Sentences:
