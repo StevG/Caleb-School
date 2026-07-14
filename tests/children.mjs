@@ -1,6 +1,6 @@
-// Multiple children: per-child word lists/settings/stats, parent-only device
-// pick in dashboard Settings (NO kid-facing switcher), child tabs on the
-// parent dashboard, add/rename/remove.
+// Multiple children: per-child word lists/settings/stats, ONE parent-only
+// selection — the dashboard child tab doubles as the device pick (NO
+// kid-facing switcher), add/rename/remove.
 import pw from '/opt/node22/lib/node_modules/playwright/index.js';
 const { chromium } = pw;
 const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
@@ -26,8 +26,8 @@ let tabs = await page.$$eval('#child-tabs .child-tab', els => els.map(e => e.tex
 check('dashboard shows the child tab + Add child',
   tabs.length === 2 && tabs[0].startsWith('Caleb') && tabs[1].includes('Add child'), JSON.stringify(tabs));
 check('one child: no Remove button', await page.$eval('#remove-child', el => el.classList.contains('hidden')));
-check('one child: device selector hidden',
-  await page.$eval('#device-setting', el => el.classList.contains('hidden')));
+check('one child: no device-pick note under the tabs',
+  await page.$eval('#tabs-note', el => el.classList.contains('hidden')));
 
 // add Maya via the + tab (prompt is auto-answered)
 await page.click('#child-tabs .child-tab.add');
@@ -70,26 +70,19 @@ check('tab switch: dashboard shows Caleb (his settings, no Maya list)',
   calebView.name === 'Caleb' && !calebView.hearts && calebView.lists.length === 0,
   JSON.stringify(calebView));
 
-// two children: the DEVICE pick appears in Settings — parent-only territory
-const readChips = () => page.$$eval('#device-chips .device-chip', els =>
-  els.map(e => ({ name: e.textContent.trim(), active: e.classList.contains('active') })));
-let chips = await readChips();
-check('two children: device selector chips, Caleb is the device kid',
-  chips.length === 2 && chips.find(c => c.name === 'Caleb')?.active === true
-    && chips.find(c => c.name === 'Maya')?.active === false, JSON.stringify(chips));
+// ONE selection: the tab the parent is viewing IS the device pick
+check('two children: the device-pick note appears under the tabs',
+  !(await page.$eval('#tabs-note', el => el.classList.contains('hidden'))));
+check('viewing Caleb\'s tab points the device at Caleb',
+  await page.evaluate(() => localStorage.getItem('spelling-child')) === 'c1');
 
-// the parent points this device at Maya
-await page.click('#device-chips .device-chip:has-text("Maya")');
-await page.waitForTimeout(500);
-chips = await readChips();
-check('device pick: Maya chip becomes active', chips.find(c => c.name === 'Maya')?.active === true,
-  JSON.stringify(chips));
-
-// back home: the device now belongs to Maya, and a kid has no way to switch
+// the parent picks Maya's tab, then closes the dashboard
+await page.click('#child-tabs .child-tab:has-text("Maya")');
+await page.waitForTimeout(600);
 await page.click('#parent [data-home]');
 await page.waitForTimeout(400);
 const kidName = (await page.textContent('#kid-name')).trim();
-check('home greets the parent-picked child', kidName === 'Maya', kidName);
+check('home practices as the tab the parent picked', kidName === 'Maya', kidName);
 check('still no switcher on the kid home screen', (await page.$$('#who-row, .who-chip')).length === 0);
 const mayaSession = await page.evaluate(async () => {
   const r = await (await fetch('/api/session?mode=words&count=10&child=c2')).json();
@@ -127,17 +120,20 @@ const renamed = await page.evaluate(async () => {
 });
 check('rename via settings sticks to that child', renamed === 'Maya Rose', renamed);
 
-// remove Maya (confirm auto-accepted) -> back to one child, selector gone
+// remove Maya (confirm auto-accepted) -> back to one child, note gone,
+// and the device follows the surviving tab (Caleb)
 await page.click('#remove-child');
 await page.waitForTimeout(700);
 const afterDelete = await page.evaluate(async () => {
   const s = await (await fetch('/api/state')).json();
   return { children: s.children.map(c => c.name),
-           deviceHidden: document.querySelector('#device-setting').classList.contains('hidden') };
+           device: localStorage.getItem('spelling-child'),
+           noteHidden: document.querySelector('#tabs-note').classList.contains('hidden') };
 });
 check('remove child: only Caleb remains', JSON.stringify(afterDelete.children) === '["Caleb"]',
   JSON.stringify(afterDelete.children));
-check('one child again: device selector hidden', afterDelete.deviceHidden);
+check('one child again: note hidden, device back on Caleb',
+  afterDelete.noteHidden && afterDelete.device === 'c1', JSON.stringify(afterDelete));
 const lastDelete = await page.evaluate(async () => {
   const r = await fetch('/api/parent/children', { method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ pin: '1234', action: 'delete', child: 'c1' }) });

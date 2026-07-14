@@ -360,6 +360,8 @@ body.has-update .screen{padding-top:calc(env(safe-area-inset-top) + 46px)}
   cursor:pointer}
 .child-tab.active{border-color:var(--blue);color:var(--blue-d);background:#eaf4fd}
 .child-tab.add{border-style:dashed;font-weight:600}
+/* the tab doubles as the device pick — one line so parents know */
+.tabs-note{color:var(--muted);font-size:13px;margin:-8px 0 12px}
 
 .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .stat{background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:16px;text-align:center}
@@ -588,13 +590,6 @@ details.sess[open] summary .tri{transform:rotate(90deg)}
 .setting span{font-size:15px}
 .setting span small{display:block;font-size:12px;font-weight:400;color:var(--muted);margin-top:2px}
 .setting.toggle input{width:24px;height:24px;flex:none}
-/* who practices on THIS DEVICE — parent-only pick, shown with 2+ children */
-.device-setting{flex-wrap:wrap}
-.device-chips{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
-.device-chip{padding:8px 14px;border-radius:12px;border:2px solid var(--line);
-  background:#fff;color:var(--muted);font-size:15px;font-weight:700;
-  cursor:pointer}
-.device-chip.active{border-color:var(--blue);color:var(--blue-d);background:#eaf4fd}
 .rate-block{padding:12px 0;border-bottom:1px solid var(--line)}
 .rate-head{font-size:15px;font-weight:800;margin-bottom:6px}
 .rate-row{display:flex;align-items:center;gap:10px;margin:8px 0}
