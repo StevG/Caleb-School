@@ -34,8 +34,11 @@ const state = {
   wordRate: 0.8,        // per-child TTS speeds (parent-tunable)
   spellRate: 0.45,
   parentPin: "",
-  // multiple kids: this DEVICE remembers who practices on it; the parent
-  // dashboard has its own independent selection (parentChild)
+  // multiple kids: this DEVICE remembers who practices on it. Only a parent
+  // can change the pick — the kid's home screen has no switcher, so one kid
+  // can't do another kid's practice. There is ONE selection: the dashboard
+  // child tabs (parentChild) — whichever child the parent is looking at is
+  // who this device practices as (openParent keeps childId in step).
   childId: "",
   children: [],      // roster from the server: [{id, name, points}]
   parentChild: "",   // the child the dashboard is showing/editing
@@ -90,7 +93,6 @@ function refreshState() {
       if (s.spell_rate) state.spellRate = s.spell_rate;
       $("kid-name").textContent = s.name || "Caleb";
       $("badges-count").textContent = s.badges_earned || 0;
-      renderWhoRow();
       renderMissions(s.missions || []);
       renderGreeting(s);
       renderDailyFact(s.daily_fact);
@@ -203,29 +205,6 @@ async function enablePush(role) {
   await postJSON("/api/push/subscribe", body);
   lsSet("push-" + role, "1");
   return { ok: true };
-}
-
-// the "Who's spelling?" chips — only when there is more than one kid
-function renderWhoRow() {
-  const row = $("who-row");
-  row.innerHTML = "";
-  if (!state.children || state.children.length < 2) {
-    row.classList.add("hidden");
-    return;
-  }
-  row.classList.remove("hidden");
-  state.children.forEach((c) => {
-    const b = document.createElement("button");
-    b.className = "who-chip" + (c.id === state.childId ? " active" : "");
-    b.textContent = c.name;
-    b.addEventListener("click", () => {
-      if (c.id === state.childId) return;
-      state.childId = c.id;
-      storeChild(c.id);
-      refreshState().catch(() => {});
-    });
-    row.appendChild(b);
-  });
 }
 
 // ---------- badges ----------
@@ -1795,6 +1774,14 @@ async function openParent() {
       { headers: { "X-Parent-Pin": state.parentPin } });
     state.parentChild = rep.child;
     state.children = rep.children || state.children;
+    // ONE selection (owner-decided): the dashboard tab IS the device pick —
+    // whoever the parent is viewing is who this device practices as. Every
+    // path that changes the tab (click, add, remove) comes through here.
+    if (rep.child !== state.childId) {
+      state.childId = rep.child;
+      storeChild(rep.child);
+      refreshState().catch(() => {});  // home greeting follows immediately
+    }
     renderReport(rep);
   } catch (_) {
     alert("Could not load the report.");
@@ -1807,6 +1794,8 @@ async function openParent() {
 function renderChildTabs(children, current) {
   const row = $("child-tabs");
   row.innerHTML = "";
+  // with 2+ kids, tell the parent the tab doubles as the device pick
+  $("tabs-note").classList.toggle("hidden", (children || []).length < 2);
   (children || []).forEach((c) => {
     const b = document.createElement("button");
     b.className = "child-tab" + (c.id === current ? " active" : "");

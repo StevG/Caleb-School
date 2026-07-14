@@ -71,16 +71,6 @@ body.has-update .screen{padding-top:calc(env(safe-area-inset-top) + 46px)}
 .hello{font-size:34px;font-weight:800}
 .tagline{color:var(--muted);font-size:19px;margin:6px 0 22px}
 
-/* who's spelling? — kid picker, shown only with 2+ children */
-.who-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;
-  margin:10px 0 2px;max-width:420px}
-.who-chip{padding:10px 22px;border-radius:22px;border:3px solid var(--line);
-  background:#fff;color:var(--muted);font-size:19px;font-weight:800;
-  cursor:pointer;transition:transform .08s ease}
-.who-chip:active{transform:scale(.95)}
-.who-chip.active{border-color:var(--blue);color:var(--blue-d);
-  background:linear-gradient(135deg,#eaf4fd,#d7ebfb)}
-
 /* missions — parent-assigned tests waiting on the home screen */
 .missions{width:100%;max-width:420px;margin-bottom:18px}
 .missions-head{margin:0 0 8px;font-size:17px;font-weight:800;color:var(--green-d)}
@@ -370,6 +360,8 @@ body.has-update .screen{padding-top:calc(env(safe-area-inset-top) + 46px)}
   cursor:pointer}
 .child-tab.active{border-color:var(--blue);color:var(--blue-d);background:#eaf4fd}
 .child-tab.add{border-style:dashed;font-weight:600}
+/* the tab doubles as the device pick — one line so parents know */
+.tabs-note{color:var(--muted);font-size:13px;margin:-8px 0 12px}
 
 .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .stat{background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:16px;text-align:center}
