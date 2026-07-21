@@ -291,6 +291,52 @@ def _seed_counters(child):
     c.setdefault("best_day_streak", streak)
 
 
+# One-time badge corrections, issued by the owner. Moving between devices or
+# data dirs can lose history that counter seeding cannot reconstruct (it
+# floors from CURRENT stats — see _seed_counters), and with it trophies the
+# kid already earned. Each entry raises the named child's stored badge levels
+# — never lowers one, the same sticky rule as evaluate_badges — and records
+# itself in the child's `_grants_applied` list so it runs at most once.
+# Only records that already existed on disk BEFORE the grant shipped are
+# eligible: a world born after it (fresh install, test run, newly added kid)
+# has no lost history to restore, so those are stamped as applied at birth.
+BADGE_GRANTS = [
+    # Owner 2026-07-21: Caleb's Ladder Climber 2 + Heart Healer 1 didn't
+    # survive the transfer.
+    {"grant": "2026-07-21-caleb-badges", "child": "caleb",
+     "badges": {"climber": 2, "heart": 1}},
+]
+
+
+def _apply_badge_grants(child, restorable):
+    """Apply pending BADGE_GRANTS to `child` (or, when the record isn't
+    `restorable` — born after the grants existed — just stamp them applied).
+    Must run after _fill_child: counter seeding rebuilds `badges` wholesale.
+    Returns True when a badge level actually changed, so the caller can
+    persist right away — the restore should note itself once, not on every
+    load until some other write happens to save the doc."""
+    applied = child.setdefault("_grants_applied", [])
+    name = str(child.get("profile", {}).get("name", "")).strip().casefold()
+    changed = False
+    for g in BADGE_GRANTS:
+        if g["grant"] in applied:
+            continue
+        if restorable and name == g["child"]:
+            raised = []
+            for bid, level in g["badges"].items():
+                before = child["badges"].get(bid, 0)
+                if bid in badgebank.BADGE_IDS and level > before:
+                    child["badges"][bid] = level
+                    raised.append(f"{bid} {before}->{level}")
+            if raised:
+                changed = True
+                server_note("grant", f"{g['grant']}: restored "
+                            f"{child['profile'].get('name')}'s badges "
+                            f"({', '.join(raised)})")
+        applied.append(g["grant"])
+    return changed
+
+
 # --- Badges (badgebank.py catalog, per-child counters + tier engine) --------
 
 def current_day_streak(state):
@@ -451,7 +497,11 @@ def load_doc():
                 doc = json.load(f)
         except (FileNotFoundError, ValueError):
             doc = None
-        if not isinstance(doc, dict):
+        # a doc parsed from disk predates this load — only such records can
+        # hold the lost history BADGE_GRANTS restores; a world born right
+        # here starts (and stays) grant-free
+        restorable = isinstance(doc, dict)
+        if not restorable:
             doc = {"pin": DEFAULT_PIN, "children": [_default_child()]}
         elif "children" not in doc:
             legacy = doc
@@ -461,9 +511,13 @@ def load_doc():
         doc.setdefault("pin", DEFAULT_PIN)
         kids = [k for k in doc.get("children", []) if isinstance(k, dict)]
         doc["children"] = kids or [_default_child()]
+        granted = False
         for i, kid in enumerate(doc["children"]):
             kid.setdefault("id", f"c{i + 1}")
             _fill_child(kid)
+            granted = _apply_badge_grants(kid, restorable) or granted
+        if granted:
+            save_doc(doc)  # persist the one-time restore immediately
         return doc
 
 
@@ -1826,6 +1880,7 @@ class Handler(BaseHTTPRequestHandler):
                     f"Kid {len(doc['children']) + 1}"
                 kid = _default_child(name)
                 kid["id"] = new_child_id(doc)
+                _apply_badge_grants(kid, restorable=False)  # born clean
                 doc["children"].append(kid)
                 new_id = kid["id"]
             elif action == "rename":
