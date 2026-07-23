@@ -154,6 +154,30 @@ const lastTxt = (await page.textContent('#s-last')).trim();
 check('stats: dashboard shows last-practiced', lastTxt !== 'never', `"${lastTxt}"`);
 await page.screenshot({ path: `${OUT}/f3-parent-modes.png` });
 
+// ---------- 6. DAY-BY-DAY DRILL-DOWN ----------
+// each day opens to the words practiced that day, with tries + right/wrong
+const dayWords = rep.daily[0].words || [];
+check('stats: daily row carries the day\'s words (tries + wrong)',
+  Array.isArray(dayWords) && dayWords.length >= 1 &&
+  dayWords.every(w => typeof w.w === 'string' && w.tries >= 1 && w.wrong >= 0) &&
+  dayWords.some(w => w.wrong >= 1),
+  JSON.stringify(dayWords.slice(0, 4)));
+check('stats: the day\'s missed words sort first', dayWords[0].wrong >= 1,
+  JSON.stringify(dayWords[0]));
+// the dashboard row is a clickable fold that opens the word list
+const fold = await page.$('#daily-list li.sess-li details.sess summary');
+check('stats: a day-by-day row is a clickable fold', !!fold);
+await page.click('#daily-list li.sess-li details.sess summary');
+await page.waitForTimeout(200);
+const dayRows = await page.$$eval(
+  '#daily-list li.sess-li details.sess[open] .sess-word',
+  els => els.map(e => ({ cls: e.className, txt: e.textContent })));
+check('stats: opened day shows word rows with ✓/✗ marks + tries',
+  dayRows.length >= 1 &&
+  dayRows.some(r => r.cls.includes('miss') && /wrong/.test(r.txt)) &&
+  dayRows.some(r => /try|tries/.test(r.txt)),
+  JSON.stringify(dayRows.slice(0, 3)));
+
 console.log(results.join('\n'));
 console.log('\nJS ERRORS:', errors.length ? errors : 'none');
 await browser.close();

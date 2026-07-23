@@ -1475,6 +1475,31 @@ def parent_report(state):
             "accuracy": round(100 * d.get("correct", 0) / seen) if seen else 0,
         })
 
+    # what he actually practiced on each of those days — the words behind the
+    # day's totals, so a parent can open a day and see the work, not just
+    # "37 words · 95%". Same source as the list trends: the per-word `days`
+    # tallies (unaided tries/corrects). Misses first — the trouble words lead.
+    want = {d["date"] for d in daily}
+    words_by_day = {dt: [] for dt in want}
+    for w, s in stats.items():
+        wg = WORD_GROUP.get(w)
+        heart = w in wordbank.HEART_WORDS
+        for dt, pair in s.get("days", {}).items():
+            if dt not in want or not pair or pair[0] <= 0:
+                continue
+            tries = pair[0]
+            correct = pair[1] if len(pair) > 1 else 0
+            entry = {"w": w, "tries": tries, "wrong": max(0, tries - correct)}
+            if wg:
+                entry["group"] = wg
+            if heart:
+                entry["heart"] = True
+            words_by_day[dt].append(entry)
+    for d in daily:
+        ws = words_by_day.get(d["date"], [])
+        ws.sort(key=lambda x: (-x["wrong"], x["w"]))
+        d["words"] = ws
+
     by_mode = {}
     for mode in VALID_MODES:
         m = state.get("modes", {}).get(mode)

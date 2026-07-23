@@ -434,3 +434,12 @@ game can only prove skills up to its own rung; see docs/SCORING.md):
   short test, so the picker greys out for those (like the list picker does
   in sentence modes). A source narrower than the number still caps to what
   exists (a 12-word type never yields 20). Parent side stays utilitarian.
+- 2026-07-23 — Day by day is drillable (owner: "let me click a day and see
+  all the words he tried and how many times he got it wrong"). Each day row
+  now opens the same way Recent sessions do — a fold listing every word he
+  practiced that day, misses first, each with how many tries it took and how
+  many were wrong (✓ = never missed that day, ✗ = missed at least once),
+  tagged with its word type + ♥. No new data recorded: it reads the existing
+  per-word `days` tallies (unaided, 30-day window), so the per-word tries sum
+  back to the day's "N words" total. Days older than that window (or with
+  only aided activity) stay plain, un-openable rows.

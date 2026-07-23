@@ -507,8 +507,11 @@ details.sess[open] summary .tri{transform:rotate(90deg)}
 .sess-word.miss .sw-mark{color:var(--red)}
 .sess-word.miss .sw-word{color:var(--red);font-weight:800}
 .sw-word{font-weight:600}
+/* per-day drill-down: how many tries a word took that day (misses in red) */
+.sw-try{flex:none;color:var(--muted);font-size:12px;white-space:nowrap}
+.sess-word.miss .sw-try{color:var(--red)}
 .sw-group{margin-left:auto;color:var(--muted);font-size:12px;white-space:nowrap;
-  overflow:hidden;text-overflow:ellipsis;max-width:45%}
+  overflow:hidden;text-overflow:ellipsis;max-width:40%}
 
 /* shown when every source is unchecked — a heads-up, not an error */
 .no-words{background:#fdf3e7;border:1px solid #f4ddba;border-radius:10px;

@@ -1898,8 +1898,37 @@ function renderReport(rep) {
       const li = document.createElement("li");
       const nice = new Date(d.date + "T12:00:00").toLocaleDateString(undefined,
         { weekday: "short", month: "short", day: "numeric" });
-      li.innerHTML = `<span>${nice}</span>` +
-        `<span>${d.seen} words · ${d.accuracy}% · ${d.points} ⭐</span>`;
+      const meta = `${d.seen} words · ${d.accuracy}% · ${d.points} ⭐`;
+      if (!d.words || !d.words.length) {
+        // days older than the 30-day per-word window (or aided-only) have no
+        // detail to open — a plain row, like a pre-tracking session
+        li.innerHTML = `<span>${nice}</span><span>${meta}</span>`;
+      } else {
+        // clickable: opens every word he practiced that day — misses first,
+        // each with how many tries it took and how many were wrong
+        li.className = "sess-li";
+        const det = document.createElement("details");
+        det.className = "sess";
+        det.innerHTML = `<summary><span class="tri">▶</span>` +
+          `<span>${nice}</span>` +
+          `<span class="sess-score">${meta}</span></summary>`;
+        const body = document.createElement("div");
+        body.className = "sess-words";
+        d.words.forEach((w) => {
+          const ok = w.wrong === 0;
+          const tries = w.tries === 1 ? "1 try" : `${w.tries} tries`;
+          const detail = ok ? tries : `${tries} · ${w.wrong} wrong`;
+          const row = document.createElement("div");
+          row.className = "sess-word" + (ok ? " ok" : " miss");
+          row.innerHTML = `<span class="sw-mark">${ok ? "✓" : "✗"}</span>` +
+            `<span class="sw-word">${esc(w.w)}${w.heart ? heartMark() : ""}</span>` +
+            `<span class="sw-try">${detail}</span>` +
+            `<span class="sw-group">${esc(w.group || "school word")}</span>`;
+          body.appendChild(row);
+        });
+        det.appendChild(body);
+        li.appendChild(det);
+      }
       dl.appendChild(li);
     });
   }
