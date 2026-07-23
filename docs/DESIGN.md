@@ -424,3 +424,13 @@ game can only prove skills up to its own rung; see docs/SCORING.md):
   tri-state checkboxes (all/some/none), words one fold deeper, plus a
   per-category "Copy to a list". The parent picks categories, not one
   word at a time — but can still fine-tune single words.
+- 2026-07-23 — Assignment word count is now the parent's to set (owner:
+  "I can't see where I dictate how many words he's supposed to spell").
+  The Assignments form gains a third dropdown — 5 / 10 / 15 / 20 / 25
+  words (default 10) — sent as `count` on `/api/parent/assign` (the server
+  already clamped 5–25; only the control was missing). It applies to the
+  open-ended sources (his checked words, a word type, a whole grade); a
+  school list stays its whole enabled set and sentence games stay a fixed
+  short test, so the picker greys out for those (like the list picker does
+  in sentence modes). A source narrower than the number still caps to what
+  exists (a 12-word type never yields 20). Parent side stays utilitarian.

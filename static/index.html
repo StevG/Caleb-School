@@ -266,7 +266,7 @@
 
     <div class="card">
       <div class="card-head">Assignments</div>
-      <p class="card-note">Hand out a test: pick a game and what to practice — a school list, one word type, or a whole grade. It lands on the child's home screen as a mission and you'll get a notification when it's done. Type and grade missions pick his missed words first (shuffled, like a real test).</p>
+      <p class="card-note">Hand out a test: pick a game, what to practice — his checked words, a school list, one word type, or a whole grade — and how many words. A school list is always its whole set, and sentence games are a fixed short test. It lands on the child's home screen as a mission and you'll get a notification when it's done. Type and grade missions pick his missed words first (shuffled, like a real test).</p>
       <div class="assign-form">
         <select id="assign-mode" aria-label="game">
           <option value="words">Hide &amp; Spell</option>
@@ -276,6 +276,13 @@
           <option value="memory">Remember It</option>
         </select>
         <select id="assign-list" aria-label="word list"></select>
+        <select id="assign-count" aria-label="how many words">
+          <option value="5">5 words</option>
+          <option value="10" selected>10 words</option>
+          <option value="15">15 words</option>
+          <option value="20">20 words</option>
+          <option value="25">25 words</option>
+        </select>
         <label class="assign-all"><input type="checkbox" id="assign-all"> every child</label>
         <button id="assign-create" class="mini-btn">Assign</button>
       </div>

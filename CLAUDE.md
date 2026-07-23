@@ -135,9 +135,11 @@ per-category accuracy — `needs_work` = 6+ tries <80% → the Word types card
 with one-tap assign — plus the `type_groups` catalog, and `bank.bands[]`
 split into `groups` for the category-first Word-lists card) ·
 `POST /api/parent/assign {action: create|delete, mode, list_id?|group?|
-level?, all_children?}` (missions: parent-assigned tests on a school list,
-one word CATEGORY, or a whole grade band — type/grade missions pick missed
-words first, cap 25, shuffle; kid sees them in `/api/state.missions`, plays
+level?, count?, all_children?}` (missions: parent-assigned tests on a school
+list, one word CATEGORY, or a whole grade band — parent-set `count` 5–25
+(default 10) sizes the open-ended sources (checked words / category / grade);
+a school list is always its whole enabled set and sentence games are fixed;
+type/grade missions pick missed words first, cap 25, shuffle; kid sees them in `/api/state.missions`, plays
 via `/api/session?assignment=`, completion via `session_end {assignment}`) · Web Push: `GET /api/push/key`, `POST
 /api/push/subscribe|pull` — pure-stdlib VAPID (P-256 in server.py), EMPTY
 tickle pushes + SW pull (no payload crypto); key + subs in gitignored

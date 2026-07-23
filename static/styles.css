@@ -529,6 +529,8 @@ details.sess[open] summary .tri{transform:rotate(90deg)}
 .assign-form select{flex:1;min-width:130px;font-size:14px;padding:9px 10px;
   border-radius:10px;border:2px solid var(--line);background:#fff;color:var(--ink)}
 .assign-form select:disabled{opacity:.45}
+/* the word-count picker is a compact trailing control, not a primary source */
+.assign-form #assign-count{flex:0 0 auto;min-width:0}
 .assign-all{display:flex;align-items:center;gap:6px;font-size:13px;
   color:var(--muted);white-space:nowrap}
 .assign-all input{width:18px;height:18px;accent-color:var(--blue)}

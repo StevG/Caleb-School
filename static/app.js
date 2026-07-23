@@ -2072,6 +2072,7 @@ function renderAssignments(rep) {
     (lists ? `<optgroup label="School lists">${lists}</optgroup>` : "") +
     `<optgroup label="Word types">${types}</optgroup>` +
     `<optgroup label="Whole grades">${bands}</optgroup>`;
+  syncAssignCount(); // the rebuilt source resets to "his checked words"
   const a = rep.assignments || { todo: [], done: [] };
   const open = $("assign-open");
   open.innerHTML = a.todo.length ? "" :
@@ -2102,6 +2103,18 @@ function renderAssignments(rep) {
       assignCall({ action: "delete", assignment_id: t.id }));
     doneWrap.appendChild(row);
   });
+}
+
+// How many words the mission holds. Only open-ended sources honour it — his
+// checked words, a word type, a whole grade. A school list is always its
+// whole set and sentence games are a fixed short test, so grey the picker
+// out there (matching the list-picker's own disabled state) rather than
+// letting the number read as a choice the server will ignore.
+function syncAssignCount() {
+  const m = $("assign-mode").value;
+  const src = $("assign-list").value;
+  const fixed = m === "sentences" || m === "memory" || src.startsWith("list:");
+  $("assign-count").disabled = fixed;
 }
 
 async function assignCall(body) {
@@ -2524,10 +2537,13 @@ function wireParent() {
     // sentence tests come from the sentence bank, not a word list
     const m = $("assign-mode").value;
     $("assign-list").disabled = m === "sentences" || m === "memory";
+    syncAssignCount();
   });
+  $("assign-list").addEventListener("change", syncAssignCount);
   $("assign-create").addEventListener("click", () => {
     const body = { action: "create",
                    mode: $("assign-mode").value,
+                   count: parseInt($("assign-count").value, 10) || 10,
                    all_children: $("assign-all").checked || undefined };
     const src = $("assign-list").value; // "list:ID" | "group:NAME" | "band:LEVEL"
     if (src.startsWith("list:")) body.list_id = src.slice(5);

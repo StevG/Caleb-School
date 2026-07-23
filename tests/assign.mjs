@@ -145,6 +145,33 @@ const openLeft = await page.evaluate(async () =>
   (await (await fetch('/api/state?child=c1')).json()).missions.length);
 check('cancelling removes the mission', openLeft === 0, String(openLeft));
 
+// the parent sizes an open-ended mission with the word-count picker
+await page.evaluate(() => window.openParent());
+await page.waitForTimeout(500);
+const countDefault = await page.$eval('#assign-count', el => el.value);
+check('word-count picker defaults to 10', countDefault === '10', countDefault);
+// a school list is its whole set, sentence games are fixed → picker greys out
+await page.selectOption('#assign-mode', 'words');
+await page.selectOption('#assign-list', { label: 'Friday test' });
+check('school list disables the word-count picker',
+  await page.$eval('#assign-count', el => el.disabled));
+await page.selectOption('#assign-mode', 'memory');
+check('sentence mode disables the word-count picker',
+  await page.$eval('#assign-count', el => el.disabled));
+// back to an open-ended source: his checked words, sized to 5
+await page.selectOption('#assign-mode', 'words');
+await page.selectOption('#assign-list', '');
+check('checked-words source enables the word-count picker',
+  await page.$eval('#assign-count', el => !el.disabled));
+await page.selectOption('#assign-count', '5');
+await page.click('#assign-create');
+await page.waitForTimeout(800);
+const sized = await page.evaluate(async () =>
+  (await (await fetch('/api/state?child=c1')).json()).missions);
+check('parent-set count sizes the mission',
+  sized.length === 1 && sized[0].count === 5 && sized[0].name === 'Practice words',
+  JSON.stringify(sized));
+
 sink.close();
 console.log(results.join('\n'));
 console.log('\nJS ERRORS:', errors.length ? errors : 'none');
